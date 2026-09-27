@@ -102,11 +102,9 @@ export default function Settings() {
     closeModals();
   };
 
-  // --- HÀM RESET TOÀN BỘ DỮ LIỆU ---
   const handleResetData = async () => {
     setIsResetting(true);
     try {
-      // 1. Xóa toàn bộ giao dịch trên Firebase
       const q = query(collection(db, "transactions"));
       const snapshot = await getDocs(q);
       const deletePromises = snapshot.docs.map((document) =>
@@ -114,7 +112,6 @@ export default function Settings() {
       );
       await Promise.all(deletePromises);
 
-      // 2. Khôi phục toàn bộ cài đặt về mặc định
       setCategories([
         {
           id: "food",
@@ -157,7 +154,7 @@ export default function Settings() {
       setMonthlyIncomeGoal(15000000);
 
       closeModals();
-      navigate("/"); // Quay về trang chủ sau khi xóa xong
+      navigate("/");
     } catch (e) {
       console.error("Error resetting data: ", e);
     } finally {
@@ -305,20 +302,22 @@ export default function Settings() {
   );
 
   return (
-    <div className="p-4 pt-12 min-h-screen pb-32 relative bg-black text-white animate-ios-page">
-      <div className="flex items-center mb-6 relative">
+    <div className="min-h-screen pb-32 relative bg-black text-white animate-ios-page">
+      {/* HEADER CỐ ĐỊNH KÍNH MỜ */}
+      <div className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl pt-12 pb-4 px-4 flex items-center shadow-[0_1px_0_0_rgba(255,255,255,0.05)]">
         <button
           onClick={() => navigate(-1)}
-          className="p-2 absolute left-0 active:opacity-50"
+          className="p-2 absolute left-2 active:opacity-50"
         >
-          <ChevronLeft size={28} />
+          <ChevronLeft size={28} className="text-[#32ade6]" />
         </button>
-        <h1 className="text-[28px] font-bold tracking-tight w-full text-center">
+        <h1 className="text-[24px] font-bold tracking-tight w-full text-center">
           Settings
         </h1>
       </div>
 
-      <div className="space-y-5 max-w-md mx-auto">
+      {/* DANH SÁCH TÙY CHỈNH CUỘN Ở DƯỚI */}
+      <div className="space-y-5 max-w-md mx-auto px-4 pt-6">
         <div>
           <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
             Preferences
@@ -374,7 +373,6 @@ export default function Settings() {
           {renderCategoryList(incomeCategories, "income")}
         </div>
 
-        {/* --- KHU VỰC DANGER ZONE (XÓA DỮ LIỆU) --- */}
         <div className="pt-4">
           <h3 className="text-[#ff453a] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
             Danger Zone
@@ -436,6 +434,7 @@ export default function Settings() {
         </div>
       )}
 
+      {/* MODAL XÓA CATEGORY */}
       {itemToDelete && (
         <div
           className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-ios-fade"
@@ -469,6 +468,7 @@ export default function Settings() {
         </div>
       )}
 
+      {/* MODAL CYCLE DAY */}
       {modalType === "cycle" && (
         <div
           className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-ios-fade"
@@ -505,6 +505,7 @@ export default function Settings() {
         </div>
       )}
 
+      {/* MODAL ADD/EDIT CATEGORY */}
       {modalType === "category" && catForm && (
         <div
           className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-ios-fade"

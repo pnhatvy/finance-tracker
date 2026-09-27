@@ -11,7 +11,6 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import {
-  Edit2,
   Trash2,
   Calendar,
   Clock,
@@ -21,6 +20,7 @@ import {
 } from "lucide-react";
 import { useAppContext } from "../AppContext";
 
+// --- COMPONENT VUỐT ĐỂ HIỆN NÚT EDIT/DELETE ---
 const SwipeableItem = ({ children, onEdit, onDelete, isLast }) => {
   const [startX, setStartX] = useState(0);
   const [offsetX, setOffsetX] = useState(0);
@@ -295,115 +295,119 @@ export default function History() {
     return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`;
   };
 
-// ... (Các dòng import và logic phía trên giữ nguyên) ...
-
   return (
-    <div className="flex flex-col min-h-screen pt-12 pb-32 bg-black text-white relative animate-ios-page">
-      <h1 className="text-[28px] font-bold w-full text-center mb-6 tracking-tight">
-        History
-      </h1>
-
-      <div className="flex justify-center gap-2 px-4 mb-4">
-        {[
-          { id: "today", label: "Day" },
-          { id: "week", label: "Week" },
-          { id: "month", label: "Month" },
-          { id: "all", label: "All" },
-        ].map((filter) => (
-          <button
-            key={filter.id}
-            onClick={() => {
-              setTimeFilter(filter.id);
-              setOffset(0);
-            }}
-            className={`flex-1 py-2.5 rounded-full text-[13px] font-bold transition-colors ${timeFilter === filter.id ? "bg-white text-black" : "bg-[#1c1c1e] text-[#8e8e93]"}`}
-          >
-            {filter.label}
-          </button>
-        ))}
-      </div>
-
-      {timeFilter !== "all" && (
-        <div className="flex items-center justify-between bg-[#1c1c1e] rounded-2xl px-4 py-3 mb-6 mx-4">
-          <button
-            onClick={() => setOffset((o) => o - 1)}
-            className="p-1 text-[#32ade6] active:opacity-50"
-          >
-            <ChevronLeft size={22} />
-          </button>
-          <span className="text-sm font-bold tracking-wide">
-            {bounds.label}
-          </span>
-          <button
-            onClick={() => setOffset((o) => o + 1)}
-            className="p-1 text-[#32ade6] active:opacity-50"
-          >
-            <ChevronRight size={22} />
-          </button>
+    <div className="flex flex-col min-h-screen pb-32 bg-black text-white relative animate-ios-page">
+      {/* HEADER CỐ ĐỊNH + KÍNH MỜ */}
+      <div className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl pt-12 pb-3 px-4 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]">
+        <h1 className="text-[28px] font-bold w-full text-center mb-5 tracking-tight">
+          History
+        </h1>
+        <div className="flex justify-center gap-2">
+          {[
+            { id: "today", label: "Day" },
+            { id: "week", label: "Week" },
+            { id: "month", label: "Month" },
+            { id: "all", label: "All" },
+          ].map((filter) => (
+            <button
+              key={filter.id}
+              onClick={() => {
+                setTimeFilter(filter.id);
+                setOffset(0);
+              }}
+              className={`flex-1 py-2 rounded-full text-[13px] font-bold transition-colors ${timeFilter === filter.id ? "bg-white text-black" : "bg-[#1c1c1e] text-[#8e8e93]"}`}
+            >
+              {filter.label}
+            </button>
+          ))}
         </div>
-      )}
-
-      <div className="flex-1 w-full overflow-y-auto">
-        {sortedGroups.map((group) => (
-          <div key={group.date.toISOString()} className="mb-6 w-full">
-            <div className="flex justify-between items-center mb-1 px-4">
-              <span className="text-xs font-semibold text-[#8e8e93] uppercase tracking-wide">
-                {formatGroupHeader(group.date)}
-              </span>
-              <span className="text-xs font-semibold text-[#8e8e93]">
-                ₫{Math.abs(group.totalDay).toLocaleString("vi-VN")}
-              </span>
-            </div>
-            <div className="w-full">
-              {group.items.map((tItem, index) => (
-                <SwipeableItem
-                  key={tItem.id}
-                  onEdit={() => openEdit(tItem)}
-                  onDelete={() => setItemToDelete(tItem.id)}
-                  isLast={index === group.items.length - 1}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-3">
-                      <div className="w-[42px] h-[42px] bg-[#1c1c1e] rounded-full flex items-center justify-center text-[22px]">
-                        {tItem.category?.icon || "💰"}
-                      </div>
-                      <div className="flex flex-col">
-                        <p className="font-bold text-[16px] leading-tight text-white">
-                          {tItem.category?.name || tItem.note}
-                        </p>
-                        <p className="text-[13px] text-[#8e8e93] mt-0.5 leading-tight">
-                          {tItem.note}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right flex flex-col items-end">
-                      <div className="font-bold text-[16px] leading-tight text-white">
-                        {tItem.type === "income" ? "+" : ""}₫
-                        {tItem.amount.toLocaleString("vi-VN")}
-                      </div>
-                      <div className="text-[12px] text-[#8e8e93] mt-0.5 leading-tight uppercase font-medium">
-                        {tItem.date
-                          ? new Date(tItem.date).toLocaleTimeString("en-US", {
-                              hour: "numeric",
-                              minute: "2-digit",
-                              hour12: true,
-                            })
-                          : ""}
-                      </div>
-                    </div>
-                  </div>
-                </SwipeableItem>
-              ))}
-            </div>
-          </div>
-        ))}
-        {sortedGroups.length === 0 && (
-          <p className="text-center text-[#8e8e93] mt-12 text-sm">
-            No transactions found.
-          </p>
-        )}
       </div>
 
+      {/* DANH SÁCH CUỘN BÊN DƯỚI */}
+      <div className="px-4 pt-5">
+        {timeFilter !== "all" && (
+          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-2xl px-4 py-3 mb-6">
+            <button
+              onClick={() => setOffset((o) => o - 1)}
+              className="p-1 text-[#32ade6] active:opacity-50"
+            >
+              <ChevronLeft size={22} />
+            </button>
+            <span className="text-sm font-bold tracking-wide">
+              {bounds.label}
+            </span>
+            <button
+              onClick={() => setOffset((o) => o + 1)}
+              className="p-1 text-[#32ade6] active:opacity-50"
+            >
+              <ChevronRight size={22} />
+            </button>
+          </div>
+        )}
+
+        <div className="w-full">
+          {sortedGroups.map((group) => (
+            <div key={group.date.toISOString()} className="mb-6 w-full">
+              <div className="flex justify-between items-center mb-1 px-1">
+                <span className="text-xs font-semibold text-[#8e8e93] uppercase tracking-wide">
+                  {formatGroupHeader(group.date)}
+                </span>
+                <span className="text-xs font-semibold text-[#8e8e93]">
+                  ₫{Math.abs(group.totalDay).toLocaleString("vi-VN")}
+                </span>
+              </div>
+              <div className="w-full rounded-2xl overflow-hidden bg-[#1c1c1e]">
+                {group.items.map((tItem, index) => (
+                  <SwipeableItem
+                    key={tItem.id}
+                    onEdit={() => openEdit(tItem)}
+                    onDelete={() => setItemToDelete(tItem.id)}
+                    isLast={index === group.items.length - 1}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-3">
+                        <div className="w-[42px] h-[42px] bg-black/50 rounded-full flex items-center justify-center text-[22px]">
+                          {tItem.category?.icon || "💰"}
+                        </div>
+                        <div className="flex flex-col">
+                          <p className="font-bold text-[16px] leading-tight text-white">
+                            {tItem.category?.name || tItem.note}
+                          </p>
+                          <p className="text-[13px] text-[#8e8e93] mt-0.5 leading-tight">
+                            {tItem.note}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right flex flex-col items-end">
+                        <div className="font-bold text-[16px] leading-tight text-white">
+                          {tItem.type === "income" ? "+" : ""}₫
+                          {tItem.amount.toLocaleString("vi-VN")}
+                        </div>
+                        <div className="text-[12px] text-[#8e8e93] mt-0.5 leading-tight uppercase font-medium">
+                          {tItem.date
+                            ? new Date(tItem.date).toLocaleTimeString("en-US", {
+                                hour: "numeric",
+                                minute: "2-digit",
+                                hour12: true,
+                              })
+                            : ""}
+                        </div>
+                      </div>
+                    </div>
+                  </SwipeableItem>
+                ))}
+              </div>
+            </div>
+          ))}
+          {sortedGroups.length === 0 && (
+            <p className="text-center text-[#8e8e93] mt-12 text-sm">
+              No transactions found.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* MODAL XÓA */}
       {itemToDelete && (
         <div
           className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-ios-fade"
@@ -437,6 +441,7 @@ export default function History() {
         </div>
       )}
 
+      {/* MODAL EDIT */}
       {editingItem && (
         <div
           className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end animate-ios-fade"
@@ -508,7 +513,6 @@ export default function History() {
               className="w-full bg-[#2c2c2e] text-white rounded-xl px-4 py-3 outline-none mb-4 font-medium"
             />
 
-            {/* SỬA LẠI Z-INDEX VÀ OPACITY CHO CÁC THẺ ẨN CHỐNG DOUBLE CLICK SAFARI */}
             <div className="flex gap-3 mb-6">
               <div className="flex-1 relative bg-[#2c2c2e] rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity">
                 <span className="text-white font-semibold text-[13px] flex items-center gap-1 pointer-events-none">
@@ -518,7 +522,6 @@ export default function History() {
                     day: "numeric",
                   })}
                 </span>
-                {/* Đã gỡ cursor-pointer */}
                 <input
                   type="date"
                   value={editingItem.editDate}
@@ -528,13 +531,11 @@ export default function History() {
                   className="absolute inset-0 opacity-0 z-20 w-full h-full"
                 />
               </div>
-
               <div className="flex-1 relative bg-[#2c2c2e] rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity">
                 <span className="text-white font-semibold text-[13px] flex items-center gap-1 pointer-events-none">
                   <Clock size={14} className="text-[#32ade6]" />{" "}
                   {editingItem.editTime}
                 </span>
-                {/* Đã gỡ cursor-pointer */}
                 <input
                   type="time"
                   value={editingItem.editTime}
@@ -544,13 +545,11 @@ export default function History() {
                   className="absolute inset-0 opacity-0 z-20 w-full h-full"
                 />
               </div>
-
               <div className="flex-1 relative bg-[#2c2c2e] rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity">
                 <span className="text-white font-semibold text-[13px] flex items-center gap-1 pointer-events-none capitalize">
                   <Repeat size={14} className="text-[#32ade6]" />{" "}
                   {editingItem.repeat === "none" ? "Once" : editingItem.repeat}
                 </span>
-                {/* Đã gỡ cursor-pointer */}
                 <select
                   value={editingItem.repeat}
                   onChange={(e) =>

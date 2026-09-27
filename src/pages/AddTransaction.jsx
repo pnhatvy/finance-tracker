@@ -23,6 +23,28 @@ export default function AddTransaction() {
   const currentCategories = safeCategories.filter((c) => c.type === type);
   const [category, setCategory] = useState(currentCategories[0] || {});
 
+  // --- STATE VUỐT ĐỂ TẮT (PULL TO DISMISS) ---
+  const [startY, setStartY] = useState(0);
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const onTouchStart = (e) => {
+    setStartY(e.touches[0].clientY);
+    setIsDragging(true);
+  };
+  const onTouchMove = (e) => {
+    if (!isDragging) return;
+    const diff = e.touches[0].clientY - startY;
+    if (diff > 0) setDragY(diff); // Chỉ cho phép vuốt xuống
+  };
+  const onTouchEnd = () => {
+    setIsDragging(false);
+    if (dragY > 120)
+      navigate("/"); // Vuốt qua 120px thì đóng
+    else setDragY(0); // Không đủ lực thì đàn hồi về cũ
+  };
+  // -------------------------------------------
+
   useEffect(() => {
     setCategory(currentCategories[0] || {});
   }, [type, categories]);
@@ -63,7 +85,6 @@ export default function AddTransaction() {
         if (repeat === "weekly") d.setDate(d.getDate() + i * 7);
         if (repeat === "monthly") d.setMonth(d.getMonth() + i);
         if (repeat === "yearly") d.setFullYear(d.getFullYear() + i);
-
         docsToAdd.push({
           amount: numericAmount,
           type: type,
@@ -76,7 +97,6 @@ export default function AddTransaction() {
           recurringId: repeat !== "none" ? groupId : null,
         });
       }
-
       await Promise.all(
         docsToAdd.map((data) => addDoc(collection(db, "transactions"), data)),
       );
@@ -95,8 +115,22 @@ export default function AddTransaction() {
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-black text-white p-5 pt-10 pb-6 animate-ios-slide overflow-hidden">
-      <div className="flex justify-between items-center mb-5">
+    <div
+      className="flex flex-col h-[100dvh] bg-black text-white p-5 pt-10 pb-6 animate-ios-slide overflow-hidden"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={{
+        transform: dragY > 0 ? `translateY(${dragY}px)` : "",
+        transition: isDragging
+          ? "none"
+          : "transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)",
+      }}
+    >
+      <div className="flex justify-center mb-1">
+        <div className="w-12 h-1.5 bg-[#2c2c2e] rounded-full"></div>
+      </div>
+      <div className="flex justify-between items-center mb-5 mt-2">
         <button
           onClick={() => navigate("/")}
           className="text-[#8e8e93] p-1 active:opacity-50 flex-shrink-0 w-[42px]"
@@ -125,7 +159,6 @@ export default function AddTransaction() {
 
       <div className="flex overflow-x-auto flex-nowrap gap-2.5 py-1 mb-3 scrollbar-hide items-center min-h-[50px]">
         {currentCategories.map((cat) => (
-          // ĐỔI rounded-2xl THÀNH rounded-full Ở ĐÂY
           <button
             key={cat.id}
             onClick={() => setCategory(cat)}
@@ -169,7 +202,7 @@ export default function AddTransaction() {
       <div className="flex gap-3 mb-4">
         <div className="flex-1 relative bg-[#1c1c1e] rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity">
           <span className="text-white font-semibold text-[13px] flex items-center gap-2 pointer-events-none">
-            <Calendar size={16} className="text-[#32ade6]" />
+            <Calendar size={16} className="text-[#32ade6]" />{" "}
             {new Date(txDate).toLocaleDateString("en-US", {
               month: "short",
               day: "numeric",
@@ -183,10 +216,9 @@ export default function AddTransaction() {
             className="absolute inset-0 opacity-0 z-20 w-full h-full"
           />
         </div>
-
         <div className="flex-1 relative bg-[#1c1c1e] rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity">
           <span className="text-white font-semibold text-[13px] flex items-center gap-2 pointer-events-none capitalize">
-            <Repeat size={16} className="text-[#32ade6]" />
+            <Repeat size={16} className="text-[#32ade6]" />{" "}
             {repeat === "none" ? "No Repeat" : repeat}
           </span>
           <select
