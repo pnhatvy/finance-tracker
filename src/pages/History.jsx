@@ -188,11 +188,7 @@ export default function History() {
     setIsModalOpen(false);
   };
   const handleSaveEdit = async () => {
-    /* Giữ nguyên logic lưu edit */ if (
-      !editingItem.amount ||
-      editingItem.amount === ","
-    )
-      return;
+    if (!editingItem.amount || editingItem.amount === ",") return;
     try {
       const combinedDateTime = new Date(
         `${editingItem.editDate}T${editingItem.editTime}:00`,
@@ -284,16 +280,16 @@ export default function History() {
   };
 
   return (
-    // Dùng h-[100dvh] và overflow-hidden để khóa body
     <div className="h-[100dvh] w-full flex flex-col bg-black text-white relative overflow-hidden animate-ios-page">
-      {/* HEADER CỐ ĐỊNH, DÙNG paddingTop: env() ĐỂ TRÁNH DYNAMIC ISLAND */}
+      {/* HEADER CỐ ĐỊNH - Đã ép sát Dynamic Island và gộp chung thanh Calendar */}
       <div
-        className="flex-shrink-0 z-40 bg-black/90 backdrop-blur-xl px-4 pb-3 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]"
-        style={{ paddingTop: "max(env(safe-area-inset-top), 56px)" }}
+        className="flex-shrink-0 z-40 bg-black/90 backdrop-blur-xl px-4 pb-3 shadow-[0_1px_0_0_rgba(255,255,255,0.05)] flex flex-col gap-3"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
       >
-        <h1 className="text-[28px] font-bold w-full text-center mb-4 tracking-tight">
+        <h1 className="text-[22px] font-bold w-full text-center tracking-tight">
           History
         </h1>
+
         <div className="flex justify-center gap-2">
           {[
             { id: "today", label: "Day" },
@@ -313,30 +309,30 @@ export default function History() {
             </button>
           ))}
         </div>
-      </div>
 
-      {/* NỘI DUNG TỰ ĐỘNG CUỘN */}
-      <div className="flex-1 overflow-y-auto px-4 pt-5 pb-32">
         {timeFilter !== "all" && (
-          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-2xl px-4 py-3 mb-6">
+          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl px-4 py-2">
             <button
               onClick={() => setOffset((o) => o - 1)}
               className="p-1 text-[#32ade6] active:opacity-50"
             >
-              <ChevronLeft size={22} />
+              <ChevronLeft size={20} />
             </button>
-            <span className="text-sm font-bold tracking-wide">
+            <span className="text-[13px] font-bold tracking-wide">
               {bounds.label}
             </span>
             <button
               onClick={() => setOffset((o) => o + 1)}
               className="p-1 text-[#32ade6] active:opacity-50"
             >
-              <ChevronRight size={22} />
+              <ChevronRight size={20} />
             </button>
           </div>
         )}
+      </div>
 
+      {/* NỘI DUNG CUỘN */}
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-32">
         <div className="w-full">
           {sortedGroups.map((group) => (
             <div key={group.date.toISOString()} className="mb-6 w-full">

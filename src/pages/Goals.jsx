@@ -28,7 +28,6 @@ export default function Goals() {
     else setMonthlyIncomeGoal(val || 0);
     closeEdit();
   };
-
   const formatCurrency = (val) => {
     return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   };
@@ -37,9 +36,9 @@ export default function Goals() {
     <div className="h-[100dvh] w-full flex flex-col bg-black text-white relative overflow-hidden animate-ios-page">
       <div
         className="flex-shrink-0 z-40 bg-black/90 backdrop-blur-xl px-4 pb-3 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]"
-        style={{ paddingTop: "max(env(safe-area-inset-top), 56px)" }}
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
       >
-        <h1 className="text-[28px] font-bold w-full text-center tracking-tight">
+        <h1 className="text-[22px] font-bold w-full text-center tracking-tight">
           Goals
         </h1>
       </div>

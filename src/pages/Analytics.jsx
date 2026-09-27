@@ -10,7 +10,6 @@ export default function Analytics() {
   const [timeFilter, setTimeFilter] = useState("month");
   const [typeFilter, setTypeFilter] = useState("expense");
   const [offset, setOffset] = useState(0);
-
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
 
@@ -25,7 +24,6 @@ export default function Analytics() {
   }, []);
 
   const getPeriodBounds = () => {
-    /* Giữ nguyên hàm bounds */
     const base = new Date();
     let start, end, label;
     const months = [
@@ -154,30 +152,31 @@ export default function Analytics() {
   return (
     <>
       <div className="h-[100dvh] w-full flex flex-col bg-black text-white relative overflow-hidden animate-ios-page">
-        {/* HEADER CỐ ĐỊNH, CÓ PADDING-TOP CHỐNG ĐÈ CAMERA */}
+        {/* HEADER CỐ ĐỊNH, DÍNH CHUNG 3 THANH VỚI NHAU (Expense/Income, Week/Month/Year, Calendar) */}
         <div
-          className="flex-shrink-0 z-40 bg-black/90 backdrop-blur-xl px-4 pb-3 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]"
-          style={{ paddingTop: "max(env(safe-area-inset-top), 56px)" }}
+          className="flex-shrink-0 z-40 bg-black/90 backdrop-blur-xl px-4 pb-3 shadow-[0_1px_0_0_rgba(255,255,255,0.05)] flex flex-col gap-3"
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
         >
-          <div className="flex justify-center items-center mb-4">
+          <div className="flex justify-center items-center">
             <div className="relative flex bg-[#1c1c1e] rounded-full p-1 w-[240px]">
               <div
                 className={`absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-full transition-all duration-300 ease-out ${typeFilter === "expense" ? "translate-x-0 bg-[#ff453a]" : "translate-x-[100%] bg-[#32d74b]"}`}
               ></div>
               <button
                 onClick={() => setTypeFilter("expense")}
-                className={`relative z-10 flex-1 py-2 text-sm font-semibold transition-colors duration-300 ${typeFilter === "expense" ? "text-white" : "text-[#8e8e93]"}`}
+                className={`relative z-10 flex-1 py-1.5 text-sm font-semibold transition-colors duration-300 ${typeFilter === "expense" ? "text-white" : "text-[#8e8e93]"}`}
               >
                 Expense
               </button>
               <button
                 onClick={() => setTypeFilter("income")}
-                className={`relative z-10 flex-1 py-2 text-sm font-semibold transition-colors duration-300 ${typeFilter === "income" ? "text-white" : "text-[#8e8e93]"}`}
+                className={`relative z-10 flex-1 py-1.5 text-sm font-semibold transition-colors duration-300 ${typeFilter === "income" ? "text-white" : "text-[#8e8e93]"}`}
               >
                 Income
               </button>
             </div>
           </div>
+
           <div className="flex gap-2">
             {[
               { id: "week", label: "Week" },
@@ -190,34 +189,34 @@ export default function Analytics() {
                   setTimeFilter(filter.id);
                   setOffset(0);
                 }}
-                className={`flex-1 py-2.5 rounded-full text-[13px] font-bold transition-colors ${timeFilter === filter.id ? "bg-white text-black" : "bg-[#1c1c1e] text-[#8e8e93]"}`}
+                className={`flex-1 py-2 rounded-full text-[13px] font-bold transition-colors ${timeFilter === filter.id ? "bg-white text-black" : "bg-[#1c1c1e] text-[#8e8e93]"}`}
               >
                 {filter.label}
               </button>
             ))}
           </div>
-        </div>
 
-        {/* NỘI DUNG CUỘN */}
-        <div className="flex-1 overflow-y-auto px-4 pt-5 pb-32">
-          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-2xl px-4 py-3 mb-5">
+          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl px-4 py-2">
             <button
               onClick={() => setOffset((o) => o - 1)}
               className="p-1 text-[#32ade6] active:opacity-50"
             >
-              <ChevronLeft size={22} />
+              <ChevronLeft size={20} />
             </button>
-            <span className="text-sm font-bold tracking-wide">
+            <span className="text-[13px] font-bold tracking-wide">
               {bounds.label}
             </span>
             <button
               onClick={() => setOffset((o) => o + 1)}
               className="p-1 text-[#32ade6] active:opacity-50"
             >
-              <ChevronRight size={22} />
+              <ChevronRight size={20} />
             </button>
           </div>
+        </div>
 
+        {/* NỘI DUNG CUỘN */}
+        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-32">
           {timeFilter === "month" ? (
             <div className="mb-5">
               <div className="flex gap-2.5 mb-3">
@@ -330,8 +329,8 @@ export default function Analytics() {
           className={`fixed inset-0 z-50 bg-black flex flex-col overflow-hidden transition-transform duration-300 ease-out ${showDetail ? "translate-y-0" : "translate-y-full"}`}
         >
           <div
-            className="flex-shrink-0 z-40 bg-black/90 backdrop-blur-xl pb-4 px-4 flex justify-between items-center shadow-[0_1px_0_0_rgba(255,255,255,0.05)]"
-            style={{ paddingTop: "max(env(safe-area-inset-top), 56px)" }}
+            className="flex-shrink-0 z-40 bg-black/90 backdrop-blur-xl pb-3 px-4 flex justify-between items-center shadow-[0_1px_0_0_rgba(255,255,255,0.05)]"
+            style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
           >
             <button
               onClick={closeDetail}

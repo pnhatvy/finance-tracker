@@ -18,7 +18,6 @@ export default function Settings() {
     setMonthlyIncomeGoal,
     setIsModalOpen,
   } = useAppContext();
-
   const [modalType, setModalType] = useState(null);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [dragState, setDragState] = useState(null);
@@ -87,7 +86,6 @@ export default function Settings() {
     setCatForm(null);
     setIsModalOpen(false);
   };
-
   const saveCategory = () => {
     if (!catForm.name.trim()) return;
     if (catForm.id) {
@@ -97,7 +95,6 @@ export default function Settings() {
     }
     closeModals();
   };
-
   const handleResetData = async () => {
     setIsResetting(true);
     try {
@@ -293,17 +290,17 @@ export default function Settings() {
   return (
     <div className="h-[100dvh] w-full flex flex-col bg-black text-white relative overflow-hidden animate-ios-page">
       <div
-        className="flex-shrink-0 z-40 bg-black/90 backdrop-blur-xl px-4 pb-3 flex items-center shadow-[0_1px_0_0_rgba(255,255,255,0.05)]"
-        style={{ paddingTop: "max(env(safe-area-inset-top), 56px)" }}
+        className="flex-shrink-0 z-40 bg-black/90 backdrop-blur-xl px-4 pb-3 flex items-center shadow-[0_1px_0_0_rgba(255,255,255,0.05)] relative"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
       >
         <button
           onClick={() => navigate(-1)}
           className="p-2 absolute active:opacity-50"
-          style={{ left: "16px", top: "max(env(safe-area-inset-top), 56px)" }}
+          style={{ left: "12px", bottom: "6px" }}
         >
-          <ChevronLeft size={28} className="text-[#32ade6] -mt-1.5" />
+          <ChevronLeft size={28} className="text-[#32ade6]" />
         </button>
-        <h1 className="text-[24px] font-bold tracking-tight w-full text-center">
+        <h1 className="text-[22px] font-bold tracking-tight w-full text-center">
           Settings
         </h1>
       </div>
@@ -379,7 +376,195 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* --- CÁC MODAL BÊN DƯỚI GIỮ NGUYÊN HOẶC COPY TỪ BẢN TRƯỚC --- */}
+      {/* CÁC COMPONENT MODAL GIỮ NGUYÊN BÊN DƯỚI */}
+      {modalType === "reset" && (
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-ios-fade"
+          onClick={!isResetting ? closeModals : undefined}
+        >
+          <div
+            className="bg-[#2c2c2e] w-full max-w-[320px] rounded-3xl p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-full bg-[#ff453a]/20 text-[#ff453a] flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="text-white font-bold text-center text-xl mb-2">
+              Reset Everything?
+            </h3>
+            <p className="text-[#8e8e93] text-center text-sm mb-6 leading-relaxed">
+              This will permanently delete all your transactions, custom
+              categories, and reset your goals to default.{" "}
+              <strong className="text-white">
+                This action cannot be undone.
+              </strong>
+            </p>
+            <div className="flex gap-3">
+              <button
+                disabled={isResetting}
+                onClick={closeModals}
+                className="flex-1 bg-[#3a3a3c] text-white py-3 rounded-2xl font-bold active:opacity-70 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={isResetting}
+                onClick={handleResetData}
+                className="flex-1 bg-[#ff453a] text-white py-3 rounded-2xl font-bold active:opacity-70 flex items-center justify-center disabled:opacity-50"
+              >
+                {isResetting ? "Erasing..." : "Erase"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {itemToDelete && (
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-ios-fade"
+          onClick={() => setItemToDelete(null)}
+        >
+          <div
+            className="bg-[#2c2c2e] w-full max-w-[300px] rounded-3xl p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-white font-bold text-center text-lg mb-2">
+              Delete Category?
+            </h3>
+            <p className="text-[#8e8e93] text-center text-sm mb-6">
+              Transactions will lose this category.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setItemToDelete(null)}
+                className="flex-1 bg-[#3a3a3c] text-white py-2.5 rounded-xl font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteCategory}
+                className="flex-1 bg-[#ff453a] text-white py-2.5 rounded-xl font-semibold"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalType === "cycle" && (
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-ios-fade"
+          onClick={closeModals}
+        >
+          <div
+            className="bg-[#2c2c2e] w-full max-w-[320px] rounded-3xl p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-white font-semibold text-center mb-6 text-lg">
+              Cycle start day
+            </h2>
+            <div className="grid grid-cols-7 gap-2 mb-6">
+              {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                <button
+                  key={day}
+                  onClick={() => {
+                    setCycleStartDay(day);
+                    closeModals();
+                  }}
+                  className={`aspect-square flex items-center justify-center rounded-lg font-bold text-sm ${cycleStartDay === day ? "bg-[#32ade6] text-black" : "bg-[#1c1c1e] text-white"}`}
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={closeModals}
+              className="w-full bg-[#3a3a3c] text-white py-2.5 rounded-xl font-semibold"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {modalType === "category" && catForm && (
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-ios-fade"
+          onClick={closeModals}
+        >
+          <div
+            className="bg-[#2c2c2e] w-full max-w-[340px] rounded-3xl p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-white font-semibold text-center mb-4 text-lg">
+              {catForm.id ? "Edit Category" : "Add Category"}
+            </h2>
+            <div className="flex bg-[#1c1c1e] rounded-xl p-1 mb-4">
+              <button
+                onClick={() => setCatForm({ ...catForm, type: "expense" })}
+                className={`flex-1 py-2 rounded-lg font-semibold text-sm ${catForm.type === "expense" ? "bg-[#ff453a] text-white" : "text-[#8e8e93]"}`}
+              >
+                Expense
+              </button>
+              <button
+                onClick={() => setCatForm({ ...catForm, type: "income" })}
+                className={`flex-1 py-2 rounded-lg font-semibold text-sm ${catForm.type === "income" ? "bg-[#32d74b] text-white" : "text-[#8e8e93]"}`}
+              >
+                Income
+              </button>
+            </div>
+            <input
+              type="text"
+              placeholder="Category name"
+              value={catForm.name}
+              onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
+              className="w-full bg-[#1c1c1e] text-white text-center rounded-xl px-4 py-3 outline-none mb-4 font-semibold"
+            />
+            <div className="grid grid-cols-5 gap-2 mb-4 h-[220px] overflow-y-auto bg-[#1c1c1e] p-2 rounded-xl">
+              {EMOJI_LIST.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => setCatForm({ ...catForm, icon: emoji })}
+                  className={`aspect-square rounded-lg text-2xl flex items-center justify-center transition-colors ${catForm.icon === emoji ? "bg-[#3a3a3c]" : ""}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-between mb-6 bg-[#1c1c1e] p-2.5 rounded-xl">
+              {COLOR_LIST.map((color) => (
+                <button
+                  key={color}
+                  onClick={() => setCatForm({ ...catForm, color })}
+                  className="w-6 h-6 rounded-full border-2 transition-all duration-200"
+                  style={{
+                    backgroundColor: color,
+                    borderColor:
+                      catForm.color === color ? "white" : "transparent",
+                    transform:
+                      catForm.color === color ? "scale(1.15)" : "scale(1)",
+                  }}
+                />
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={closeModals}
+                className="flex-1 bg-[#3a3a3c] text-white py-3 rounded-2xl font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveCategory}
+                className="flex-1 bg-white text-black py-3 rounded-2xl font-bold"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
