@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppContext } from "../AppContext";
-import { ChevronLeft, X, Moon, Menu } from "lucide-react";
+import { ChevronLeft, X, Moon, Menu, Trash2 } from "lucide-react";
+import { collection, query, getDocs, deleteDoc, doc } from "firebase/firestore";
+import { db } from "../firebase";
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -12,17 +14,17 @@ export default function Settings() {
     setCategories,
     cycleStartDay,
     setCycleStartDay,
+    setMonthlyBudget,
+    setMonthlyIncomeGoal,
     setIsModalOpen,
   } = useAppContext();
 
   const [modalType, setModalType] = useState(null);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [dragState, setDragState] = useState(null);
-
-  // Gộp chung state để quản lý cả Add và Edit Category
   const [catForm, setCatForm] = useState(null);
+  const [isResetting, setIsResetting] = useState(false);
 
-  // Mở rộng danh sách Icon
   const EMOJI_LIST = [
     "🍔",
     "🍕",
@@ -72,14 +74,12 @@ export default function Settings() {
     setIsModalOpen(true);
   };
 
-  // Mở modal tạo mới
   const openAddCategory = () => {
     setCatForm({ name: "", icon: "🍔", color: "#ff453a", type: "expense" });
     setModalType("category");
     setIsModalOpen(true);
   };
 
-  // Mở modal chỉnh sửa
   const openEditCategory = (cat) => {
     setCatForm({ ...cat });
     setModalType("category");
@@ -95,13 +95,74 @@ export default function Settings() {
   const saveCategory = () => {
     if (!catForm.name.trim()) return;
     if (catForm.id) {
-      // Đang Edit
       setCategories(categories.map((c) => (c.id === catForm.id ? catForm : c)));
     } else {
-      // Đang Add mới
       setCategories([...categories, { id: Date.now().toString(), ...catForm }]);
     }
     closeModals();
+  };
+
+  // --- HÀM RESET TOÀN BỘ DỮ LIỆU ---
+  const handleResetData = async () => {
+    setIsResetting(true);
+    try {
+      // 1. Xóa toàn bộ giao dịch trên Firebase
+      const q = query(collection(db, "transactions"));
+      const snapshot = await getDocs(q);
+      const deletePromises = snapshot.docs.map((document) =>
+        deleteDoc(doc(db, "transactions", document.id)),
+      );
+      await Promise.all(deletePromises);
+
+      // 2. Khôi phục toàn bộ cài đặt về mặc định
+      setCategories([
+        {
+          id: "food",
+          name: "Food",
+          icon: "🍔",
+          color: "#ff453a",
+          type: "expense",
+        },
+        {
+          id: "transport",
+          name: "Transport",
+          icon: "🚕",
+          color: "#32ade6",
+          type: "expense",
+        },
+        {
+          id: "shopping",
+          name: "Shopping",
+          icon: "🛍️",
+          color: "#ff9f0a",
+          type: "expense",
+        },
+        {
+          id: "salary",
+          name: "Salary",
+          icon: "💰",
+          color: "#32d74b",
+          type: "income",
+        },
+        {
+          id: "gift",
+          name: "Gift",
+          icon: "🎁",
+          color: "#bf5af2",
+          type: "income",
+        },
+      ]);
+      setCycleStartDay(1);
+      setMonthlyBudget(9700000);
+      setMonthlyIncomeGoal(15000000);
+
+      closeModals();
+      navigate("/"); // Quay về trang chủ sau khi xóa xong
+    } catch (e) {
+      console.error("Error resetting data: ", e);
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   const onTouchStart = (e, catId, index, type) => {
@@ -198,7 +259,6 @@ export default function Settings() {
             }}
           >
             <div className="flex justify-between items-center p-3.5 select-none">
-              {/* BẤM VÀO VÙNG TÊN/ICON NÀY ĐỂ EDIT CATEGORY */}
               <div
                 className="flex-1 flex items-center gap-4 cursor-pointer active:opacity-50"
                 onClick={() => {
@@ -210,7 +270,6 @@ export default function Settings() {
                   {c.name}
                 </span>
               </div>
-
               <div className="flex gap-2 items-center pl-4">
                 <button
                   onClick={(e) => {
@@ -289,7 +348,7 @@ export default function Settings() {
           <div className="bg-[#1c1c1e] rounded-2xl overflow-hidden">
             <button
               onClick={openCycleModal}
-              className="w-full flex justify-between items-center p-4 text-left"
+              className="w-full flex justify-between items-center p-4 text-left active:opacity-70 transition-opacity"
             >
               <div>
                 <p className="font-semibold text-[15px]">Cycle starts on</p>
@@ -314,7 +373,68 @@ export default function Settings() {
           </h3>
           {renderCategoryList(incomeCategories, "income")}
         </div>
+
+        {/* --- KHU VỰC DANGER ZONE (XÓA DỮ LIỆU) --- */}
+        <div className="pt-4">
+          <h3 className="text-[#ff453a] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
+            Danger Zone
+          </h3>
+          <div className="bg-[#1c1c1e] rounded-2xl overflow-hidden">
+            <button
+              onClick={() => {
+                setModalType("reset");
+                setIsModalOpen(true);
+              }}
+              className="w-full flex items-center justify-center gap-2 p-4 text-left font-semibold text-[#ff453a] active:bg-white/5 transition-colors"
+            >
+              <Trash2 size={18} /> Erase All Data
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* MODAL CẢNH BÁO XÓA DỮ LIỆU */}
+      {modalType === "reset" && (
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-ios-fade"
+          onClick={!isResetting ? closeModals : undefined}
+        >
+          <div
+            className="bg-[#2c2c2e] w-full max-w-[320px] rounded-3xl p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-full bg-[#ff453a]/20 text-[#ff453a] flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="text-white font-bold text-center text-xl mb-2">
+              Reset Everything?
+            </h3>
+            <p className="text-[#8e8e93] text-center text-sm mb-6 leading-relaxed">
+              This will permanently delete all your transactions, custom
+              categories, and reset your goals to default.{" "}
+              <strong className="text-white">
+                This action cannot be undone.
+              </strong>
+            </p>
+            <div className="flex gap-3">
+              <button
+                disabled={isResetting}
+                onClick={closeModals}
+                className="flex-1 bg-[#3a3a3c] text-white py-3 rounded-2xl font-bold active:opacity-70 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={isResetting}
+                onClick={handleResetData}
+                className="flex-1 bg-[#ff453a] text-white py-3 rounded-2xl font-bold active:opacity-70 flex items-center justify-center disabled:opacity-50"
+              >
+                {isResetting ? "Erasing..." : "Erase"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {itemToDelete && (
         <div
@@ -390,7 +510,6 @@ export default function Settings() {
           className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-ios-fade"
           onClick={closeModals}
         >
-          {/* Tăng chiều rộng Modal lên max-w-[340px] */}
           <div
             className="bg-[#2c2c2e] w-full max-w-[340px] rounded-3xl p-5 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
@@ -422,7 +541,6 @@ export default function Settings() {
               className="w-full bg-[#1c1c1e] text-white text-center rounded-xl px-4 py-3 outline-none mb-4 font-semibold"
             />
 
-            {/* Tăng chiều cao vùng Icon lên h-[220px] và thêm nhiều Icon hơn */}
             <div className="grid grid-cols-5 gap-2 mb-4 h-[220px] overflow-y-auto bg-[#1c1c1e] p-2 rounded-xl">
               {EMOJI_LIST.map((emoji) => (
                 <button
