@@ -25,6 +25,7 @@ export default function Analytics() {
   }, []);
 
   const getPeriodBounds = () => {
+    /* Giữ nguyên hàm bounds */
     const base = new Date();
     let start, end, label;
     const months = [
@@ -79,14 +80,12 @@ export default function Analytics() {
     }
     return { start, end, label };
   };
-
   const bounds = getPeriodBounds();
   const filteredData = transactions.filter((tItem) => {
     if (tItem.type !== typeFilter || !tItem.date) return false;
     const d = new Date(tItem.date);
     return d >= bounds.start && d < bounds.end;
   });
-
   const formatDetailDate = (dateString) => {
     if (!dateString) return "";
     const d = new Date(dateString);
@@ -107,7 +106,6 @@ export default function Analytics() {
     ];
     return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()} • ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}`;
   };
-
   const openDetail = (cat) => {
     setSelectedCategory(cat);
     setTimeout(() => setShowDetail(true), 10);
@@ -127,7 +125,6 @@ export default function Analytics() {
       catMap[catId].spent += item.amount;
     }
   });
-
   const categoryData = Object.values(catMap)
     .map((cat) => ({
       ...cat,
@@ -138,7 +135,6 @@ export default function Analytics() {
     typeFilter === "expense"
       ? monthlyBudget - totalAmount
       : monthlyIncomeGoal - totalAmount;
-
   const isCurrentPeriod = offset === 0;
   const daysPassed = Math.max(
     1,
@@ -157,10 +153,13 @@ export default function Analytics() {
 
   return (
     <>
-      <div className="flex flex-col min-h-screen pb-32 bg-black text-white relative animate-ios-page">
-        {/* HEADER CỐ ĐỊNH KÍNH MỜ */}
-        <div className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl pt-12 pb-3 px-4 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]">
-          <div className="flex justify-center items-center mb-5">
+      <div className="h-[100dvh] w-full flex flex-col bg-black text-white relative overflow-hidden animate-ios-page">
+        {/* HEADER CỐ ĐỊNH, CÓ PADDING-TOP CHỐNG ĐÈ CAMERA */}
+        <div
+          className="flex-shrink-0 z-40 bg-black/90 backdrop-blur-xl px-4 pb-3 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]"
+          style={{ paddingTop: "max(env(safe-area-inset-top), 56px)" }}
+        >
+          <div className="flex justify-center items-center mb-4">
             <div className="relative flex bg-[#1c1c1e] rounded-full p-1 w-[240px]">
               <div
                 className={`absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-full transition-all duration-300 ease-out ${typeFilter === "expense" ? "translate-x-0 bg-[#ff453a]" : "translate-x-[100%] bg-[#32d74b]"}`}
@@ -191,7 +190,7 @@ export default function Analytics() {
                   setTimeFilter(filter.id);
                   setOffset(0);
                 }}
-                className={`flex-1 py-2 rounded-full text-[13px] font-bold transition-colors ${timeFilter === filter.id ? "bg-white text-black" : "bg-[#1c1c1e] text-[#8e8e93]"}`}
+                className={`flex-1 py-2.5 rounded-full text-[13px] font-bold transition-colors ${timeFilter === filter.id ? "bg-white text-black" : "bg-[#1c1c1e] text-[#8e8e93]"}`}
               >
                 {filter.label}
               </button>
@@ -199,8 +198,8 @@ export default function Analytics() {
           </div>
         </div>
 
-        {/* NỘI DUNG CUỘN Ở DƯỚI */}
-        <div className="px-4 pt-5">
+        {/* NỘI DUNG CUỘN */}
+        <div className="flex-1 overflow-y-auto px-4 pt-5 pb-32">
           <div className="flex items-center justify-between bg-[#1c1c1e] rounded-2xl px-4 py-3 mb-5">
             <button
               onClick={() => setOffset((o) => o - 1)}
@@ -325,12 +324,15 @@ export default function Analytics() {
         </div>
       </div>
 
+      {/* OVERLAY CHI TIẾT */}
       {selectedCategory && (
         <div
-          className={`fixed inset-0 z-50 bg-black flex flex-col overflow-y-auto transition-transform duration-300 ease-out ${showDetail ? "translate-y-0" : "translate-y-full"}`}
+          className={`fixed inset-0 z-50 bg-black flex flex-col overflow-hidden transition-transform duration-300 ease-out ${showDetail ? "translate-y-0" : "translate-y-full"}`}
         >
-          {/* HEADER CHI TIẾT CỐ ĐỊNH KÍNH MỜ */}
-          <div className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl pt-12 pb-4 px-4 flex justify-between items-center shadow-[0_1px_0_0_rgba(255,255,255,0.05)]">
+          <div
+            className="flex-shrink-0 z-40 bg-black/90 backdrop-blur-xl pb-4 px-4 flex justify-between items-center shadow-[0_1px_0_0_rgba(255,255,255,0.05)]"
+            style={{ paddingTop: "max(env(safe-area-inset-top), 56px)" }}
+          >
             <button
               onClick={closeDetail}
               className="text-[#32ade6] flex items-center text-[17px] font-semibold active:opacity-50"
@@ -341,7 +343,7 @@ export default function Analytics() {
             <div className="w-20"></div>
           </div>
 
-          <div className="px-6 pt-6 pb-32">
+          <div className="flex-1 overflow-y-auto px-6 pt-6 pb-32">
             <div className="flex items-center gap-5 mb-8">
               <div className="w-[72px] h-[72px] bg-[#1c1c1e] rounded-full flex items-center justify-center text-[36px]">
                 {selectedCategory.icon}

@@ -12,7 +12,6 @@ export default function AddTransaction() {
   const [amount, setAmount] = useState("0");
   const [type, setType] = useState("expense");
   const [note, setNote] = useState("");
-
   const [txDate, setTxDate] = useState(new Date().toISOString().split("T")[0]);
   const [repeat, setRepeat] = useState("none");
 
@@ -23,7 +22,7 @@ export default function AddTransaction() {
   const currentCategories = safeCategories.filter((c) => c.type === type);
   const [category, setCategory] = useState(currentCategories[0] || {});
 
-  // --- STATE VUỐT ĐỂ TẮT (PULL TO DISMISS) ---
+  // --- STATE VUỐT ĐỂ TẮT ---
   const [startY, setStartY] = useState(0);
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -35,15 +34,14 @@ export default function AddTransaction() {
   const onTouchMove = (e) => {
     if (!isDragging) return;
     const diff = e.touches[0].clientY - startY;
-    if (diff > 0) setDragY(diff); // Chỉ cho phép vuốt xuống
+    if (diff > 0) setDragY(diff); // Chỉ kéo xuống
   };
   const onTouchEnd = () => {
     setIsDragging(false);
-    if (dragY > 120)
-      navigate("/"); // Vuốt qua 120px thì đóng
-    else setDragY(0); // Không đủ lực thì đàn hồi về cũ
+    if (dragY > 100) navigate("/");
+    else setDragY(0);
   };
-  // -------------------------------------------
+  // -------------------------
 
   useEffect(() => {
     setCategory(currentCategories[0] || {});
@@ -57,7 +55,6 @@ export default function AddTransaction() {
       else if (amount.length < 12) setAmount(amount + val);
     }
   };
-
   const handleDelete = () => {
     if (amount.length <= 1) setAmount("0");
     else setAmount(amount.slice(0, -1));
@@ -69,16 +66,13 @@ export default function AddTransaction() {
       const numericAmount = Number(amount.replace(",", "."));
       const baseDate = new Date(txDate);
       baseDate.setHours(new Date().getHours(), new Date().getMinutes());
-
       let count = 1;
       if (repeat === "daily") count = 30;
       if (repeat === "weekly") count = 12;
       if (repeat === "monthly") count = 12;
       if (repeat === "yearly") count = 5;
-
       const docsToAdd = [];
       const groupId = "rep_" + Date.now();
-
       for (let i = 0; i < count; i++) {
         const d = new Date(baseDate);
         if (repeat === "daily") d.setDate(d.getDate() + i);
@@ -101,9 +95,7 @@ export default function AddTransaction() {
         docsToAdd.map((data) => addDoc(collection(db, "transactions"), data)),
       );
       navigate("/");
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) {}
   };
 
   const displayAmount = () => {
@@ -116,21 +108,26 @@ export default function AddTransaction() {
 
   return (
     <div
-      className="flex flex-col h-[100dvh] bg-black text-white p-5 pt-10 pb-6 animate-ios-slide overflow-hidden"
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
+      className="flex flex-col h-[100dvh] bg-black text-white p-5 animate-ios-slide overflow-hidden"
       style={{
         transform: dragY > 0 ? `translateY(${dragY}px)` : "",
         transition: isDragging
           ? "none"
           : "transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)",
+        paddingTop: "max(env(safe-area-inset-top), 20px)",
       }}
     >
-      <div className="flex justify-center mb-1">
-        <div className="w-12 h-1.5 bg-[#2c2c2e] rounded-full"></div>
+      {/* KHU VỰC NẮM KÉO (DRAG HANDLE) ĐÃ FIX TOUCH */}
+      <div
+        className="w-full flex justify-center py-2 mb-2 touch-none"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        <div className="w-14 h-1.5 bg-[#2c2c2e] rounded-full"></div>
       </div>
-      <div className="flex justify-between items-center mb-5 mt-2">
+
+      <div className="flex justify-between items-center mb-5">
         <button
           onClick={() => navigate("/")}
           className="text-[#8e8e93] p-1 active:opacity-50 flex-shrink-0 w-[42px]"
@@ -199,7 +196,7 @@ export default function AddTransaction() {
         />
       </div>
 
-      <div className="flex gap-3 mb-4">
+      <div className="flex gap-3 mb-4 mt-auto">
         <div className="flex-1 relative bg-[#1c1c1e] rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity">
           <span className="text-white font-semibold text-[13px] flex items-center gap-2 pointer-events-none">
             <Calendar size={16} className="text-[#32ade6]" />{" "}

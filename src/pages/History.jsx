@@ -20,12 +20,10 @@ import {
 } from "lucide-react";
 import { useAppContext } from "../AppContext";
 
-// --- COMPONENT VUỐT ĐỂ HIỆN NÚT EDIT/DELETE ---
 const SwipeableItem = ({ children, onEdit, onDelete, isLast }) => {
   const [startX, setStartX] = useState(0);
   const [offsetX, setOffsetX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
-
   const handleTouchStart = (e) => {
     setStartX(e.touches[0].clientX);
     setIsSwiping(true);
@@ -49,7 +47,6 @@ const SwipeableItem = ({ children, onEdit, onDelete, isLast }) => {
       setOffsetX(0);
     }
   };
-
   return (
     <div className="relative w-full overflow-hidden bg-black">
       <div className="absolute inset-0 flex justify-between items-center px-6 bg-[#1c1c1e]">
@@ -77,7 +74,6 @@ export default function History() {
   const [transactions, setTransactions] = useState([]);
   const [timeFilter, setTimeFilter] = useState("month");
   const { categories, setIsModalOpen, cycleStartDay } = useAppContext();
-
   const [editingItem, setEditingItem] = useState(null);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [offset, setOffset] = useState(0);
@@ -109,7 +105,6 @@ export default function History() {
       "Nov",
       "Dec",
     ];
-
     if (timeFilter === "today") {
       base.setDate(base.getDate() + offset);
       start = new Date(base.setHours(0, 0, 0, 0));
@@ -149,16 +144,13 @@ export default function History() {
     }
     return { start, end, label };
   };
-
   const bounds = timeFilter !== "all" ? getPeriodBounds() : null;
-
   const filteredTransactions = transactions.filter((tItem) => {
     if (timeFilter === "all") return true;
     if (!tItem.date) return false;
     const d = new Date(tItem.date);
     return d >= bounds.start && d < bounds.end;
   });
-
   const groupedData = filteredTransactions.reduce((acc, tran) => {
     const d = tran.date ? new Date(tran.date) : new Date();
     d.setHours(0, 0, 0, 0);
@@ -179,7 +171,6 @@ export default function History() {
       setItemToDelete(null);
     }
   };
-
   const openEdit = (item) => {
     const d = item.date ? new Date(item.date) : new Date();
     setEditingItem({
@@ -196,9 +187,12 @@ export default function History() {
     setEditingItem(null);
     setIsModalOpen(false);
   };
-
   const handleSaveEdit = async () => {
-    if (!editingItem.amount || editingItem.amount === ",") return;
+    /* Giữ nguyên logic lưu edit */ if (
+      !editingItem.amount ||
+      editingItem.amount === ","
+    )
+      return;
     try {
       const combinedDateTime = new Date(
         `${editingItem.editDate}T${editingItem.editTime}:00`,
@@ -206,7 +200,6 @@ export default function History() {
       const numericAmount = Number(
         editingItem.amount.toString().replace(",", "."),
       );
-
       await updateDoc(doc(db, "transactions", editingItem.id), {
         amount: numericAmount,
         type: editingItem.type,
@@ -214,14 +207,12 @@ export default function History() {
         category: editingItem.category,
         date: combinedDateTime.toISOString(),
       });
-
       if (editingItem.repeat !== "none") {
         let count = 0;
         if (editingItem.repeat === "daily") count = 30;
         if (editingItem.repeat === "weekly") count = 12;
         if (editingItem.repeat === "monthly") count = 12;
         if (editingItem.repeat === "yearly") count = 5;
-
         const docsToAdd = [];
         const groupId = "rep_" + Date.now();
         for (let i = 1; i <= count; i++) {
@@ -247,7 +238,6 @@ export default function History() {
       closeEdit();
     } catch (e) {}
   };
-
   const toggleEditType = () => {
     const newType = editingItem.type === "expense" ? "income" : "expense";
     setEditingItem({
@@ -256,7 +246,6 @@ export default function History() {
       category: categories.filter((c) => c.type === newType)[0] || {},
     });
   };
-
   const formatDisplayAmount = (val) => {
     if (!val) return "";
     const parts = val.toString().split(",");
@@ -264,7 +253,6 @@ export default function History() {
       ? `${parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${parts[1]}`
       : parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   };
-
   const formatGroupHeader = (d) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -296,10 +284,14 @@ export default function History() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen pb-32 bg-black text-white relative animate-ios-page">
-      {/* HEADER CỐ ĐỊNH + KÍNH MỜ */}
-      <div className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl pt-12 pb-3 px-4 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]">
-        <h1 className="text-[28px] font-bold w-full text-center mb-5 tracking-tight">
+    // Dùng h-[100dvh] và overflow-hidden để khóa body
+    <div className="h-[100dvh] w-full flex flex-col bg-black text-white relative overflow-hidden animate-ios-page">
+      {/* HEADER CỐ ĐỊNH, DÙNG paddingTop: env() ĐỂ TRÁNH DYNAMIC ISLAND */}
+      <div
+        className="flex-shrink-0 z-40 bg-black/90 backdrop-blur-xl px-4 pb-3 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]"
+        style={{ paddingTop: "max(env(safe-area-inset-top), 56px)" }}
+      >
+        <h1 className="text-[28px] font-bold w-full text-center mb-4 tracking-tight">
           History
         </h1>
         <div className="flex justify-center gap-2">
@@ -323,8 +315,8 @@ export default function History() {
         </div>
       </div>
 
-      {/* DANH SÁCH CUỘN BÊN DƯỚI */}
-      <div className="px-4 pt-5">
+      {/* NỘI DUNG TỰ ĐỘNG CUỘN */}
+      <div className="flex-1 overflow-y-auto px-4 pt-5 pb-32">
         {timeFilter !== "all" && (
           <div className="flex items-center justify-between bg-[#1c1c1e] rounded-2xl px-4 py-3 mb-6">
             <button
