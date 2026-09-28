@@ -71,11 +71,9 @@ export default function History() {
   const [itemToDelete, setItemToDelete] = useState(null);
   const [offset, setOffset] = useState(0);
 
-  // ĐÃ SỬA: Đọc dữ liệu từ localStorage thay vì Firebase
   useEffect(() => {
     const loadData = () => {
       const data = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
-      // Sắp xếp ngày mới nhất lên đầu
       data.sort((a, b) => new Date(b.date) - new Date(a.date));
       setTransactions(data);
     };
@@ -160,7 +158,6 @@ export default function History() {
     (a, b) => b.date - a.date,
   );
 
-  // ĐÃ SỬA: Xóa dữ liệu trong localStorage
   const confirmDelete = () => {
     if (itemToDelete) {
       const newData = transactions.filter((t) => t.id !== itemToDelete);
@@ -187,7 +184,6 @@ export default function History() {
     setIsModalOpen(false);
   };
 
-  // ĐÃ SỬA: Lưu dữ liệu sau khi sửa vào localStorage
   const handleSaveEdit = () => {
     if (!editingItem.amount || editingItem.amount === ",") return;
     try {
@@ -291,129 +287,136 @@ export default function History() {
   };
 
   return (
-    <div
-      className={`h-[100dvh] w-full flex flex-col relative overflow-hidden animate-ios-page ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
-    >
+    <>
+      {/* THÂN TRANG BỊ GIỚI HẠN HIỆU ỨNG */}
       <div
-        className={`flex-shrink-0 z-40 px-4 pb-3 flex flex-col gap-3 shadow-[0_1px_0_0_rgba(0,0,0,0.05)] ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
+        className={`h-[100dvh] w-full flex flex-col relative overflow-hidden animate-ios-page ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       >
-        <h1 className="text-[22px] font-bold w-full text-center tracking-tight">
-          History
-        </h1>
-        <div className="flex justify-center gap-2">
-          {[
-            { id: "today", label: "Day" },
-            { id: "week", label: "Week" },
-            { id: "month", label: "Month" },
-            { id: "all", label: "All" },
-          ].map((filter) => (
-            <button
-              key={filter.id}
-              onClick={() => {
-                setTimeFilter(filter.id);
-                setOffset(0);
-              }}
-              className={`flex-1 py-2 rounded-full text-[13px] font-bold transition-colors ${timeFilter === filter.id ? (theme === "dark" ? "bg-white text-black" : "bg-black text-white") : theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500"}`}
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
-        {timeFilter !== "all" && (
-          <div
-            className={`flex items-center justify-between rounded-xl px-4 py-2 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
-          >
-            <button
-              onClick={() => setOffset((o) => o - 1)}
-              className="p-1 text-[#32ade6] active:opacity-50"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <span className="text-[13px] font-bold tracking-wide">
-              {bounds.label}
-            </span>
-            <button
-              onClick={() => setOffset((o) => o + 1)}
-              className="p-1 text-[#32ade6] active:opacity-50"
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div
-        className="flex-1 overflow-y-auto px-4 pt-4 pb-32 overscroll-y-auto"
-        style={{ WebkitOverflowScrolling: "touch" }}
-      >
-        <div className="w-full">
-          {sortedGroups.map((group) => (
-            <div key={group.date.toISOString()} className="mb-6 w-full">
-              <div className="flex justify-between items-center mb-1 px-1">
-                <span className="text-xs font-semibold text-[#8e8e93] uppercase tracking-wide">
-                  {formatGroupHeader(group.date)}
-                </span>
-                <span className="text-xs font-semibold text-[#8e8e93]">
-                  ₫{Math.abs(group.totalDay).toLocaleString("vi-VN")}
-                </span>
-              </div>
-              <div
-                className={`w-full rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+        <div
+          className={`flex-shrink-0 z-40 px-4 pb-3 flex flex-col gap-3 shadow-[0_1px_0_0_rgba(0,0,0,0.05)] ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
+        >
+          <h1 className="text-[22px] font-bold w-full text-center tracking-tight">
+            History
+          </h1>
+          <div className="flex justify-center gap-2">
+            {[
+              { id: "today", label: "Day" },
+              { id: "week", label: "Week" },
+              { id: "month", label: "Month" },
+              { id: "all", label: "All" },
+            ].map((filter) => (
+              <button
+                key={filter.id}
+                onClick={() => {
+                  setTimeFilter(filter.id);
+                  setOffset(0);
+                }}
+                className={`flex-1 py-2 rounded-full text-[13px] font-bold transition-colors ${timeFilter === filter.id ? (theme === "dark" ? "bg-white text-black" : "bg-black text-white") : theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500"}`}
               >
-                {group.items.map((tItem, index) => (
-                  <SwipeableItem
-                    key={tItem.id}
-                    onEdit={() => openEdit(tItem)}
-                    onDelete={() => setItemToDelete(tItem.id)}
-                    isLast={index === group.items.length - 1}
-                    theme={theme}
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-[42px] h-[42px] rounded-full flex items-center justify-center text-[22px] ${theme === "dark" ? "bg-black/50" : "bg-gray-100"}`}
-                        >
-                          {tItem.category?.icon || "💰"}
-                        </div>
-                        <div className="flex flex-col">
-                          <p className="font-bold text-[16px] leading-tight">
-                            {tItem.category?.name || tItem.note}
-                          </p>
-                          <p className="text-[13px] text-[#8e8e93] mt-0.5 leading-tight">
-                            {tItem.note}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right flex flex-col items-end">
-                        <div className="font-bold text-[16px] leading-tight">
-                          {tItem.type === "income" ? "+" : ""}₫
-                          {tItem.amount.toLocaleString("vi-VN")}
-                        </div>
-                        <div className="text-[12px] text-[#8e8e93] mt-0.5 leading-tight uppercase font-medium">
-                          {tItem.date
-                            ? new Date(tItem.date).toLocaleTimeString("en-US", {
-                                hour: "numeric",
-                                minute: "2-digit",
-                                hour12: true,
-                              })
-                            : ""}
-                        </div>
-                      </div>
-                    </div>
-                  </SwipeableItem>
-                ))}
-              </div>
+                {filter.label}
+              </button>
+            ))}
+          </div>
+          {timeFilter !== "all" && (
+            <div
+              className={`flex items-center justify-between rounded-xl px-4 py-2 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+            >
+              <button
+                onClick={() => setOffset((o) => o - 1)}
+                className="p-1 text-[#32ade6] active:opacity-50"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <span className="text-[13px] font-bold tracking-wide">
+                {bounds.label}
+              </span>
+              <button
+                onClick={() => setOffset((o) => o + 1)}
+                className="p-1 text-[#32ade6] active:opacity-50"
+              >
+                <ChevronRight size={20} />
+              </button>
             </div>
-          ))}
-          {sortedGroups.length === 0 && (
-            <p className="text-center text-[#8e8e93] mt-12 text-sm">
-              No transactions found.
-            </p>
           )}
         </div>
+
+        <div
+          className="flex-1 overflow-y-auto px-4 pt-4 pb-32 overscroll-y-auto"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          <div className="w-full">
+            {sortedGroups.map((group) => (
+              <div key={group.date.toISOString()} className="mb-6 w-full">
+                <div className="flex justify-between items-center mb-1 px-1">
+                  <span className="text-xs font-semibold text-[#8e8e93] uppercase tracking-wide">
+                    {formatGroupHeader(group.date)}
+                  </span>
+                  <span className="text-xs font-semibold text-[#8e8e93]">
+                    ₫{Math.abs(group.totalDay).toLocaleString("vi-VN")}
+                  </span>
+                </div>
+                <div
+                  className={`w-full rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+                >
+                  {group.items.map((tItem, index) => (
+                    <SwipeableItem
+                      key={tItem.id}
+                      onEdit={() => openEdit(tItem)}
+                      onDelete={() => setItemToDelete(tItem.id)}
+                      isLast={index === group.items.length - 1}
+                      theme={theme}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-[42px] h-[42px] rounded-full flex items-center justify-center text-[22px] ${theme === "dark" ? "bg-black/50" : "bg-gray-100"}`}
+                          >
+                            {tItem.category?.icon || "💰"}
+                          </div>
+                          <div className="flex flex-col">
+                            <p className="font-bold text-[16px] leading-tight">
+                              {tItem.category?.name || tItem.note}
+                            </p>
+                            <p className="text-[13px] text-[#8e8e93] mt-0.5 leading-tight">
+                              {tItem.note}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right flex flex-col items-end">
+                          <div className="font-bold text-[16px] leading-tight">
+                            {tItem.type === "income" ? "+" : ""}₫
+                            {tItem.amount.toLocaleString("vi-VN")}
+                          </div>
+                          <div className="text-[12px] text-[#8e8e93] mt-0.5 leading-tight uppercase font-medium">
+                            {tItem.date
+                              ? new Date(tItem.date).toLocaleTimeString(
+                                  "en-US",
+                                  {
+                                    hour: "numeric",
+                                    minute: "2-digit",
+                                    hour12: true,
+                                  },
+                                )
+                              : ""}
+                          </div>
+                        </div>
+                      </div>
+                    </SwipeableItem>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {sortedGroups.length === 0 && (
+              <p className="text-center text-[#8e8e93] mt-12 text-sm">
+                No transactions found.
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
+      {/* ĐƯA CÁC MODAL RA BÊN NGOÀI ĐỂ NÓ ĐÈ LÊN ĐƯỢC NAV BAR */}
       {itemToDelete && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
@@ -594,6 +597,6 @@ export default function History() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

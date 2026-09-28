@@ -22,9 +22,7 @@ export default function Settings() {
   const [catForm, setCatForm] = useState(null);
   const [isResetting, setIsResetting] = useState(false);
 
-  // BỘ ICON MỚI: SIÊU ĐA DẠNG
   const EMOJI_LIST = [
-    // Ăn uống, đi chợ
     "🍔",
     "🍜",
     "☕",
@@ -33,7 +31,6 @@ export default function Settings() {
     "🍎",
     "🥦",
     "🛒",
-    // Đi lại, xe cộ
     "🚕",
     "🚌",
     "🚆",
@@ -42,7 +39,6 @@ export default function Settings() {
     "✈️",
     "⛽",
     "🅿️",
-    // Mua sắm, làm đẹp, cá nhân
     "🛍️",
     "👕",
     "👟",
@@ -51,7 +47,6 @@ export default function Settings() {
     "💅",
     "💍",
     "⌚",
-    // Nhà cửa, điện nước, sinh hoạt
     "🏠",
     "💡",
     "💧",
@@ -60,7 +55,6 @@ export default function Settings() {
     "🧹",
     "🛋️",
     "📦",
-    // Thu nhập, tài chính
     "💰",
     "💵",
     "💳",
@@ -69,7 +63,6 @@ export default function Settings() {
     "🧾",
     "🪙",
     "💸",
-    // Sức khỏe, thể thao
     "🏥",
     "💊",
     "🦷",
@@ -78,7 +71,6 @@ export default function Settings() {
     "⚽",
     "🏃",
     "🤕",
-    // Giải trí, sở thích
     "🎬",
     "🎮",
     "🎧",
@@ -87,7 +79,6 @@ export default function Settings() {
     "📸",
     "🎟️",
     "🏕️",
-    // Gia đình, con cái, thú cưng
     "👶",
     "🧸",
     "🍼",
@@ -96,7 +87,6 @@ export default function Settings() {
     "🐱",
     "👨‍👩‍👧",
     "🏫",
-    // Học tập, công việc
     "📚",
     "🎓",
     "💼",
@@ -105,7 +95,6 @@ export default function Settings() {
     "📎",
     "📊",
     "🤝",
-    // Khác
     "🎁",
     "🛠️",
     "🚬",
@@ -358,108 +347,114 @@ export default function Settings() {
   );
 
   return (
-    <div
-      className={`h-[100dvh] w-full flex flex-col relative overflow-hidden animate-ios-page ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
-    >
+    <>
+      {/* THÂN TRANG BỊ GIỚI HẠN HIỆU ỨNG */}
       <div
-        className={`flex-shrink-0 z-40 px-4 pb-3 flex items-center shadow-[0_1px_0_0_rgba(0,0,0,0.05)] relative ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
+        className={`h-[100dvh] w-full flex flex-col relative overflow-hidden animate-ios-page ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       >
-        <button
-          onClick={() => navigate(-1)}
-          className="p-2 absolute active:opacity-50"
-          style={{ left: "12px", bottom: "6px" }}
+        <div
+          className={`flex-shrink-0 z-40 px-4 pb-3 flex items-center shadow-[0_1px_0_0_rgba(0,0,0,0.05)] relative ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
         >
-          <ChevronLeft size={28} className="text-[#32ade6]" />
-        </button>
-        <h1 className="text-[22px] font-bold tracking-tight w-full text-center">
-          Settings
-        </h1>
-      </div>
-
-      <div
-        className="flex-1 overflow-y-auto px-4 pt-6 pb-32 space-y-5 overscroll-y-auto"
-        style={{ WebkitOverflowScrolling: "touch" }}
-      >
-        <div>
-          <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
-            Preferences
-          </h3>
-          <div
-            className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 absolute active:opacity-50"
+            style={{ left: "12px", bottom: "6px" }}
           >
-            <div className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-3">
-                <Moon size={20} className="text-[#32ade6]" />
-                <span className="font-semibold text-[15px]">Dark Mode</span>
+            <ChevronLeft size={28} className="text-[#32ade6]" />
+          </button>
+          <h1 className="text-[22px] font-bold tracking-tight w-full text-center">
+            Settings
+          </h1>
+        </div>
+
+        <div
+          className="flex-1 overflow-y-auto px-4 pt-6 pb-32 space-y-5 overscroll-y-auto"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          <div>
+            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
+              Preferences
+            </h3>
+            <div
+              className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+            >
+              <div className="flex items-center justify-between p-4">
+                <div className="flex items-center gap-3">
+                  <Moon size={20} className="text-[#32ade6]" />
+                  <span className="font-semibold text-[15px]">Dark Mode</span>
+                </div>
+                <button
+                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  className={`w-12 h-7 rounded-full transition-colors relative ${theme === "dark" ? "bg-[#32d74b]" : "bg-gray-400"}`}
+                >
+                  <div
+                    className={`w-6 h-6 bg-white rounded-full absolute top-0.5 transition-transform ${theme === "dark" ? "translate-x-5" : "translate-x-0.5"}`}
+                  ></div>
+                </button>
               </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
+              Budget Cycle
+            </h3>
+            <div
+              className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+            >
               <button
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className={`w-12 h-7 rounded-full transition-colors relative ${theme === "dark" ? "bg-[#32d74b]" : "bg-gray-400"}`}
+                onClick={openCycleModal}
+                className="w-full flex justify-between items-center p-4 text-left active:opacity-70 transition-opacity"
               >
-                <div
-                  className={`w-6 h-6 bg-white rounded-full absolute top-0.5 transition-transform ${theme === "dark" ? "translate-x-5" : "translate-x-0.5"}`}
-                ></div>
+                <div>
+                  <p className="font-semibold text-[15px]">Cycle starts on</p>
+                  <p className="text-xs text-[#8e8e93] mt-0.5">
+                    Budget and monthly totals reset on this day
+                  </p>
+                </div>
+                <span className="text-[#8e8e93] text-sm">
+                  {cycleStartDay} ›
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
+              Expense Categories
+            </h3>
+            {renderCategoryList(expenseCategories, "expense")}
+          </div>
+          <div>
+            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
+              Income Categories
+            </h3>
+            {renderCategoryList(incomeCategories, "income")}
+          </div>
+
+          <div className="pt-4">
+            <h3 className="text-[#ff453a] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
+              Danger Zone
+            </h3>
+            <div
+              className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+            >
+              <button
+                onClick={() => {
+                  setModalType("reset");
+                  setIsModalOpen(true);
+                }}
+                className="w-full flex items-center justify-center gap-2 p-4 text-left font-semibold text-[#ff453a] active:bg-white/5 transition-colors"
+              >
+                <Trash2 size={18} /> Erase All Data
               </button>
             </div>
           </div>
         </div>
-
-        <div>
-          <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
-            Budget Cycle
-          </h3>
-          <div
-            className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
-          >
-            <button
-              onClick={openCycleModal}
-              className="w-full flex justify-between items-center p-4 text-left active:opacity-70 transition-opacity"
-            >
-              <div>
-                <p className="font-semibold text-[15px]">Cycle starts on</p>
-                <p className="text-xs text-[#8e8e93] mt-0.5">
-                  Budget and monthly totals reset on this day
-                </p>
-              </div>
-              <span className="text-[#8e8e93] text-sm">{cycleStartDay} ›</span>
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
-            Expense Categories
-          </h3>
-          {renderCategoryList(expenseCategories, "expense")}
-        </div>
-        <div>
-          <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
-            Income Categories
-          </h3>
-          {renderCategoryList(incomeCategories, "income")}
-        </div>
-
-        <div className="pt-4">
-          <h3 className="text-[#ff453a] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
-            Danger Zone
-          </h3>
-          <div
-            className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
-          >
-            <button
-              onClick={() => {
-                setModalType("reset");
-                setIsModalOpen(true);
-              }}
-              className="w-full flex items-center justify-center gap-2 p-4 text-left font-semibold text-[#ff453a] active:bg-white/5 transition-colors"
-            >
-              <Trash2 size={18} /> Erase All Data
-            </button>
-          </div>
-        </div>
       </div>
 
+      {/* ĐƯA CÁC MODAL RA BÊN NGOÀI */}
       {modalType === "reset" && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
@@ -663,6 +658,6 @@ export default function Settings() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
