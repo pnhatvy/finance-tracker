@@ -1,13 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { collection, addDoc } from "firebase/firestore";
-import { db } from "../firebase";
 import { X, Delete, Calendar, Repeat } from "lucide-react";
 import { useAppContext } from "../AppContext";
 
 export default function AddTransaction() {
   const navigate = useNavigate();
-  // KHAI BÁO THÊM THEME Ở ĐÂY
   const { categories, theme } = useAppContext();
 
   const [amount, setAmount] = useState("0");
@@ -59,26 +56,34 @@ export default function AddTransaction() {
     else setAmount(amount.slice(0, -1));
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (amount === "0" || amount === ",") return;
     try {
       const numericAmount = Number(amount.replace(",", "."));
       const baseDate = new Date(txDate);
       baseDate.setHours(new Date().getHours(), new Date().getMinutes());
+
       let count = 1;
       if (repeat === "daily") count = 30;
       if (repeat === "weekly") count = 12;
       if (repeat === "monthly") count = 12;
       if (repeat === "yearly") count = 5;
-      const docsToAdd = [];
+
+      const newTransactions = [];
       const groupId = "rep_" + Date.now();
+      const existingData = JSON.parse(
+        localStorage.getItem("vys_transactions") || "[]",
+      );
+
       for (let i = 0; i < count; i++) {
         const d = new Date(baseDate);
         if (repeat === "daily") d.setDate(d.getDate() + i);
         if (repeat === "weekly") d.setDate(d.getDate() + i * 7);
         if (repeat === "monthly") d.setMonth(d.getMonth() + i);
         if (repeat === "yearly") d.setFullYear(d.getFullYear() + i);
-        docsToAdd.push({
+
+        newTransactions.push({
+          id: Date.now().toString() + "_" + i,
           amount: numericAmount,
           type: type,
           note:
@@ -90,11 +95,13 @@ export default function AddTransaction() {
           recurringId: repeat !== "none" ? groupId : null,
         });
       }
-      await Promise.all(
-        docsToAdd.map((data) => addDoc(collection(db, "transactions"), data)),
-      );
+
+      const updated = [...newTransactions, ...existingData];
+      localStorage.setItem("vys_transactions", JSON.stringify(updated));
       navigate("/");
-    } catch (e) {}
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const displayAmount = () => {

@@ -1,78 +1,92 @@
-import { createContext, useState, useEffect, useContext } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 
 const AppContext = createContext();
 
-const defaultCategories = [
-  { id: "food", name: "Food", icon: "🍔", color: "#ff453a", type: "expense" },
-  {
-    id: "transport",
-    name: "Transport",
-    icon: "🚕",
-    color: "#32ade6",
-    type: "expense",
-  },
-  {
-    id: "shopping",
-    name: "Shopping",
-    icon: "🛍️",
-    color: "#ff9f0a",
-    type: "expense",
-  },
-  {
-    id: "salary",
-    name: "Salary",
-    icon: "💰",
-    color: "#32d74b",
-    type: "income",
-  },
-  { id: "gift", name: "Gift", icon: "🎁", color: "#bf5af2", type: "income" },
-];
-
 export function AppProvider({ children }) {
-  const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
+  // 1. Theme (Sáng / Tối)
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("vys_theme") || "dark";
+  });
+
+  // 2. Danh mục Thu / Chi
   const [categories, setCategories] = useState(() => {
-    const localData = JSON.parse(localStorage.getItem("categories"));
-    if (!localData || localData.length === 0) return defaultCategories;
-    const upgraded = localData.map((c) => ({
-      ...c,
-      type: c.type || "expense",
-    }));
-    if (!upgraded.some((c) => c.type === "income")) {
-      upgraded.push({
+    const saved = localStorage.getItem("vys_categories");
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: "food",
+        name: "Food",
+        icon: "🍔",
+        color: "#ff453a",
+        type: "expense",
+      },
+      {
+        id: "transport",
+        name: "Transport",
+        icon: "🚕",
+        color: "#32ade6",
+        type: "expense",
+      },
+      {
+        id: "shopping",
+        name: "Shopping",
+        icon: "🛍️",
+        color: "#ff9f0a",
+        type: "expense",
+      },
+      {
         id: "salary",
         name: "Salary",
         icon: "💰",
         color: "#32d74b",
         type: "income",
-      });
-    }
-    return upgraded;
+      },
+      {
+        id: "gift",
+        name: "Gift",
+        icon: "🎁",
+        color: "#bf5af2",
+        type: "income",
+      },
+    ];
   });
 
-  const [cycleStartDay, setCycleStartDay] = useState(
-    Number(localStorage.getItem("cycleStartDay")) || 1,
-  );
-  const [monthlyBudget, setMonthlyBudget] = useState(
-    Number(localStorage.getItem("monthlyBudget")) || 9700000,
-  );
-  const [monthlyIncomeGoal, setMonthlyIncomeGoal] = useState(
-    Number(localStorage.getItem("monthlyIncomeGoal")) || 15000000,
-  );
+  // 3. Ngày bắt đầu chu kỳ ngân sách
+  const [cycleStartDay, setCycleStartDay] = useState(() => {
+    const saved = localStorage.getItem("vys_cycle_day");
+    return saved ? Number(saved) : 1;
+  });
+
+  // 4. Ngân sách & Mục tiêu thu nhập
+  const [monthlyBudget, setMonthlyBudget] = useState(() => {
+    const saved = localStorage.getItem("vys_budget");
+    return saved ? Number(saved) : 9700000;
+  });
+
+  const [monthlyIncomeGoal, setMonthlyIncomeGoal] = useState(() => {
+    const saved = localStorage.getItem("vys_goal");
+    return saved ? Number(saved) : 15000000;
+  });
+
+  // Trạng thái Modal chung
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Tự động lưu vào localStorage mỗi khi có thay đổi
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    localStorage.setItem("theme", theme);
+    localStorage.setItem("vys_theme", theme);
   }, [theme]);
-
-  useEffect(
-    () => localStorage.setItem("categories", JSON.stringify(categories)),
-    [categories],
-  );
-  useEffect(
-    () => localStorage.setItem("cycleStartDay", cycleStartDay),
-    [cycleStartDay],
-  );
+  useEffect(() => {
+    localStorage.setItem("vys_categories", JSON.stringify(categories));
+  }, [categories]);
+  useEffect(() => {
+    localStorage.setItem("vys_cycle_day", cycleStartDay);
+  }, [cycleStartDay]);
+  useEffect(() => {
+    localStorage.setItem("vys_budget", monthlyBudget);
+  }, [monthlyBudget]);
+  useEffect(() => {
+    localStorage.setItem("vys_goal", monthlyIncomeGoal);
+  }, [monthlyIncomeGoal]);
 
   return (
     <AppContext.Provider
@@ -91,23 +105,11 @@ export function AppProvider({ children }) {
         setIsModalOpen,
       }}
     >
-      {/* BỘ ENGINE CSS HIỆU ỨNG iOS 27 CHO TOÀN APP */}
-      <style>{`
-        @keyframes iosPage { 0% { opacity: 0; transform: scale(0.96) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
-        .animate-ios-page { animation: iosPage 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-
-        @keyframes iosSlide { 0% { transform: translateY(100%); } 100% { transform: translateY(0); } }
-        .animate-ios-slide { animation: iosSlide 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-
-        @keyframes iosFade { 0% { opacity: 0; } 100% { opacity: 1; } }
-        .animate-ios-fade { animation: iosFade 0.3s ease-out forwards; }
-        
-        ::-webkit-scrollbar { display: none; }
-        * { -ms-overflow-style: none; scrollbar-width: none; outline: none; -webkit-tap-highlight-color: transparent; }
-      `}</style>
-
       {children}
     </AppContext.Provider>
   );
 }
-export const useAppContext = () => useContext(AppContext);
+
+export function useAppContext() {
+  return useContext(AppContext);
+}
