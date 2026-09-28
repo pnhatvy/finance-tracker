@@ -1,16 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  collection,
-  query,
-  orderBy,
-  onSnapshot,
-  deleteDoc,
-  doc,
-  updateDoc,
-  addDoc,
-} from "firebase/firestore";
-import { db } from "../firebase";
-import {
   Trash2,
   Calendar,
   Clock,
@@ -82,14 +71,15 @@ export default function History() {
   const [itemToDelete, setItemToDelete] = useState(null);
   const [offset, setOffset] = useState(0);
 
+  // ĐÃ SỬA: Đọc dữ liệu từ localStorage thay vì Firebase
   useEffect(() => {
-    const q = query(collection(db, "transactions"), orderBy("date", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      let data = [];
-      snapshot.forEach((doc) => data.push({ id: doc.id, ...doc.data() }));
+    const loadData = () => {
+      const data = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
+      // Sắp xếp ngày mới nhất lên đầu
+      data.sort((a, b) => new Date(b.date) - new Date(a.date));
       setTransactions(data);
-    });
-    return () => unsubscribe();
+    };
+    loadData();
   }, []);
 
   const getPeriodBounds = () => {
@@ -170,12 +160,16 @@ export default function History() {
     (a, b) => b.date - a.date,
   );
 
-  const confirmDelete = async () => {
+  // ĐÃ SỬA: Xóa dữ liệu trong localStorage
+  const confirmDelete = () => {
     if (itemToDelete) {
-      await deleteDoc(doc(db, "transactions", itemToDelete));
+      const newData = transactions.filter((t) => t.id !== itemToDelete);
+      setTransactions(newData);
+      localStorage.setItem("vys_transactions", JSON.stringify(newData));
       setItemToDelete(null);
     }
   };
+
   const openEdit = (item) => {
     const d = item.date ? new Date(item.date) : new Date();
     setEditingItem({
@@ -193,7 +187,8 @@ export default function History() {
     setIsModalOpen(false);
   };
 
-  const handleSaveEdit = async () => {
+  // ĐÃ SỬA: Lưu dữ liệu sau khi sửa vào localStorage
+  const handleSaveEdit = () => {
     if (!editingItem.amount || editingItem.amount === ",") return;
     try {
       const combinedDateTime = new Date(
@@ -202,20 +197,27 @@ export default function History() {
       const numericAmount = Number(
         editingItem.amount.toString().replace(",", "."),
       );
-      await updateDoc(doc(db, "transactions", editingItem.id), {
-        amount: numericAmount,
-        type: editingItem.type,
-        note: editingItem.note,
-        category: editingItem.category,
-        date: combinedDateTime.toISOString(),
-      });
+
+      let updatedList = [...transactions];
+      const index = updatedList.findIndex((t) => t.id === editingItem.id);
+
+      if (index !== -1) {
+        updatedList[index] = {
+          ...updatedList[index],
+          amount: numericAmount,
+          type: editingItem.type,
+          note: editingItem.note,
+          category: editingItem.category,
+          date: combinedDateTime.toISOString(),
+        };
+      }
+
       if (editingItem.repeat !== "none") {
         let count = 0;
         if (editingItem.repeat === "daily") count = 30;
         if (editingItem.repeat === "weekly") count = 12;
         if (editingItem.repeat === "monthly") count = 12;
         if (editingItem.repeat === "yearly") count = 5;
-        const docsToAdd = [];
         const groupId = "rep_" + Date.now();
         for (let i = 1; i <= count; i++) {
           const d = new Date(combinedDateTime);
@@ -224,7 +226,8 @@ export default function History() {
           if (editingItem.repeat === "monthly") d.setMonth(d.getMonth() + i);
           if (editingItem.repeat === "yearly")
             d.setFullYear(d.getFullYear() + i);
-          docsToAdd.push({
+          updatedList.push({
+            id: Date.now().toString() + "_" + i,
             amount: numericAmount,
             type: editingItem.type,
             note: editingItem.note,
@@ -233,10 +236,11 @@ export default function History() {
             recurringId: groupId,
           });
         }
-        await Promise.all(
-          docsToAdd.map((data) => addDoc(collection(db, "transactions"), data)),
-        );
       }
+
+      updatedList.sort((a, b) => new Date(b.date) - new Date(a.date));
+      setTransactions(updatedList);
+      localStorage.setItem("vys_transactions", JSON.stringify(updatedList));
       closeEdit();
     } catch (e) {}
   };
@@ -410,7 +414,6 @@ export default function History() {
         </div>
       </div>
 
-      {/* ĐÃ NÂNG LÊN z-[60] */}
       {itemToDelete && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
@@ -444,7 +447,6 @@ export default function History() {
         </div>
       )}
 
-      {/* ĐÃ NÂNG LÊN z-[60] */}
       {editingItem && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex flex-col justify-end animate-ios-fade"
