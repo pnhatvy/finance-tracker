@@ -290,7 +290,6 @@ export default function History() {
     <div
       className={`h-[100dvh] w-full flex flex-col relative overflow-hidden animate-ios-page ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
     >
-      {/* HEADER CỐ ĐỊNH HOÀN TOÀN */}
       <div
         className={`flex-shrink-0 z-40 px-4 pb-3 flex flex-col gap-3 shadow-[0_1px_0_0_rgba(0,0,0,0.05)] ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
@@ -298,7 +297,6 @@ export default function History() {
         <h1 className="text-[22px] font-bold w-full text-center tracking-tight">
           History
         </h1>
-
         <div className="flex justify-center gap-2">
           {[
             { id: "today", label: "Day" },
@@ -318,7 +316,6 @@ export default function History() {
             </button>
           ))}
         </div>
-
         {timeFilter !== "all" && (
           <div
             className={`flex items-center justify-between rounded-xl px-4 py-2 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
@@ -342,7 +339,6 @@ export default function History() {
         )}
       </div>
 
-      {/* KHU VỰC CUỘN ĐỘC LẬP */}
       <div
         className="flex-1 overflow-y-auto px-4 pt-4 pb-32 overscroll-y-auto"
         style={{ WebkitOverflowScrolling: "touch" }}
@@ -414,10 +410,10 @@ export default function History() {
         </div>
       </div>
 
-      {/* MODAL XÓA */}
+      {/* ĐÃ NÂNG LÊN z-[60] */}
       {itemToDelete && (
         <div
-          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-ios-fade"
+          className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
           onClick={() => setItemToDelete(null)}
         >
           <div
@@ -448,10 +444,10 @@ export default function History() {
         </div>
       )}
 
-      {/* MODAL EDIT */}
+      {/* ĐÃ NÂNG LÊN z-[60] */}
       {editingItem && (
         <div
-          className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end animate-ios-fade"
+          className="fixed inset-0 bg-black/70 z-[60] flex flex-col justify-end animate-ios-fade"
           onClick={closeEdit}
         >
           <div

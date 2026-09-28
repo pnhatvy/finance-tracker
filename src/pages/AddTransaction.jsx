@@ -7,7 +7,8 @@ import { useAppContext } from "../AppContext";
 
 export default function AddTransaction() {
   const navigate = useNavigate();
-  const { categories } = useAppContext();
+  // KHAI BÁO THÊM THEME Ở ĐÂY
+  const { categories, theme } = useAppContext();
 
   const [amount, setAmount] = useState("0");
   const [type, setType] = useState("expense");
@@ -22,7 +23,6 @@ export default function AddTransaction() {
   const currentCategories = safeCategories.filter((c) => c.type === type);
   const [category, setCategory] = useState(currentCategories[0] || {});
 
-  // --- STATE VUỐT ĐỂ TẮT ---
   const [startY, setStartY] = useState(0);
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -34,14 +34,13 @@ export default function AddTransaction() {
   const onTouchMove = (e) => {
     if (!isDragging) return;
     const diff = e.touches[0].clientY - startY;
-    if (diff > 0) setDragY(diff); // Chỉ kéo xuống
+    if (diff > 0) setDragY(diff);
   };
   const onTouchEnd = () => {
     setIsDragging(false);
     if (dragY > 100) navigate("/");
     else setDragY(0);
   };
-  // -------------------------
 
   useEffect(() => {
     setCategory(currentCategories[0] || {});
@@ -108,7 +107,7 @@ export default function AddTransaction() {
 
   return (
     <div
-      className="flex flex-col h-[100dvh] bg-black text-white p-5 animate-ios-slide overflow-hidden"
+      className={`flex flex-col h-[100dvh] p-5 animate-ios-slide overflow-hidden ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       style={{
         transform: dragY > 0 ? `translateY(${dragY}px)` : "",
         transition: isDragging
@@ -117,24 +116,27 @@ export default function AddTransaction() {
         paddingTop: "max(env(safe-area-inset-top), 20px)",
       }}
     >
-      {/* KHU VỰC NẮM KÉO (DRAG HANDLE) ĐÃ FIX TOUCH */}
       <div
         className="w-full flex justify-center py-2 mb-2 touch-none"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        <div className="w-14 h-1.5 bg-[#2c2c2e] rounded-full"></div>
+        <div
+          className={`w-14 h-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-300"}`}
+        ></div>
       </div>
 
       <div className="flex justify-between items-center mb-5">
         <button
           onClick={() => navigate("/")}
-          className="text-[#8e8e93] p-1 active:opacity-50 flex-shrink-0 w-[42px]"
+          className={`p-1 active:opacity-50 flex-shrink-0 w-[42px] ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
         >
           <X size={26} />
         </button>
-        <div className="relative flex bg-[#1c1c1e] rounded-full p-1 w-[200px]">
+        <div
+          className={`relative flex rounded-full p-1 w-[200px] ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-200"}`}
+        >
           <div
             className={`absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-full transition-all duration-300 ease-out ${type === "expense" ? "translate-x-0 bg-[#ff453a]" : "translate-x-[100%] bg-[#32d74b]"}`}
           ></div>
@@ -159,7 +161,7 @@ export default function AddTransaction() {
           <button
             key={cat.id}
             onClick={() => setCategory(cat)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap transition-all flex-shrink-0 ${category.id === cat.id ? "bg-[#2c2c2e]" : "bg-[#1c1c1e] text-[#8e8e93]"}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap transition-all flex-shrink-0 ${category.id === cat.id ? (theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-200") : theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500"}`}
             style={{
               border:
                 category.id === cat.id
@@ -169,7 +171,7 @@ export default function AddTransaction() {
           >
             <span className="text-base">{cat.icon}</span>
             <span
-              className={`text-sm font-semibold ${category.id === cat.id ? "text-white" : "text-[#8e8e93]"}`}
+              className={`text-sm font-semibold ${category.id === cat.id ? (theme === "dark" ? "text-white" : "text-black") : theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
             >
               {cat.name}
             </span>
@@ -178,11 +180,15 @@ export default function AddTransaction() {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center min-h-[100px]">
-        <span className="text-[#8e8e93] text-xs uppercase tracking-wider mb-1 font-medium">
+        <span
+          className={`text-xs uppercase tracking-wider mb-1 font-medium ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
+        >
           Amount
         </span>
         <div className="text-[56px] font-bold tracking-tight flex items-baseline">
-          <span className="text-[#8e8e93] text-4xl mr-1 underline underline-offset-8">
+          <span
+            className={`text-4xl mr-1 underline underline-offset-8 ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
+          >
             ₫
           </span>
           <span>{displayAmount()}</span>
@@ -192,13 +198,17 @@ export default function AddTransaction() {
           placeholder="+ Add note..."
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          className="mt-4 bg-transparent text-center focus:outline-none text-[#8e8e93] placeholder:text-[#8e8e93]/50 w-3/4 py-1.5"
+          className={`mt-4 bg-transparent text-center focus:outline-none w-3/4 py-1.5 ${theme === "dark" ? "text-[#8e8e93] placeholder:text-[#8e8e93]/50" : "text-gray-600 placeholder:text-gray-400"}`}
         />
       </div>
 
       <div className="flex gap-3 mb-4 mt-auto">
-        <div className="flex-1 relative bg-[#1c1c1e] rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity">
-          <span className="text-white font-semibold text-[13px] flex items-center gap-2 pointer-events-none">
+        <div
+          className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+        >
+          <span
+            className={`font-semibold text-[13px] flex items-center gap-2 pointer-events-none ${theme === "dark" ? "text-white" : "text-black"}`}
+          >
             <Calendar size={16} className="text-[#32ade6]" />{" "}
             {new Date(txDate).toLocaleDateString("en-US", {
               month: "short",
@@ -213,8 +223,12 @@ export default function AddTransaction() {
             className="absolute inset-0 opacity-0 z-20 w-full h-full"
           />
         </div>
-        <div className="flex-1 relative bg-[#1c1c1e] rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity">
-          <span className="text-white font-semibold text-[13px] flex items-center gap-2 pointer-events-none capitalize">
+        <div
+          className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+        >
+          <span
+            className={`font-semibold text-[13px] flex items-center gap-2 pointer-events-none capitalize ${theme === "dark" ? "text-white" : "text-black"}`}
+          >
             <Repeat size={16} className="text-[#32ade6]" />{" "}
             {repeat === "none" ? "No Repeat" : repeat}
           </span>
@@ -237,26 +251,26 @@ export default function AddTransaction() {
           <button
             key={num}
             onClick={() => handleKeyPress(num.toString())}
-            className="bg-[#1c1c1e] py-3 rounded-2xl text-2xl font-semibold active:opacity-60"
+            className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
           >
             {num}
           </button>
         ))}
         <button
           onClick={() => handleKeyPress(",")}
-          className="bg-[#1c1c1e] py-3 rounded-2xl text-2xl font-semibold active:opacity-60"
+          className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
         >
           ,
         </button>
         <button
           onClick={() => handleKeyPress("0")}
-          className="bg-[#1c1c1e] py-3 rounded-2xl text-2xl font-semibold active:opacity-60"
+          className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
         >
           0
         </button>
         <button
           onClick={handleDelete}
-          className="bg-[#1c1c1e] py-3 rounded-2xl flex items-center justify-center text-[#8e8e93] active:opacity-60"
+          className={`py-3 rounded-2xl flex items-center justify-center active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500 shadow-sm"}`}
         >
           <Delete size={26} />
         </button>
@@ -264,7 +278,7 @@ export default function AddTransaction() {
 
       <button
         onClick={handleSave}
-        className="w-full py-3.5 rounded-full bg-white text-black font-bold text-[17px] active:scale-[0.98] transition-transform flex-shrink-0"
+        className={`w-full py-3.5 rounded-full font-bold text-[17px] active:scale-[0.98] transition-transform flex-shrink-0 ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
       >
         Save
       </button>
