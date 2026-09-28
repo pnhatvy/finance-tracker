@@ -1,10 +1,8 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAppContext } from "../AppContext";
-import { ChevronLeft, X, Moon, Menu, Trash2 } from "lucide-react";
+import { X, Moon, Menu, Trash2 } from "lucide-react"; // Đã xóa ChevronLeft
 
 export default function Settings() {
-  const navigate = useNavigate();
   const {
     theme,
     setTheme,
@@ -201,7 +199,7 @@ export default function Settings() {
       setMonthlyBudget(9700000);
       setMonthlyIncomeGoal(15000000);
       closeModals();
-      navigate("/");
+      window.location.href = "/"; // Dùng cách này để force reload lại trang sau khi xóa dữ liệu offline
     } catch (e) {
       console.error(e);
     } finally {
@@ -348,21 +346,14 @@ export default function Settings() {
 
   return (
     <>
-      {/* THÂN TRANG BỊ GIỚI HẠN HIỆU ỨNG */}
       <div
         className={`h-[100dvh] w-full flex flex-col relative overflow-hidden animate-ios-page ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       >
+        {/* NÚT BACK ĐÃ BỊ XÓA Ở ĐÂY, CĂN GIỮA LẠI HEADER */}
         <div
-          className={`flex-shrink-0 z-40 px-4 pb-3 flex items-center shadow-[0_1px_0_0_rgba(0,0,0,0.05)] relative ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
+          className={`flex-shrink-0 z-40 px-4 pb-3 flex flex-col justify-end shadow-[0_1px_0_0_rgba(0,0,0,0.05)] relative ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
         >
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 absolute active:opacity-50"
-            style={{ left: "12px", bottom: "6px" }}
-          >
-            <ChevronLeft size={28} className="text-[#32ade6]" />
-          </button>
           <h1 className="text-[22px] font-bold tracking-tight w-full text-center">
             Settings
           </h1>
@@ -454,7 +445,6 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* ĐƯA CÁC MODAL RA BÊN NGOÀI */}
       {modalType === "reset" && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
