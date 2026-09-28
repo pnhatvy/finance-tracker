@@ -22,48 +22,52 @@ export default function Settings() {
   const [catForm, setCatForm] = useState(null);
   const [isResetting, setIsResetting] = useState(false);
 
-  // Bộ icon mới: Đa dạng, bao quát mọi nhu cầu thu chi, không thừa thãi
   const EMOJI_LIST = [
     "🍔",
     "☕",
-    "🍎", // Ăn uống, cà phê, đi chợ
+    "🍎",
     "🚕",
     "🛵",
     "✈️",
-    "⛽", // Đi lại, xăng xe, du lịch
+    "⛽",
     "🛍️",
     "👕",
-    "💄", // Mua sắm, quần áo, làm đẹp
+    "💄",
     "🏠",
     "💡",
     "💧",
-    "📱", // Thuê nhà, điện, nước, hóa đơn mạng
+    "📱",
     "💰",
     "📈",
-    "🏦", // Tiền lương, đầu tư, ngân hàng
+    "🏦",
     "🏥",
     "💊",
-    "🏋️", // Y tế, sức khỏe, thể thao
+    "🏋️",
     "🎬",
     "🎮",
-    "🎟️", // Xem phim, giải trí, sự kiện
+    "🎟️",
     "🐾",
-    "👶", // Thú cưng, con cái
+    "👶",
     "📚",
-    "💼", // Học tập, công việc
+    "💼",
     "🎁",
-    "🛠️", // Quà biếu, sửa chữa
+    "🛠️",
   ];
 
+  // BẢNG MÀU MỚI: 12 màu (thêm Xám, Nâu, Hồng, Mint,...)
   const COLOR_LIST = [
     "#ff453a",
-    "#32ade6",
-    "#ffd60a",
-    "#bf5af2",
-    "#30d158",
     "#ff9f0a",
-    "#64d2ff",
+    "#ffd60a",
+    "#32d74b",
+    "#00c7be",
+    "#32ade6",
+    "#007aff",
     "#5e5ce6",
+    "#bf5af2",
+    "#ff375f",
+    "#a2845e",
+    "#8e8e93",
   ];
 
   const confirmDeleteCategory = () => {
@@ -102,11 +106,10 @@ export default function Settings() {
     closeModals();
   };
 
-  // Nút Reset chuyển sang dùng localStorage để xóa toàn bộ dữ liệu Offline
   const handleResetData = () => {
     setIsResetting(true);
     try {
-      localStorage.removeItem("vys_transactions"); // Xóa sạch giao dịch lưu trên máy
+      localStorage.removeItem("vys_transactions");
       setCategories([
         {
           id: "food",
@@ -543,8 +546,9 @@ export default function Settings() {
               onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
               className={`w-full text-center rounded-xl px-4 py-3 outline-none mb-4 font-semibold ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-gray-100 text-black"}`}
             />
+
             <div
-              className={`grid grid-cols-6 gap-2 mb-4 h-[220px] overflow-y-auto p-2 rounded-xl scrollbar-hide ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-100"}`}
+              className={`grid grid-cols-6 gap-2 mb-4 h-[180px] overflow-y-auto p-2 rounded-xl scrollbar-hide ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-100"}`}
             >
               {EMOJI_LIST.map((emoji) => (
                 <button
@@ -556,28 +560,32 @@ export default function Settings() {
                 </button>
               ))}
             </div>
+
+            {/* VÙNG CHỌN MÀU ĐÃ CHUYỂN THÀNH GRID 2 HÀNG */}
             <div
-              className={`flex justify-between mb-6 p-2.5 rounded-xl ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-100"}`}
+              className={`grid grid-cols-6 gap-y-3 mb-6 p-3 rounded-xl ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-100"}`}
             >
               {COLOR_LIST.map((color) => (
-                <button
-                  key={color}
-                  onClick={() => setCatForm({ ...catForm, color })}
-                  className="w-6 h-6 rounded-full border-2 transition-all duration-200"
-                  style={{
-                    backgroundColor: color,
-                    borderColor:
-                      catForm.color === color
-                        ? theme === "dark"
-                          ? "white"
-                          : "black"
-                        : "transparent",
-                    transform:
-                      catForm.color === color ? "scale(1.15)" : "scale(1)",
-                  }}
-                />
+                <div key={color} className="flex justify-center items-center">
+                  <button
+                    onClick={() => setCatForm({ ...catForm, color })}
+                    className="w-6 h-6 rounded-full border-2 transition-all duration-200"
+                    style={{
+                      backgroundColor: color,
+                      borderColor:
+                        catForm.color === color
+                          ? theme === "dark"
+                            ? "white"
+                            : "black"
+                          : "transparent",
+                      transform:
+                        catForm.color === color ? "scale(1.2)" : "scale(1)",
+                    }}
+                  />
+                </div>
               ))}
             </div>
+
             <div className="flex gap-3">
               <button
                 onClick={closeModals}
