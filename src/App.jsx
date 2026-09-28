@@ -14,11 +14,19 @@ function ThemeSync() {
   useEffect(() => {
     const bgColor = theme === "dark" ? "#000000" : "#f2f2f7";
 
+    // 1. Đổi class gốc cho Tailwind
     if (theme === "dark") document.documentElement.classList.add("dark");
     else document.documentElement.classList.remove("dark");
 
+    // 2. Ép màu nền HTML/Body
     document.documentElement.style.backgroundColor = bgColor;
     document.body.style.backgroundColor = bgColor;
+
+    // 3. Ép màu Dynamic Island theo nút bấm trong app
+    const metaThemeColor = document.getElementById("theme-color-meta");
+    if (metaThemeColor) {
+      metaThemeColor.setAttribute("content", bgColor);
+    }
   }, [theme]);
 
   return null;
