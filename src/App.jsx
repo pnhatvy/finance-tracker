@@ -12,18 +12,26 @@ function ThemeSync() {
   const { theme } = useAppContext();
 
   useEffect(() => {
-    // Đổi background html
+    const bgColor = theme === "dark" ? "#000000" : "#f2f2f7";
+
+    // 1. Đổi class gốc
     if (theme === "dark") document.documentElement.classList.add("dark");
     else document.documentElement.classList.remove("dark");
 
-    // Ép đổi màu Dynamic Island
-    let metaThemeColor = document.querySelector('meta[name="theme-color"]');
-    if (metaThemeColor) {
-      metaThemeColor.setAttribute(
-        "content",
-        theme === "dark" ? "#000000" : "#f2f2f7",
-      );
+    // 2. Ép style cứng vào HTML/Body để chống cache CSS của iOS
+    document.documentElement.style.backgroundColor = bgColor;
+    document.body.style.backgroundColor = bgColor;
+
+    // 3. Tiêu diệt thẻ meta cũ và sinh ra thẻ mới để ép Dynamic Island load lại màu
+    let oldMeta = document.querySelector('meta[name="theme-color"]');
+    if (oldMeta) {
+      oldMeta.remove();
     }
+
+    const newMeta = document.createElement("meta");
+    newMeta.name = "theme-color";
+    newMeta.content = bgColor;
+    document.head.appendChild(newMeta);
   }, [theme]);
 
   return null;
