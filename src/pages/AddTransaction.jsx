@@ -24,17 +24,22 @@ export default function AddTransaction() {
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Bộ bắt cảm ứng vuốt màn hình
   const onTouchStart = (e) => {
     setStartY(e.touches[0].clientY);
     setIsDragging(true);
   };
+
   const onTouchMove = (e) => {
     if (!isDragging) return;
     const diff = e.touches[0].clientY - startY;
+    // Chỉ cho phép vuốt xuống (diff > 0)
     if (diff > 0) setDragY(diff);
   };
+
   const onTouchEnd = () => {
     setIsDragging(false);
+    // Nếu vuốt xuống hơn 100px thì thoát, không thì nảy về vị trí cũ
     if (dragY > 100) navigate("/");
     else setDragY(0);
   };
@@ -51,6 +56,7 @@ export default function AddTransaction() {
       else if (amount.length < 12) setAmount(amount + val);
     }
   };
+
   const handleDelete = () => {
     if (amount.length <= 1) setAmount("0");
     else setAmount(amount.slice(0, -1));
@@ -114,6 +120,10 @@ export default function AddTransaction() {
 
   return (
     <div
+      // GẮN CẢM ỨNG VÀO DIV NGOÀI CÙNG Ở ĐÂY
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
       className={`flex flex-col h-[100dvh] p-5 animate-ios-slide overflow-hidden ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       style={{
         transform: dragY > 0 ? `translateY(${dragY}px)` : "",
@@ -123,12 +133,8 @@ export default function AddTransaction() {
         paddingTop: "max(env(safe-area-inset-top), 20px)",
       }}
     >
-      <div
-        className="w-full flex justify-center py-2 mb-2 touch-none"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-      >
+      {/* Thanh gạt trang trí phía trên (không cần gắn cảm ứng riêng nữa) */}
+      <div className="w-full flex justify-center py-2 mb-2 pointer-events-none">
         <div
           className={`w-14 h-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-300"}`}
         ></div>
@@ -167,7 +173,10 @@ export default function AddTransaction() {
         {currentCategories.map((cat) => (
           <button
             key={cat.id}
-            onClick={() => setCategory(cat)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setCategory(cat);
+            }}
             className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap transition-all flex-shrink-0 ${category.id === cat.id ? (theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-200") : theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500"}`}
             style={{
               border:
@@ -176,9 +185,9 @@ export default function AddTransaction() {
                   : "1.5px solid transparent",
             }}
           >
-            <span className="text-base">{cat.icon}</span>
+            <span className="text-base pointer-events-none">{cat.icon}</span>
             <span
-              className={`text-sm font-semibold ${category.id === cat.id ? (theme === "dark" ? "text-white" : "text-black") : theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
+              className={`text-sm font-semibold pointer-events-none ${category.id === cat.id ? (theme === "dark" ? "text-white" : "text-black") : theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
             >
               {cat.name}
             </span>
@@ -205,6 +214,7 @@ export default function AddTransaction() {
           placeholder="+ Add note..."
           value={note}
           onChange={(e) => setNote(e.target.value)}
+          onTouchStart={(e) => e.stopPropagation()}
           className={`mt-4 bg-transparent text-center focus:outline-none w-3/4 py-1.5 ${theme === "dark" ? "text-[#8e8e93] placeholder:text-[#8e8e93]/50" : "text-gray-600 placeholder:text-gray-400"}`}
         />
       </div>
@@ -227,6 +237,7 @@ export default function AddTransaction() {
             type="date"
             value={txDate}
             onChange={(e) => setTxDate(e.target.value)}
+            onTouchStart={(e) => e.stopPropagation()}
             className="absolute inset-0 opacity-0 z-20 w-full h-full"
           />
         </div>
@@ -242,6 +253,7 @@ export default function AddTransaction() {
           <select
             value={repeat}
             onChange={(e) => setRepeat(e.target.value)}
+            onTouchStart={(e) => e.stopPropagation()}
             className="absolute inset-0 opacity-0 z-20 w-full h-full"
           >
             <option value="none">No Repeat</option>
@@ -257,26 +269,38 @@ export default function AddTransaction() {
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
           <button
             key={num}
-            onClick={() => handleKeyPress(num.toString())}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleKeyPress(num.toString());
+            }}
             className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
           >
             {num}
           </button>
         ))}
         <button
-          onClick={() => handleKeyPress(",")}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleKeyPress(",");
+          }}
           className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
         >
           ,
         </button>
         <button
-          onClick={() => handleKeyPress("0")}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleKeyPress("0");
+          }}
           className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
         >
           0
         </button>
         <button
-          onClick={handleDelete}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDelete();
+          }}
           className={`py-3 rounded-2xl flex items-center justify-center active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500 shadow-sm"}`}
         >
           <Delete size={26} />
@@ -284,7 +308,10 @@ export default function AddTransaction() {
       </div>
 
       <button
-        onClick={handleSave}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleSave();
+        }}
         className={`w-full py-3.5 rounded-full font-bold text-[17px] active:scale-[0.98] transition-transform flex-shrink-0 ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
       >
         Save
