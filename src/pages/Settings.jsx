@@ -22,39 +22,100 @@ export default function Settings() {
   const [catForm, setCatForm] = useState(null);
   const [isResetting, setIsResetting] = useState(false);
 
+  // BỘ ICON MỚI: SIÊU ĐA DẠNG
   const EMOJI_LIST = [
+    // Ăn uống, đi chợ
     "🍔",
+    "🍜",
     "☕",
+    "🧋",
+    "🍺",
     "🍎",
+    "🥦",
+    "🛒",
+    // Đi lại, xe cộ
     "🚕",
+    "🚌",
+    "🚆",
     "🛵",
+    "🚲",
     "✈️",
     "⛽",
+    "🅿️",
+    // Mua sắm, làm đẹp, cá nhân
     "🛍️",
     "👕",
+    "👟",
     "💄",
+    "💇",
+    "💅",
+    "💍",
+    "⌚",
+    // Nhà cửa, điện nước, sinh hoạt
     "🏠",
     "💡",
     "💧",
     "📱",
+    "🔌",
+    "🧹",
+    "🛋️",
+    "📦",
+    // Thu nhập, tài chính
     "💰",
-    "📈",
+    "💵",
+    "💳",
     "🏦",
+    "📈",
+    "🧾",
+    "🪙",
+    "💸",
+    // Sức khỏe, thể thao
     "🏥",
     "💊",
+    "🦷",
     "🏋️",
+    "🧘",
+    "⚽",
+    "🏃",
+    "🤕",
+    // Giải trí, sở thích
     "🎬",
     "🎮",
+    "🎧",
+    "🎸",
+    "🎨",
+    "📸",
     "🎟️",
-    "🐾",
+    "🏕️",
+    // Gia đình, con cái, thú cưng
     "👶",
+    "🧸",
+    "🍼",
+    "🐾",
+    "🐶",
+    "🐱",
+    "👨‍👩‍👧",
+    "🏫",
+    // Học tập, công việc
     "📚",
+    "🎓",
     "💼",
+    "💻",
+    "✏️",
+    "📎",
+    "📊",
+    "🤝",
+    // Khác
     "🎁",
     "🛠️",
+    "🚬",
+    "🪴",
+    "🔥",
+    "🎉",
+    "🛡️",
+    "⚙️",
   ];
 
-  // BẢNG MÀU MỚI: 12 màu (thêm Xám, Nâu, Hồng, Mint,...)
   const COLOR_LIST = [
     "#ff453a",
     "#ff9f0a",
@@ -561,7 +622,6 @@ export default function Settings() {
               ))}
             </div>
 
-            {/* VÙNG CHỌN MÀU ĐÃ CHUYỂN THÀNH GRID 2 HÀNG */}
             <div
               className={`grid grid-cols-6 gap-y-3 mb-6 p-3 rounded-xl ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-100"}`}
             >
