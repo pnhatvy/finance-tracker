@@ -3,9 +3,9 @@ import { createContext, useContext, useState, useEffect } from "react";
 const AppContext = createContext();
 
 export function AppProvider({ children }) {
-  // 1. Theme (Sáng / Tối)
+  // 1. Theme (Sáng / Tối) - Đã đổi mặc định thành 'light'
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("vys_theme") || "dark";
+    return localStorage.getItem("vys_theme") || "light";
   });
 
   // 2. Danh mục Thu / Chi

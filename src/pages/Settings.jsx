@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppContext } from "../AppContext";
 import { ChevronLeft, X, Moon, Menu, Trash2 } from "lucide-react";
-import { collection, query, getDocs, deleteDoc, doc } from "firebase/firestore";
-import { db } from "../firebase";
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -24,38 +22,39 @@ export default function Settings() {
   const [catForm, setCatForm] = useState(null);
   const [isResetting, setIsResetting] = useState(false);
 
-  // QUAN TRỌNG: Cập nhật CSS HTML gốc để đổi màu nền đỉnh màn hình ngay lập tức
-  useEffect(() => {
-    if (theme === "dark") document.documentElement.classList.add("dark");
-    else document.documentElement.classList.remove("dark");
-  }, [theme]);
-
+  // Bộ icon mới: Đa dạng, bao quát mọi nhu cầu thu chi, không thừa thãi
   const EMOJI_LIST = [
     "🍔",
-    "🍕",
     "☕",
-    "🍎",
+    "🍎", // Ăn uống, cà phê, đi chợ
     "🚕",
-    "🚌",
+    "🛵",
     "✈️",
+    "⛽", // Đi lại, xăng xe, du lịch
     "🛍️",
     "👕",
-    "🎁",
-    "💰",
-    "💵",
+    "💄", // Mua sắm, quần áo, làm đẹp
     "🏠",
-    "📱",
-    "💻",
+    "💡",
+    "💧",
+    "📱", // Thuê nhà, điện, nước, hóa đơn mạng
+    "💰",
+    "📈",
+    "🏦", // Tiền lương, đầu tư, ngân hàng
+    "🏥",
+    "💊",
+    "🏋️", // Y tế, sức khỏe, thể thao
     "🎬",
     "🎮",
-    "💊",
-    "🏥",
-    "🏋️",
+    "🎟️", // Xem phim, giải trí, sự kiện
     "🐾",
-    "✨",
+    "👶", // Thú cưng, con cái
     "📚",
-    "⚡",
+    "💼", // Học tập, công việc
+    "🎁",
+    "🛠️", // Quà biếu, sửa chữa
   ];
+
   const COLOR_LIST = [
     "#ff453a",
     "#32ade6",
@@ -102,15 +101,12 @@ export default function Settings() {
     }
     closeModals();
   };
-  const handleResetData = async () => {
+
+  // Nút Reset chuyển sang dùng localStorage để xóa toàn bộ dữ liệu Offline
+  const handleResetData = () => {
     setIsResetting(true);
     try {
-      const q = query(collection(db, "transactions"));
-      const snapshot = await getDocs(q);
-      const deletePromises = snapshot.docs.map((document) =>
-        deleteDoc(doc(db, "transactions", document.id)),
-      );
-      await Promise.all(deletePromises);
+      localStorage.removeItem("vys_transactions"); // Xóa sạch giao dịch lưu trên máy
       setCategories([
         {
           id: "food",
@@ -154,6 +150,7 @@ export default function Settings() {
       closeModals();
       navigate("/");
     } catch (e) {
+      console.error(e);
     } finally {
       setIsResetting(false);
     }
@@ -401,7 +398,7 @@ export default function Settings() {
 
       {modalType === "reset" && (
         <div
-          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-ios-fade"
+          className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
           onClick={!isResetting ? closeModals : undefined}
         >
           <div
@@ -444,7 +441,7 @@ export default function Settings() {
 
       {itemToDelete && (
         <div
-          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-ios-fade"
+          className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
           onClick={() => setItemToDelete(null)}
         >
           <div
@@ -477,7 +474,7 @@ export default function Settings() {
 
       {modalType === "cycle" && (
         <div
-          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-ios-fade"
+          className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
           onClick={closeModals}
         >
           <div
@@ -513,7 +510,7 @@ export default function Settings() {
 
       {modalType === "category" && catForm && (
         <div
-          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-ios-fade"
+          className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
           onClick={closeModals}
         >
           <div
@@ -547,13 +544,13 @@ export default function Settings() {
               className={`w-full text-center rounded-xl px-4 py-3 outline-none mb-4 font-semibold ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-gray-100 text-black"}`}
             />
             <div
-              className={`grid grid-cols-5 gap-2 mb-4 h-[220px] overflow-y-auto p-2 rounded-xl ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-100"}`}
+              className={`grid grid-cols-6 gap-2 mb-4 h-[220px] overflow-y-auto p-2 rounded-xl scrollbar-hide ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-100"}`}
             >
               {EMOJI_LIST.map((emoji) => (
                 <button
                   key={emoji}
                   onClick={() => setCatForm({ ...catForm, icon: emoji })}
-                  className={`aspect-square rounded-lg text-2xl flex items-center justify-center transition-colors ${catForm.icon === emoji ? (theme === "dark" ? "bg-[#3a3a3c]" : "bg-gray-300") : ""}`}
+                  className={`aspect-square rounded-lg text-[22px] flex items-center justify-center transition-colors ${catForm.icon === emoji ? (theme === "dark" ? "bg-[#3a3a3c]" : "bg-gray-300") : ""}`}
                 >
                   {emoji}
                 </button>
