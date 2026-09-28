@@ -16,51 +16,46 @@ export default function BottomNav() {
   ];
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-[360px]">
       <div
-        className={`flex justify-between items-center px-2 py-2 rounded-full transition-colors duration-300 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12)]"}`}
+        className={`flex justify-between items-center px-4 py-3 rounded-[32px] transition-colors duration-300 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12)]"}`}
       >
         {navItems.map((item) => {
           const isActive = location.pathname === item.id;
 
-          // Nút Add to đùng ở giữa
           if (item.isAdd) {
             return (
               <button
                 key={item.id}
                 onClick={() => navigate("/add")}
-                className="w-12 h-12 bg-[#32d74b] rounded-full flex items-center justify-center active:scale-95 transition-transform flex-shrink-0 shadow-md"
+                className="w-[42px] h-[42px] bg-[#32d74b] rounded-full flex items-center justify-center active:scale-95 transition-transform flex-shrink-0 shadow-sm mx-1"
               >
-                <item.icon size={28} color="black" strokeWidth={2.5} />
+                <item.icon size={24} color="black" strokeWidth={3} />
               </button>
             );
           }
 
-          // Các nút còn lại
           return (
             <button
               key={item.id}
               onClick={() => navigate(item.id)}
-              className="flex flex-col items-center justify-center w-14 active:scale-95 transition-transform"
+              className="flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform w-[52px]"
             >
-              <div
-                className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors duration-300 ${isActive ? (theme === "dark" ? "bg-[#3a3a3c]" : "bg-gray-100") : "bg-transparent"}`}
-              >
-                <item.icon
-                  size={22}
-                  className={
-                    isActive
-                      ? theme === "dark"
-                        ? "text-white"
-                        : "text-black"
-                      : theme === "dark"
-                        ? "text-[#8e8e93]"
-                        : "text-gray-400"
-                  }
-                />
-              </div>
+              <item.icon
+                size={22}
+                className={
+                  isActive
+                    ? theme === "dark"
+                      ? "text-white"
+                      : "text-black"
+                    : theme === "dark"
+                      ? "text-[#8e8e93]"
+                      : "text-gray-400"
+                }
+                strokeWidth={isActive ? 2.5 : 2}
+              />
               <span
-                className={`text-[10px] font-semibold mt-0.5 ${isActive ? (theme === "dark" ? "text-white" : "text-black") : theme === "dark" ? "text-[#8e8e93]" : "text-gray-400"}`}
+                className={`text-[10px] font-semibold leading-none ${isActive ? (theme === "dark" ? "text-white" : "text-black") : theme === "dark" ? "text-[#8e8e93]" : "text-gray-400"}`}
               >
                 {item.label}
               </span>

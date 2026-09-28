@@ -8,36 +8,31 @@ import Goals from "./pages/Goals";
 import Settings from "./pages/Settings";
 import BottomNav from "./components/BottomNav";
 
-// COMPONENT ĐỒNG BỘ MÀU DYNAMIC ISLAND THEO THEME
 function ThemeSync() {
   const { theme } = useAppContext();
 
   useEffect(() => {
-    // 1. Đổi màu gốc của thẻ HTML
+    // Đổi background html
     if (theme === "dark") document.documentElement.classList.add("dark");
     else document.documentElement.classList.remove("dark");
 
-    // 2. Ép trình duyệt iOS (Dynamic Island) đổi màu theo
+    // Ép đổi màu Dynamic Island
     let metaThemeColor = document.querySelector('meta[name="theme-color"]');
-    if (!metaThemeColor) {
-      metaThemeColor = document.createElement("meta");
-      metaThemeColor.name = "theme-color";
-      document.head.appendChild(metaThemeColor);
+    if (metaThemeColor) {
+      metaThemeColor.setAttribute(
+        "content",
+        theme === "dark" ? "#000000" : "#f2f2f7",
+      );
     }
-    // Set Đen Tuyền cho Dark Mode và Xám Nhạt (chuẩn Apple) cho Light Mode
-    metaThemeColor.setAttribute(
-      "content",
-      theme === "dark" ? "#000000" : "#f2f2f7",
-    );
   }, [theme]);
 
-  return null; // Component này chạy ngầm, không render ra giao diện
+  return null;
 }
 
 function MainLayout({ children }) {
   return (
     <>
-      <ThemeSync /> {/* Kích hoạt đồng bộ màu */}
+      <ThemeSync />
       {children}
       <BottomNav />
     </>
@@ -81,7 +76,6 @@ export default function App() {
               </MainLayout>
             }
           />
-          {/* Trang AddTransaction nằm đè lên toàn màn hình nên không cần BottomNav */}
           <Route
             path="/add"
             element={
