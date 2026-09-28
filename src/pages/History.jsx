@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { useAppContext } from "../AppContext";
 
-const SwipeableItem = ({ children, onEdit, onDelete, isLast }) => {
+const SwipeableItem = ({ children, onEdit, onDelete, isLast, theme }) => {
   const [startX, setStartX] = useState(0);
   const [offsetX, setOffsetX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -48,8 +48,12 @@ const SwipeableItem = ({ children, onEdit, onDelete, isLast }) => {
     }
   };
   return (
-    <div className="relative w-full overflow-hidden bg-black">
-      <div className="absolute inset-0 flex justify-between items-center px-6 bg-[#1c1c1e]">
+    <div
+      className={`relative w-full overflow-hidden ${theme === "dark" ? "bg-black" : "bg-gray-100"}`}
+    >
+      <div
+        className={`absolute inset-0 flex justify-between items-center px-6 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+      >
         <div className="text-[#32ade6] font-semibold flex items-center gap-2">
           Edit
         </div>
@@ -61,7 +65,7 @@ const SwipeableItem = ({ children, onEdit, onDelete, isLast }) => {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`relative bg-black w-full transition-transform duration-200 ease-out flex items-center py-3.5 px-4 ${!isLast ? "border-b border-[#1c1c1e]" : ""}`}
+        className={`relative w-full transition-transform duration-200 ease-out flex items-center py-3.5 px-4 ${theme === "dark" ? "bg-black" : "bg-[#f2f2f7]"} ${!isLast ? (theme === "dark" ? "border-b border-[#1c1c1e]" : "border-b border-gray-200") : ""}`}
         style={{ transform: `translateX(${offsetX}px)` }}
       >
         {children}
@@ -73,7 +77,7 @@ const SwipeableItem = ({ children, onEdit, onDelete, isLast }) => {
 export default function History() {
   const [transactions, setTransactions] = useState([]);
   const [timeFilter, setTimeFilter] = useState("month");
-  const { categories, setIsModalOpen, cycleStartDay } = useAppContext();
+  const { categories, setIsModalOpen, cycleStartDay, theme } = useAppContext();
   const [editingItem, setEditingItem] = useState(null);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [offset, setOffset] = useState(0);
@@ -144,6 +148,7 @@ export default function History() {
     }
     return { start, end, label };
   };
+
   const bounds = timeFilter !== "all" ? getPeriodBounds() : null;
   const filteredTransactions = transactions.filter((tItem) => {
     if (timeFilter === "all") return true;
@@ -187,6 +192,7 @@ export default function History() {
     setEditingItem(null);
     setIsModalOpen(false);
   };
+
   const handleSaveEdit = async () => {
     if (!editingItem.amount || editingItem.amount === ",") return;
     try {
@@ -234,6 +240,7 @@ export default function History() {
       closeEdit();
     } catch (e) {}
   };
+
   const toggleEditType = () => {
     const newType = editingItem.type === "expense" ? "income" : "expense";
     setEditingItem({
@@ -280,10 +287,12 @@ export default function History() {
   };
 
   return (
-    <div className="h-[100dvh] w-full flex flex-col bg-black text-white relative overflow-hidden animate-ios-page">
-      {/* HEADER CỐ ĐỊNH - Đã ép sát Dynamic Island và gộp chung thanh Calendar */}
+    <div
+      className={`h-[100dvh] w-full flex flex-col relative overflow-hidden animate-ios-page ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
+    >
+      {/* HEADER CỐ ĐỊNH HOÀN TOÀN */}
       <div
-        className="flex-shrink-0 z-40 bg-black/90 backdrop-blur-xl px-4 pb-3 shadow-[0_1px_0_0_rgba(255,255,255,0.05)] flex flex-col gap-3"
+        className={`flex-shrink-0 z-40 px-4 pb-3 flex flex-col gap-3 shadow-[0_1px_0_0_rgba(0,0,0,0.05)] ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
       >
         <h1 className="text-[22px] font-bold w-full text-center tracking-tight">
@@ -303,7 +312,7 @@ export default function History() {
                 setTimeFilter(filter.id);
                 setOffset(0);
               }}
-              className={`flex-1 py-2 rounded-full text-[13px] font-bold transition-colors ${timeFilter === filter.id ? "bg-white text-black" : "bg-[#1c1c1e] text-[#8e8e93]"}`}
+              className={`flex-1 py-2 rounded-full text-[13px] font-bold transition-colors ${timeFilter === filter.id ? (theme === "dark" ? "bg-white text-black" : "bg-black text-white") : theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500"}`}
             >
               {filter.label}
             </button>
@@ -311,7 +320,9 @@ export default function History() {
         </div>
 
         {timeFilter !== "all" && (
-          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl px-4 py-2">
+          <div
+            className={`flex items-center justify-between rounded-xl px-4 py-2 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+          >
             <button
               onClick={() => setOffset((o) => o - 1)}
               className="p-1 text-[#32ade6] active:opacity-50"
@@ -331,8 +342,11 @@ export default function History() {
         )}
       </div>
 
-      {/* NỘI DUNG CUỘN */}
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-32">
+      {/* KHU VỰC CUỘN ĐỘC LẬP */}
+      <div
+        className="flex-1 overflow-y-auto px-4 pt-4 pb-32 overscroll-y-auto"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
         <div className="w-full">
           {sortedGroups.map((group) => (
             <div key={group.date.toISOString()} className="mb-6 w-full">
@@ -344,21 +358,26 @@ export default function History() {
                   ₫{Math.abs(group.totalDay).toLocaleString("vi-VN")}
                 </span>
               </div>
-              <div className="w-full rounded-2xl overflow-hidden bg-[#1c1c1e]">
+              <div
+                className={`w-full rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+              >
                 {group.items.map((tItem, index) => (
                   <SwipeableItem
                     key={tItem.id}
                     onEdit={() => openEdit(tItem)}
                     onDelete={() => setItemToDelete(tItem.id)}
                     isLast={index === group.items.length - 1}
+                    theme={theme}
                   >
                     <div className="flex items-center justify-between w-full">
                       <div className="flex items-center gap-3">
-                        <div className="w-[42px] h-[42px] bg-black/50 rounded-full flex items-center justify-center text-[22px]">
+                        <div
+                          className={`w-[42px] h-[42px] rounded-full flex items-center justify-center text-[22px] ${theme === "dark" ? "bg-black/50" : "bg-gray-100"}`}
+                        >
                           {tItem.category?.icon || "💰"}
                         </div>
                         <div className="flex flex-col">
-                          <p className="font-bold text-[16px] leading-tight text-white">
+                          <p className="font-bold text-[16px] leading-tight">
                             {tItem.category?.name || tItem.note}
                           </p>
                           <p className="text-[13px] text-[#8e8e93] mt-0.5 leading-tight">
@@ -367,7 +386,7 @@ export default function History() {
                         </div>
                       </div>
                       <div className="text-right flex flex-col items-end">
-                        <div className="font-bold text-[16px] leading-tight text-white">
+                        <div className="font-bold text-[16px] leading-tight">
                           {tItem.type === "income" ? "+" : ""}₫
                           {tItem.amount.toLocaleString("vi-VN")}
                         </div>
@@ -402,10 +421,10 @@ export default function History() {
           onClick={() => setItemToDelete(null)}
         >
           <div
-            className="bg-[#2c2c2e] w-full max-w-[300px] rounded-3xl p-6 shadow-2xl"
+            className={`w-full max-w-[300px] rounded-3xl p-6 shadow-2xl ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-white"}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-white font-bold text-center text-lg mb-2">
+            <h3 className="font-bold text-center text-lg mb-2">
               Delete Transaction?
             </h3>
             <p className="text-[#8e8e93] text-center text-sm mb-6">
@@ -414,7 +433,7 @@ export default function History() {
             <div className="flex gap-3">
               <button
                 onClick={() => setItemToDelete(null)}
-                className="flex-1 bg-[#3a3a3c] text-white py-2.5 rounded-xl font-semibold active:opacity-70"
+                className={`flex-1 py-2.5 rounded-xl font-semibold active:opacity-70 ${theme === "dark" ? "bg-[#3a3a3c] text-white" : "bg-gray-200 text-black"}`}
               >
                 Cancel
               </button>
@@ -436,10 +455,10 @@ export default function History() {
           onClick={closeEdit}
         >
           <div
-            className="bg-[#1c1c1e] w-full max-w-md mx-auto rounded-t-[32px] p-6 shadow-2xl pb-10 animate-ios-slide"
+            className={`w-full max-w-md mx-auto rounded-t-[32px] p-6 shadow-2xl pb-10 animate-ios-slide ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-white font-bold text-center mb-6 text-lg">
+            <h2 className="font-bold text-center mb-6 text-lg">
               Edit {editingItem.type === "expense" ? "Expense" : "Income"}
             </h2>
 
@@ -455,11 +474,11 @@ export default function History() {
                   if (val.split(",").length > 2) val = val.slice(0, -1);
                   setEditingItem({ ...editingItem, amount: val });
                 }}
-                className="flex-1 bg-[#2c2c2e] text-white rounded-xl px-4 py-3 outline-none font-bold text-lg"
+                className={`flex-1 rounded-xl px-4 py-3 outline-none font-bold text-lg ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
               />
               <button
                 onClick={toggleEditType}
-                className="bg-[#2c2c2e] text-white px-4 rounded-xl font-semibold text-sm"
+                className={`px-4 rounded-xl font-semibold text-sm ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
               >
                 {editingItem.type === "expense" ? "Credit" : "Debit"}
               </button>
@@ -474,7 +493,7 @@ export default function History() {
                     onClick={() =>
                       setEditingItem({ ...editingItem, category: cat })
                     }
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap transition-all border flex-shrink-0 ${editingItem.category?.id === cat.id ? "bg-[#2c2c2e]" : "bg-[#2c2c2e]/40 border-transparent text-[#8e8e93]"}`}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap transition-all border flex-shrink-0 ${editingItem.category?.id === cat.id ? (theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-200") : theme === "dark" ? "bg-[#2c2c2e]/40 border-transparent text-[#8e8e93]" : "bg-gray-50 border-transparent text-gray-400"}`}
                     style={{
                       borderColor:
                         editingItem.category?.id === cat.id
@@ -484,7 +503,7 @@ export default function History() {
                   >
                     <span>{cat.icon}</span>
                     <span
-                      className={`text-sm font-semibold ${editingItem.category?.id === cat.id ? "text-white" : ""}`}
+                      className={`text-sm font-semibold ${editingItem.category?.id === cat.id ? "" : theme === "dark" ? "" : "text-gray-500"}`}
                     >
                       {cat.name}
                     </span>
@@ -498,12 +517,14 @@ export default function History() {
               onChange={(e) =>
                 setEditingItem({ ...editingItem, note: e.target.value })
               }
-              className="w-full bg-[#2c2c2e] text-white rounded-xl px-4 py-3 outline-none mb-4 font-medium"
+              className={`w-full rounded-xl px-4 py-3 outline-none mb-4 font-medium ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
             />
 
             <div className="flex gap-3 mb-6">
-              <div className="flex-1 relative bg-[#2c2c2e] rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity">
-                <span className="text-white font-semibold text-[13px] flex items-center gap-1 pointer-events-none">
+              <div
+                className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+              >
+                <span className="font-semibold text-[13px] flex items-center gap-1 pointer-events-none">
                   <Calendar size={14} className="text-[#32ade6]" />{" "}
                   {new Date(editingItem.editDate).toLocaleDateString("en-US", {
                     month: "short",
@@ -519,8 +540,10 @@ export default function History() {
                   className="absolute inset-0 opacity-0 z-20 w-full h-full"
                 />
               </div>
-              <div className="flex-1 relative bg-[#2c2c2e] rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity">
-                <span className="text-white font-semibold text-[13px] flex items-center gap-1 pointer-events-none">
+              <div
+                className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+              >
+                <span className="font-semibold text-[13px] flex items-center gap-1 pointer-events-none">
                   <Clock size={14} className="text-[#32ade6]" />{" "}
                   {editingItem.editTime}
                 </span>
@@ -533,8 +556,10 @@ export default function History() {
                   className="absolute inset-0 opacity-0 z-20 w-full h-full"
                 />
               </div>
-              <div className="flex-1 relative bg-[#2c2c2e] rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity">
-                <span className="text-white font-semibold text-[13px] flex items-center gap-1 pointer-events-none capitalize">
+              <div
+                className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+              >
+                <span className="font-semibold text-[13px] flex items-center gap-1 pointer-events-none capitalize">
                   <Repeat size={14} className="text-[#32ade6]" />{" "}
                   {editingItem.repeat === "none" ? "Once" : editingItem.repeat}
                 </span>
@@ -557,13 +582,13 @@ export default function History() {
             <div className="flex gap-3">
               <button
                 onClick={closeEdit}
-                className="flex-1 bg-[#2c2c2e] text-white py-3.5 rounded-2xl font-bold"
+                className={`flex-1 py-3.5 rounded-2xl font-bold ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-200 text-black"}`}
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveEdit}
-                className="flex-1 bg-white text-black py-3.5 rounded-2xl font-bold"
+                className={`flex-1 py-3.5 rounded-2xl font-bold ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
               >
                 Save
               </button>

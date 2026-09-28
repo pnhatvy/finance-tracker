@@ -2,27 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ÉP KHÓA CUỘN TOÀN TRANG TRÊN IOS VÀ ĐỔI MÀU NỀN THEO THEME */
 :root {
-  --bg-primary: #f2f2f7;
-  --bg-card: #ffffff;
-  --text-primary: #000000;
-  --text-secondary: #8e8e93;
-  --border-color: rgba(0, 0, 0, 0.08);
+  --bg-color: #f2f2f7; /* Màu nền Light Mode (xám nhạt chuẩn Apple) */
+}
+html.dark {
+  --bg-color: #000000; /* Màu nền Dark Mode */
 }
 
-.dark {
-  --bg-primary: #000000;
-  --bg-card: #1c1c1e;
-  --text-primary: #ffffff;
-  --text-secondary: #8e8e93;
-  --border-color: transparent; /* Đổi thành transparent để xóa sạch viền trắng */
+html, body, #root {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden !important; /* Tuyệt đối không cho cuộn trang gốc */
+  position: fixed;
+  top: 0;
+  left: 0;
+  background-color: var(--bg-color); /* Đồng bộ màu đỉnh màn hình */
+  overscroll-behavior-y: none; /* Tắt hiệu ứng kéo cao su của iOS */
+  -webkit-overflow-scrolling: auto;
 }
 
-body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  transition: background-color 0.2s ease, color 0.2s ease;
+/* Ẩn thanh cuộn tàng hình cho mượt */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }

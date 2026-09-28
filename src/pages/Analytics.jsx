@@ -5,11 +5,13 @@ import { useAppContext } from "../AppContext";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function Analytics() {
-  const { monthlyBudget, monthlyIncomeGoal, cycleStartDay } = useAppContext();
+  const { monthlyBudget, monthlyIncomeGoal, cycleStartDay, theme } =
+    useAppContext();
   const [transactions, setTransactions] = useState([]);
   const [timeFilter, setTimeFilter] = useState("month");
   const [typeFilter, setTypeFilter] = useState("expense");
   const [offset, setOffset] = useState(0);
+
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
 
@@ -78,6 +80,7 @@ export default function Analytics() {
     }
     return { start, end, label };
   };
+
   const bounds = getPeriodBounds();
   const filteredData = transactions.filter((tItem) => {
     if (tItem.type !== typeFilter || !tItem.date) return false;
@@ -151,14 +154,18 @@ export default function Analytics() {
 
   return (
     <>
-      <div className="h-[100dvh] w-full flex flex-col bg-black text-white relative overflow-hidden animate-ios-page">
-        {/* HEADER CỐ ĐỊNH, DÍNH CHUNG 3 THANH VỚI NHAU (Expense/Income, Week/Month/Year, Calendar) */}
+      <div
+        className={`h-[100dvh] w-full flex flex-col relative overflow-hidden animate-ios-page ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
+      >
+        {/* HEADER CỐ ĐỊNH CHIA CẮT */}
         <div
-          className="flex-shrink-0 z-40 bg-black/90 backdrop-blur-xl px-4 pb-3 shadow-[0_1px_0_0_rgba(255,255,255,0.05)] flex flex-col gap-3"
+          className={`flex-shrink-0 z-40 px-4 pb-3 flex flex-col gap-3 shadow-[0_1px_0_0_rgba(0,0,0,0.05)] ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
         >
           <div className="flex justify-center items-center">
-            <div className="relative flex bg-[#1c1c1e] rounded-full p-1 w-[240px]">
+            <div
+              className={`relative flex rounded-full p-1 w-[240px] ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-200"}`}
+            >
               <div
                 className={`absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-full transition-all duration-300 ease-out ${typeFilter === "expense" ? "translate-x-0 bg-[#ff453a]" : "translate-x-[100%] bg-[#32d74b]"}`}
               ></div>
@@ -189,14 +196,16 @@ export default function Analytics() {
                   setTimeFilter(filter.id);
                   setOffset(0);
                 }}
-                className={`flex-1 py-2 rounded-full text-[13px] font-bold transition-colors ${timeFilter === filter.id ? "bg-white text-black" : "bg-[#1c1c1e] text-[#8e8e93]"}`}
+                className={`flex-1 py-2 rounded-full text-[13px] font-bold transition-colors ${timeFilter === filter.id ? (theme === "dark" ? "bg-white text-black" : "bg-black text-white") : theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500"}`}
               >
                 {filter.label}
               </button>
             ))}
           </div>
 
-          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl px-4 py-2">
+          <div
+            className={`flex items-center justify-between rounded-xl px-4 py-2 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+          >
             <button
               onClick={() => setOffset((o) => o - 1)}
               className="p-1 text-[#32ade6] active:opacity-50"
@@ -215,12 +224,17 @@ export default function Analytics() {
           </div>
         </div>
 
-        {/* NỘI DUNG CUỘN */}
-        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-32">
+        {/* NỘI DUNG CUỘN ĐỘC LẬP */}
+        <div
+          className="flex-1 overflow-y-auto px-4 pt-4 pb-32 overscroll-y-auto"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
           {timeFilter === "month" ? (
             <div className="mb-5">
               <div className="flex gap-2.5 mb-3">
-                <div className="flex-1 bg-[#1c1c1e] rounded-xl p-4">
+                <div
+                  className={`flex-1 rounded-xl p-4 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+                >
                   <p className="text-[#8e8e93] text-xs font-semibold mb-1">
                     {typeFilter === "expense" ? "Spent" : "Earned"}
                   </p>
@@ -228,7 +242,9 @@ export default function Analytics() {
                     ₫{totalAmount.toLocaleString("vi-VN")}
                   </div>
                 </div>
-                <div className="flex-1 bg-[#1c1c1e] rounded-xl p-4">
+                <div
+                  className={`flex-1 rounded-xl p-4 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+                >
                   <p className="text-[#8e8e93] text-xs font-semibold mb-1">
                     {typeFilter === "expense" ? "Budget left" : "Goal left"}
                   </p>
@@ -253,7 +269,9 @@ export default function Analytics() {
               )}
             </div>
           ) : (
-            <div className="bg-[#1c1c1e] rounded-xl p-4 mb-5">
+            <div
+              className={`rounded-xl p-4 mb-5 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+            >
               <p className="text-[#8e8e93] text-xs font-semibold mb-1">
                 {typeFilter === "expense" ? `Spent` : `Earned`}
               </p>
@@ -263,7 +281,9 @@ export default function Analytics() {
             </div>
           )}
 
-          <div className="bg-[#1c1c1e] rounded-2xl px-5 pt-3 pb-2">
+          <div
+            className={`rounded-2xl px-5 pt-3 pb-2 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+          >
             <p className="text-[#8e8e93] text-[13px] font-semibold mb-1.5 ml-1">
               By category
             </p>
@@ -282,11 +302,11 @@ export default function Analytics() {
                     <div className="flex justify-between items-center mb-1.5">
                       <div className="flex items-center gap-3">
                         <span className="text-[20px]">{cat.icon}</span>
-                        <span className="text-white font-bold text-[15px]">
+                        <span className="font-bold text-[15px]">
                           {cat.name}
                         </span>
                       </div>
-                      <div className="font-bold text-white text-[15px]">
+                      <div className="font-bold text-[15px]">
                         ₫{cat.spent.toLocaleString("vi-VN")}{" "}
                         <span className="text-[#8e8e93] font-normal ml-1 text-lg leading-none">
                           ›
@@ -294,7 +314,9 @@ export default function Analytics() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <div className="flex-1 h-1 bg-[#2c2c2e] rounded-full overflow-hidden">
+                      <div
+                        className={`flex-1 h-1 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-200"}`}
+                      >
                         <div
                           className="h-full rounded-full"
                           style={{
@@ -309,7 +331,9 @@ export default function Analytics() {
                     </div>
                   </div>
                   {idx !== categoryData.length - 1 && (
-                    <div className="absolute bottom-0 left-4 right-1 h-[1px] bg-white/5"></div>
+                    <div
+                      className={`absolute bottom-0 left-4 right-1 h-[1px] ${theme === "dark" ? "bg-white/5" : "bg-black/5"}`}
+                    ></div>
                   )}
                 </div>
               ))}
@@ -323,13 +347,13 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* OVERLAY CHI TIẾT */}
+      {/* OVERLAY CHI TIẾT KHI BẤM VÀO CATEGORY */}
       {selectedCategory && (
         <div
-          className={`fixed inset-0 z-50 bg-black flex flex-col overflow-hidden transition-transform duration-300 ease-out ${showDetail ? "translate-y-0" : "translate-y-full"}`}
+          className={`fixed inset-0 z-50 flex flex-col overflow-hidden transition-transform duration-300 ease-out ${showDetail ? "translate-y-0" : "translate-y-full"} ${theme === "dark" ? "bg-black" : "bg-[#f2f2f7]"}`}
         >
           <div
-            className="flex-shrink-0 z-40 bg-black/90 backdrop-blur-xl pb-3 px-4 flex justify-between items-center shadow-[0_1px_0_0_rgba(255,255,255,0.05)]"
+            className={`flex-shrink-0 z-40 pb-3 px-4 flex justify-between items-center shadow-[0_1px_0_0_rgba(0,0,0,0.05)] ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
             style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
           >
             <button
@@ -338,17 +362,21 @@ export default function Analytics() {
             >
               <ChevronLeft size={24} className="-ml-2" /> Back
             </button>
-            <h2 className="font-bold text-[17px]">{selectedCategory.name}</h2>
+            <h2 className="font-bold text-[17px] text-center w-full absolute left-0 -z-10">
+              {selectedCategory.name}
+            </h2>
             <div className="w-20"></div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-6 pt-6 pb-32">
+          <div className="flex-1 overflow-y-auto px-6 pt-6 pb-32 overscroll-y-auto">
             <div className="flex items-center gap-5 mb-8">
-              <div className="w-[72px] h-[72px] bg-[#1c1c1e] rounded-full flex items-center justify-center text-[36px]">
+              <div
+                className={`w-[72px] h-[72px] rounded-full flex items-center justify-center text-[36px] ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+              >
                 {selectedCategory.icon}
               </div>
               <div>
-                <div className="text-[36px] font-bold text-white tracking-tight leading-none mb-2">
+                <div className="text-[36px] font-bold tracking-tight leading-none mb-2">
                   ₫{catTotal.toLocaleString("vi-VN")}
                 </div>
                 <div className="text-[13px] font-medium text-[#8e8e93]">
@@ -360,7 +388,7 @@ export default function Analytics() {
               {catTransactions.map((t) => (
                 <div
                   key={t.id}
-                  className="flex justify-between items-center py-4 border-b border-[#1c1c1e]"
+                  className={`flex justify-between items-center py-4 border-b ${theme === "dark" ? "border-[#1c1c1e]" : "border-gray-200"}`}
                 >
                   <div className="flex items-center gap-4">
                     <div
@@ -368,7 +396,7 @@ export default function Analytics() {
                       style={{ backgroundColor: selectedCategory.color }}
                     ></div>
                     <div className="flex flex-col">
-                      <p className="font-bold text-white text-[15px] leading-tight mb-1">
+                      <p className="font-bold text-[15px] leading-tight mb-1">
                         {t.note}
                       </p>
                       <p className="text-[13px] text-[#8e8e93] leading-tight">
@@ -376,7 +404,7 @@ export default function Analytics() {
                       </p>
                     </div>
                   </div>
-                  <div className="font-bold text-white text-[16px]">
+                  <div className="font-bold text-[16px]">
                     ₫{t.amount.toLocaleString("vi-VN")}
                   </div>
                 </div>

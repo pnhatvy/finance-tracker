@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppContext } from "../AppContext";
 import { ChevronLeft, X, Moon, Menu, Trash2 } from "lucide-react";
@@ -23,6 +23,12 @@ export default function Settings() {
   const [dragState, setDragState] = useState(null);
   const [catForm, setCatForm] = useState(null);
   const [isResetting, setIsResetting] = useState(false);
+
+  // QUAN TRỌNG: Cập nhật CSS HTML gốc để đổi màu nền đỉnh màn hình ngay lập tức
+  useEffect(() => {
+    if (theme === "dark") document.documentElement.classList.add("dark");
+    else document.documentElement.classList.remove("dark");
+  }, [theme]);
 
   const EMOJI_LIST = [
     "🍔",
@@ -86,6 +92,7 @@ export default function Settings() {
     setCatForm(null);
     setIsModalOpen(false);
   };
+
   const saveCategory = () => {
     if (!catForm.name.trim()) return;
     if (catForm.id) {
@@ -200,7 +207,9 @@ export default function Settings() {
   const incomeCategories = categories.filter((c) => c.type === "income");
 
   const renderCategoryList = (list, type) => (
-    <div className="bg-[#1c1c1e] rounded-2xl overflow-hidden relative">
+    <div
+      className={`rounded-2xl overflow-hidden relative ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+    >
       {list.map((c, index) => {
         const isDragging = dragState?.id === c.id;
         let translateY = 0;
@@ -231,7 +240,7 @@ export default function Settings() {
         return (
           <div
             key={c.id}
-            className="cat-row relative bg-[#1c1c1e] border-b border-white/5"
+            className={`cat-row relative border-b ${theme === "dark" ? "bg-[#1c1c1e] border-white/5" : "bg-white border-black/5"}`}
             style={{
               transform: `translateY(${translateY}px) scale(${scale})`,
               zIndex,
@@ -249,7 +258,7 @@ export default function Settings() {
                 }}
               >
                 <span className="text-xl pointer-events-none">{c.icon}</span>
-                <span className="font-semibold text-white pointer-events-none">
+                <span className="font-semibold pointer-events-none">
                   {c.name}
                 </span>
               </div>
@@ -280,7 +289,7 @@ export default function Settings() {
       })}
       <button
         onClick={openAddCategory}
-        className="w-full text-center p-4 font-semibold text-white active:bg-white/5"
+        className="w-full text-center p-4 font-semibold active:opacity-50"
       >
         + Add Category
       </button>
@@ -288,9 +297,11 @@ export default function Settings() {
   );
 
   return (
-    <div className="h-[100dvh] w-full flex flex-col bg-black text-white relative overflow-hidden animate-ios-page">
+    <div
+      className={`h-[100dvh] w-full flex flex-col relative overflow-hidden animate-ios-page ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
+    >
       <div
-        className="flex-shrink-0 z-40 bg-black/90 backdrop-blur-xl px-4 pb-3 flex items-center shadow-[0_1px_0_0_rgba(255,255,255,0.05)] relative"
+        className={`flex-shrink-0 z-40 px-4 pb-3 flex items-center shadow-[0_1px_0_0_rgba(0,0,0,0.05)] relative ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
       >
         <button
@@ -305,12 +316,17 @@ export default function Settings() {
         </h1>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pt-6 pb-32 space-y-5">
+      <div
+        className="flex-1 overflow-y-auto px-4 pt-6 pb-32 space-y-5 overscroll-y-auto"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
         <div>
           <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
             Preferences
           </h3>
-          <div className="bg-[#1c1c1e] rounded-2xl overflow-hidden">
+          <div
+            className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+          >
             <div className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
                 <Moon size={20} className="text-[#32ade6]" />
@@ -327,11 +343,14 @@ export default function Settings() {
             </div>
           </div>
         </div>
+
         <div>
           <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
             Budget Cycle
           </h3>
-          <div className="bg-[#1c1c1e] rounded-2xl overflow-hidden">
+          <div
+            className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+          >
             <button
               onClick={openCycleModal}
               className="w-full flex justify-between items-center p-4 text-left active:opacity-70 transition-opacity"
@@ -346,6 +365,7 @@ export default function Settings() {
             </button>
           </div>
         </div>
+
         <div>
           <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
             Expense Categories
@@ -358,11 +378,14 @@ export default function Settings() {
           </h3>
           {renderCategoryList(incomeCategories, "income")}
         </div>
+
         <div className="pt-4">
           <h3 className="text-[#ff453a] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
             Danger Zone
           </h3>
-          <div className="bg-[#1c1c1e] rounded-2xl overflow-hidden">
+          <div
+            className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+          >
             <button
               onClick={() => {
                 setModalType("reset");
@@ -376,26 +399,26 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* CÁC COMPONENT MODAL GIỮ NGUYÊN BÊN DƯỚI */}
       {modalType === "reset" && (
         <div
           className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-ios-fade"
           onClick={!isResetting ? closeModals : undefined}
         >
           <div
-            className="bg-[#2c2c2e] w-full max-w-[320px] rounded-3xl p-6 shadow-2xl"
+            className={`w-full max-w-[320px] rounded-3xl p-6 shadow-2xl ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-white"}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-12 h-12 rounded-full bg-[#ff453a]/20 text-[#ff453a] flex items-center justify-center mx-auto mb-4">
               <Trash2 size={24} />
             </div>
-            <h3 className="text-white font-bold text-center text-xl mb-2">
+            <h3 className="font-bold text-center text-xl mb-2">
               Reset Everything?
             </h3>
             <p className="text-[#8e8e93] text-center text-sm mb-6 leading-relaxed">
-              This will permanently delete all your transactions, custom
-              categories, and reset your goals to default.{" "}
-              <strong className="text-white">
+              This will permanently delete all data.{" "}
+              <strong
+                className={theme === "dark" ? "text-white" : "text-black"}
+              >
                 This action cannot be undone.
               </strong>
             </p>
@@ -403,7 +426,7 @@ export default function Settings() {
               <button
                 disabled={isResetting}
                 onClick={closeModals}
-                className="flex-1 bg-[#3a3a3c] text-white py-3 rounded-2xl font-bold active:opacity-70 disabled:opacity-50"
+                className={`flex-1 py-3 rounded-2xl font-bold active:opacity-70 disabled:opacity-50 ${theme === "dark" ? "bg-[#3a3a3c] text-white" : "bg-gray-200 text-black"}`}
               >
                 Cancel
               </button>
@@ -425,10 +448,10 @@ export default function Settings() {
           onClick={() => setItemToDelete(null)}
         >
           <div
-            className="bg-[#2c2c2e] w-full max-w-[300px] rounded-3xl p-6 shadow-2xl"
+            className={`w-full max-w-[300px] rounded-3xl p-6 shadow-2xl ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-white"}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-white font-bold text-center text-lg mb-2">
+            <h3 className="font-bold text-center text-lg mb-2">
               Delete Category?
             </h3>
             <p className="text-[#8e8e93] text-center text-sm mb-6">
@@ -437,7 +460,7 @@ export default function Settings() {
             <div className="flex gap-3">
               <button
                 onClick={() => setItemToDelete(null)}
-                className="flex-1 bg-[#3a3a3c] text-white py-2.5 rounded-xl font-semibold"
+                className={`flex-1 py-2.5 rounded-xl font-semibold ${theme === "dark" ? "bg-[#3a3a3c] text-white" : "bg-gray-200 text-black"}`}
               >
                 Cancel
               </button>
@@ -458,10 +481,10 @@ export default function Settings() {
           onClick={closeModals}
         >
           <div
-            className="bg-[#2c2c2e] w-full max-w-[320px] rounded-3xl p-6 shadow-2xl"
+            className={`w-full max-w-[320px] rounded-3xl p-6 shadow-2xl ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-white"}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-white font-semibold text-center mb-6 text-lg">
+            <h2 className="font-semibold text-center mb-6 text-lg">
               Cycle start day
             </h2>
             <div className="grid grid-cols-7 gap-2 mb-6">
@@ -472,7 +495,7 @@ export default function Settings() {
                     setCycleStartDay(day);
                     closeModals();
                   }}
-                  className={`aspect-square flex items-center justify-center rounded-lg font-bold text-sm ${cycleStartDay === day ? "bg-[#32ade6] text-black" : "bg-[#1c1c1e] text-white"}`}
+                  className={`aspect-square flex items-center justify-center rounded-lg font-bold text-sm ${cycleStartDay === day ? "bg-[#32ade6] text-black" : theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-gray-100 text-black"}`}
                 >
                   {day}
                 </button>
@@ -480,7 +503,7 @@ export default function Settings() {
             </div>
             <button
               onClick={closeModals}
-              className="w-full bg-[#3a3a3c] text-white py-2.5 rounded-xl font-semibold"
+              className={`w-full py-2.5 rounded-xl font-semibold ${theme === "dark" ? "bg-[#3a3a3c] text-white" : "bg-gray-200 text-black"}`}
             >
               Cancel
             </button>
@@ -494,13 +517,15 @@ export default function Settings() {
           onClick={closeModals}
         >
           <div
-            className="bg-[#2c2c2e] w-full max-w-[340px] rounded-3xl p-5 shadow-2xl"
+            className={`w-full max-w-[340px] rounded-3xl p-5 shadow-2xl ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-white"}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-white font-semibold text-center mb-4 text-lg">
+            <h2 className="font-semibold text-center mb-4 text-lg">
               {catForm.id ? "Edit Category" : "Add Category"}
             </h2>
-            <div className="flex bg-[#1c1c1e] rounded-xl p-1 mb-4">
+            <div
+              className={`flex rounded-xl p-1 mb-4 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-100"}`}
+            >
               <button
                 onClick={() => setCatForm({ ...catForm, type: "expense" })}
                 className={`flex-1 py-2 rounded-lg font-semibold text-sm ${catForm.type === "expense" ? "bg-[#ff453a] text-white" : "text-[#8e8e93]"}`}
@@ -519,20 +544,24 @@ export default function Settings() {
               placeholder="Category name"
               value={catForm.name}
               onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
-              className="w-full bg-[#1c1c1e] text-white text-center rounded-xl px-4 py-3 outline-none mb-4 font-semibold"
+              className={`w-full text-center rounded-xl px-4 py-3 outline-none mb-4 font-semibold ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-gray-100 text-black"}`}
             />
-            <div className="grid grid-cols-5 gap-2 mb-4 h-[220px] overflow-y-auto bg-[#1c1c1e] p-2 rounded-xl">
+            <div
+              className={`grid grid-cols-5 gap-2 mb-4 h-[220px] overflow-y-auto p-2 rounded-xl ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-100"}`}
+            >
               {EMOJI_LIST.map((emoji) => (
                 <button
                   key={emoji}
                   onClick={() => setCatForm({ ...catForm, icon: emoji })}
-                  className={`aspect-square rounded-lg text-2xl flex items-center justify-center transition-colors ${catForm.icon === emoji ? "bg-[#3a3a3c]" : ""}`}
+                  className={`aspect-square rounded-lg text-2xl flex items-center justify-center transition-colors ${catForm.icon === emoji ? (theme === "dark" ? "bg-[#3a3a3c]" : "bg-gray-300") : ""}`}
                 >
                   {emoji}
                 </button>
               ))}
             </div>
-            <div className="flex justify-between mb-6 bg-[#1c1c1e] p-2.5 rounded-xl">
+            <div
+              className={`flex justify-between mb-6 p-2.5 rounded-xl ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-100"}`}
+            >
               {COLOR_LIST.map((color) => (
                 <button
                   key={color}
@@ -541,7 +570,11 @@ export default function Settings() {
                   style={{
                     backgroundColor: color,
                     borderColor:
-                      catForm.color === color ? "white" : "transparent",
+                      catForm.color === color
+                        ? theme === "dark"
+                          ? "white"
+                          : "black"
+                        : "transparent",
                     transform:
                       catForm.color === color ? "scale(1.15)" : "scale(1)",
                   }}
@@ -551,13 +584,13 @@ export default function Settings() {
             <div className="flex gap-3">
               <button
                 onClick={closeModals}
-                className="flex-1 bg-[#3a3a3c] text-white py-3 rounded-2xl font-bold"
+                className={`flex-1 py-3 rounded-2xl font-bold ${theme === "dark" ? "bg-[#3a3a3c] text-white" : "bg-gray-200 text-black"}`}
               >
                 Cancel
               </button>
               <button
                 onClick={saveCategory}
-                className="flex-1 bg-white text-black py-3 rounded-2xl font-bold"
+                className={`flex-1 py-3 rounded-2xl font-bold ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
               >
                 Save
               </button>
