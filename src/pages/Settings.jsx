@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAppContext } from "../AppContext";
-import { X, Moon, Menu, Trash2 } from "lucide-react"; // Đã xóa ChevronLeft
+import { ChevronLeft, X, Moon, Menu, Trash2 } from "lucide-react";
 
 export default function Settings() {
+  const navigate = useNavigate();
   const {
     theme,
     setTheme,
@@ -10,8 +12,6 @@ export default function Settings() {
     setCategories,
     cycleStartDay,
     setCycleStartDay,
-    setMonthlyBudget,
-    setMonthlyIncomeGoal,
     setIsModalOpen,
   } = useAppContext();
   const [modalType, setModalType] = useState(null);
@@ -64,7 +64,7 @@ export default function Settings() {
     "🏥",
     "💊",
     "🦷",
-    "🏋️",
+    "🏋️️",
     "🧘",
     "⚽",
     "🏃",
@@ -75,7 +75,7 @@ export default function Settings() {
     "🎸",
     "🎨",
     "📸",
-    "🎟️",
+    "🎟️️",
     "🏕️",
     "👶",
     "🧸",
@@ -196,10 +196,8 @@ export default function Settings() {
         },
       ]);
       setCycleStartDay(1);
-      setMonthlyBudget(9700000);
-      setMonthlyIncomeGoal(15000000);
       closeModals();
-      window.location.href = "/"; // Dùng cách này để force reload lại trang sau khi xóa dữ liệu offline
+      window.location.href = "/";
     } catch (e) {
       console.error(e);
     } finally {
@@ -221,6 +219,7 @@ export default function Settings() {
     });
     document.body.style.overflow = "hidden";
   };
+
   const onTouchMove = (e, type) => {
     if (!dragState || dragState.type !== type) return;
     e.preventDefault();
@@ -233,6 +232,7 @@ export default function Settings() {
     newHover = Math.max(0, Math.min(newHover, maxIndex));
     setDragState((prev) => ({ ...prev, currentY, hoverIndex: newHover }));
   };
+
   const onTouchEnd = () => {
     if (dragState && dragState.startIndex !== dragState.hoverIndex) {
       const type = dragState.type;
@@ -254,6 +254,7 @@ export default function Settings() {
   const expenseCategories = categories.filter((c) => c.type === "expense");
   const incomeCategories = categories.filter((c) => c.type === "income");
 
+  // ĐÃ SỬA LẠI UI DRAG & DROP TẠI ĐÂY
   const renderCategoryList = (list, type) => (
     <div
       className={`rounded-2xl overflow-hidden relative ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
@@ -264,12 +265,19 @@ export default function Settings() {
         let zIndex = 1;
         let scale = 1;
         let shadow = "none";
+        let radius = "0px";
+
         if (dragState && dragState.type === type) {
           if (isDragging) {
             translateY = dragState.currentY - dragState.startY;
             zIndex = 50;
-            scale = 1.05;
-            shadow = "0 20px 25px -5px rgba(0,0,0,0.5)";
+            scale = 1.02; // Phóng to cực nhẹ
+            // Bóng mờ tinh tế chuẩn iOS
+            shadow =
+              theme === "dark"
+                ? "0 12px 24px rgba(0,0,0,0.4)"
+                : "0 12px 24px rgba(0,0,0,0.08)";
+            radius = "12px"; // Bo góc khi nhấc lên
           } else {
             if (
               dragState.startIndex < dragState.hoverIndex &&
@@ -285,17 +293,20 @@ export default function Settings() {
               translateY = dragState.itemHeight;
           }
         }
+
         return (
           <div
             key={c.id}
             className={`cat-row relative border-b ${theme === "dark" ? "bg-[#1c1c1e] border-white/5" : "bg-white border-black/5"}`}
             style={{
-              transform: `translateY(${translateY}px) scale(${scale})`,
+              transform: `translate3d(0, ${translateY}px, 0) scale(${scale})`,
               zIndex,
               boxShadow: shadow,
+              borderRadius: radius,
               transition: isDragging
                 ? "none"
-                : "transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)",
+                : "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1), box-shadow 0.3s ease, border-radius 0.3s ease",
+              willChange: "transform", // Ép GPU xử lý cho mượt
             }}
           >
             <div className="flex justify-between items-center p-3.5 select-none">
@@ -349,7 +360,6 @@ export default function Settings() {
       <div
         className={`h-[100dvh] w-full flex flex-col relative overflow-hidden animate-ios-page ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       >
-        {/* NÚT BACK ĐÃ BỊ XÓA Ở ĐÂY, CĂN GIỮA LẠI HEADER */}
         <div
           className={`flex-shrink-0 z-40 px-4 pb-3 flex flex-col justify-end shadow-[0_1px_0_0_rgba(0,0,0,0.05)] relative ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
