@@ -20,28 +20,58 @@ export default function AddTransaction() {
   const currentCategories = safeCategories.filter((c) => c.type === type);
   const [category, setCategory] = useState(currentCategories[0] || {});
 
+  // BỘ CẢM BIẾN VUỐT NÂNG CẤP
+  const [startX, setStartX] = useState(0);
   const [startY, setStartY] = useState(0);
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isClosing, setIsClosing] = useState(false); // Trạng thái đang hiệu ứng tắt
 
-  // Bộ bắt cảm ứng vuốt màn hình
   const onTouchStart = (e) => {
+    if (isClosing) return; // Nếu đang đóng rồi thì khóa cảm ứng
+    setStartX(e.touches[0].clientX);
     setStartY(e.touches[0].clientY);
     setIsDragging(true);
   };
 
   const onTouchMove = (e) => {
-    if (!isDragging) return;
-    const diff = e.touches[0].clientY - startY;
-    // Chỉ cho phép vuốt xuống (diff > 0)
-    if (diff > 0) setDragY(diff);
+    if (!isDragging || isClosing) return;
+
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+
+    const diffX = currentX - startX;
+    const diffY = currentY - startY;
+
+    // NẾU VUỐT NGANG (TRÁI/PHẢI) MẠNH HƠN VUỐT DỌC -> BỎ QUA KHÔNG TÍNH
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+      return;
+    }
+
+    // CHỈ NHẬN LỆNH KHI VUỐT XUỐNG DƯỚI (diffY > 0)
+    if (diffY > 0) {
+      setDragY(diffY);
+    }
   };
 
   const onTouchEnd = () => {
+    if (!isDragging || isClosing) return;
     setIsDragging(false);
-    // Nếu vuốt xuống hơn 100px thì thoát, không thì nảy về vị trí cũ
-    if (dragY > 100) navigate("/");
-    else setDragY(0);
+
+    // Nếu vuốt xuống đủ sâu (> 120px)
+    if (dragY > 120) {
+      setIsClosing(true);
+      // Ép trang trượt thẳng xuống đáy màn hình
+      setDragY(window.innerHeight);
+
+      // Đợi 300ms cho hiệu ứng trượt xong mới chuyển về trang chủ
+      setTimeout(() => {
+        navigate("/");
+      }, 300);
+    } else {
+      // Vuốt chưa đủ lực -> Nảy về vị trí cũ
+      setDragY(0);
+    }
   };
 
   useEffect(() => {
@@ -120,20 +150,21 @@ export default function AddTransaction() {
 
   return (
     <div
-      // GẮN CẢM ỨNG VÀO DIV NGOÀI CÙNG Ở ĐÂY
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       className={`flex flex-col h-[100dvh] p-5 animate-ios-slide overflow-hidden ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       style={{
         transform: dragY > 0 ? `translateY(${dragY}px)` : "",
-        transition: isDragging
-          ? "none"
-          : "transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)",
+        // Khi đang vuốt (isDragging) mà chưa tắt -> không dùng hiệu ứng để bám theo tay.
+        // Khi thả tay ra hoặc đang hiệu ứng tắt (isClosing) -> Bật hiệu ứng chuyển động.
+        transition:
+          isDragging && !isClosing
+            ? "none"
+            : "transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)",
         paddingTop: "max(env(safe-area-inset-top), 20px)",
       }}
     >
-      {/* Thanh gạt trang trí phía trên (không cần gắn cảm ứng riêng nữa) */}
       <div className="w-full flex justify-center py-2 mb-2 pointer-events-none">
         <div
           className={`w-14 h-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-300"}`}
@@ -142,7 +173,11 @@ export default function AddTransaction() {
 
       <div className="flex justify-between items-center mb-5">
         <button
-          onClick={() => navigate("/")}
+          onClick={() => {
+            setIsClosing(true);
+            setDragY(window.innerHeight);
+            setTimeout(() => navigate("/"), 300);
+          }}
           className={`p-1 active:opacity-50 flex-shrink-0 w-[42px] ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
         >
           <X size={26} />
