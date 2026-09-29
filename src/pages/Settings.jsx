@@ -64,7 +64,7 @@ export default function Settings() {
     "🏥",
     "💊",
     "🦷",
-    "🏋️️",
+    "🏋",
     "🧘",
     "⚽",
     "🏃",
@@ -75,7 +75,7 @@ export default function Settings() {
     "🎸",
     "🎨",
     "📸",
-    "🎟️️",
+    "🎟",
     "🏕️",
     "👶",
     "🧸",
@@ -254,7 +254,6 @@ export default function Settings() {
   const expenseCategories = categories.filter((c) => c.type === "expense");
   const incomeCategories = categories.filter((c) => c.type === "income");
 
-  // ĐÃ SỬA LẠI UI DRAG & DROP TẠI ĐÂY
   const renderCategoryList = (list, type) => (
     <div
       className={`rounded-2xl overflow-hidden relative ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
@@ -269,15 +268,22 @@ export default function Settings() {
 
         if (dragState && dragState.type === type) {
           if (isDragging) {
-            translateY = dragState.currentY - dragState.startY;
+            // THUẬT TOÁN GIỚI HẠN PHẠM VI KÉO THẢ (CLAMPING)
+            const rawTranslateY = dragState.currentY - dragState.startY;
+            const maxUp = -dragState.startIndex * dragState.itemHeight; // Giới hạn trên cùng
+            const maxDown =
+              (list.length - 1 - dragState.startIndex) * dragState.itemHeight; // Giới hạn dưới cùng
+
+            // Ép tọa độ y không được vượt quá maxUp và maxDown
+            translateY = Math.max(maxUp, Math.min(rawTranslateY, maxDown));
+
             zIndex = 50;
-            scale = 1.02; // Phóng to cực nhẹ
-            // Bóng mờ tinh tế chuẩn iOS
+            scale = 1.02;
             shadow =
               theme === "dark"
                 ? "0 12px 24px rgba(0,0,0,0.4)"
                 : "0 12px 24px rgba(0,0,0,0.08)";
-            radius = "12px"; // Bo góc khi nhấc lên
+            radius = "12px";
           } else {
             if (
               dragState.startIndex < dragState.hoverIndex &&
@@ -306,7 +312,7 @@ export default function Settings() {
               transition: isDragging
                 ? "none"
                 : "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1), box-shadow 0.3s ease, border-radius 0.3s ease",
-              willChange: "transform", // Ép GPU xử lý cho mượt
+              willChange: "transform",
             }}
           >
             <div className="flex justify-between items-center p-3.5 select-none">
