@@ -20,81 +20,96 @@ export default function AddTransaction() {
   const currentCategories = safeCategories.filter((c) => c.type === type);
   const [category, setCategory] = useState(currentCategories[0] || {});
 
-  // BỘ CẢM BIẾN TRỰC TIẾP VÀO PHẦN CỨNG (ZERO DELAY)
+  // BỘ CẢM BIẾN NATIVE SIÊU MƯỢT (CAN THIỆP SÂU VÀO TRÌNH DUYỆT)
   const containerRef = useRef(null);
-  const startYRef = useRef(0);
-  const startXRef = useRef(0);
-  const currentYRef = useRef(0);
-  const isDraggingRef = useRef(false);
-  const isClosingRef = useRef(false);
 
-  const onTouchStart = (e) => {
-    if (isClosingRef.current) return;
-    startXRef.current = e.touches[0].clientX;
-    startYRef.current = e.touches[0].clientY;
-    isDraggingRef.current = true;
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-    // Tắt ngay hiệu ứng transition để thẻ div bám chặt vào ngón tay 1:1 không trễ 1ms nào
-    if (containerRef.current) {
-      containerRef.current.style.transition = "none";
-    }
-  };
+    let startY = 0;
+    let startX = 0;
+    let currentY = 0;
+    let isDragging = false;
+    let isClosing = false;
+    let dragDirection = null; // Khóa hướng để không kẹt khi vuốt ngang
 
-  const onTouchMove = (e) => {
-    if (!isDraggingRef.current || isClosingRef.current) return;
+    const handleTouchStart = (e) => {
+      if (isClosing) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      isDragging = true;
+      dragDirection = null; // Reset hướng vuốt
+      container.style.transition = "none";
+    };
 
-    const currentX = e.touches[0].clientX;
-    const currentY = e.touches[0].clientY;
+    const handleTouchMove = (e) => {
+      if (!isDragging || isClosing) return;
 
-    const diffX = currentX - startXRef.current;
-    const diffY = currentY - startYRef.current;
+      const diffX = e.touches[0].clientX - startX;
+      const diffY = e.touches[0].clientY - startY;
 
-    // Nếu vuốt ngang mạnh hơn vuốt dọc -> Hủy lệnh, không cho kéo trang
-    if (Math.abs(diffX) > Math.abs(diffY) && currentYRef.current === 0) {
-      isDraggingRef.current = false;
-      return;
-    }
-
-    // Chỉ nhận kéo khi vuốt xuống
-    if (diffY > 0) {
-      currentYRef.current = diffY;
-      // Áp dụng trực tiếp tọa độ (DOM Manipulation) => Mượt 120fps
-      if (containerRef.current) {
-        containerRef.current.style.transform = `translateY(${diffY}px)`;
+      // Trong những pixel đầu tiên, xác định người dùng đang vuốt ngang hay dọc
+      if (!dragDirection) {
+        if (Math.abs(diffX) > Math.abs(diffY)) dragDirection = "horizontal";
+        else dragDirection = "vertical";
       }
-    }
-  };
 
-  const onTouchEnd = () => {
-    if (!isDraggingRef.current || isClosingRef.current) return;
-    isDraggingRef.current = false;
+      // Nếu đang vuốt ngang (chọn Category) -> Để trình duyệt tự lo, không làm gì cả
+      if (dragDirection === "horizontal") return;
 
-    if (containerRef.current) {
-      // Bật lại gia tốc đàn hồi (Spring physics) chuẩn iOS
-      containerRef.current.style.transition =
+      // Nếu vuốt dọc xuống
+      if (dragDirection === "vertical" && diffY > 0) {
+        e.preventDefault(); // LỆNH BÍ MẬT: Chặn hoàn toàn trình duyệt cuộn trang, triệt tiêu 100% độ trễ
+        currentY = diffY;
+        // Dùng translate3d để ép điện thoại dùng Card Đồ Họa (GPU) xử lý -> Mượt 120Hz
+        container.style.transform = `translate3d(0, ${diffY}px, 0)`;
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (!isDragging || isClosing) return;
+      isDragging = false;
+
+      // Bật lại gia tốc đàn hồi (Spring)
+      container.style.transition =
         "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
 
-      // Nếu vuốt sâu hơn 150px -> Đóng trang
-      if (currentYRef.current > 150) {
-        isClosingRef.current = true;
-        containerRef.current.style.transform = `translateY(100dvh)`;
-        setTimeout(() => navigate("/"), 350); // Chờ trượt xong mới quay về
+      if (currentY > 150) {
+        // Vuốt đủ sâu thì đóng
+        isClosing = true;
+        container.style.transform = `translate3d(0, 100dvh, 0)`;
+        setTimeout(() => navigate("/"), 300);
       } else {
-        // Vuốt chưa tới -> Nảy đàn hồi lên lại vị trí số 0
-        currentYRef.current = 0;
-        containerRef.current.style.transform = `translateY(0px)`;
+        // Vuốt chưa đủ thì nảy lên lại
+        currentY = 0;
+        container.style.transform = `translate3d(0, 0px, 0)`;
       }
-    }
-  };
+    };
+
+    // Phải dùng passive: false thì lệnh e.preventDefault() mới có tác dụng
+    container.addEventListener("touchstart", handleTouchStart, {
+      passive: false,
+    });
+    container.addEventListener("touchmove", handleTouchMove, {
+      passive: false,
+    });
+    container.addEventListener("touchend", handleTouchEnd);
+
+    return () => {
+      container.removeEventListener("touchstart", handleTouchStart);
+      container.removeEventListener("touchmove", handleTouchMove);
+      container.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [navigate]);
 
   const handleCloseButton = () => {
-    isClosingRef.current = true;
     if (containerRef.current) {
       containerRef.current.style.transition =
         "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
-      containerRef.current.style.transform = `translateY(100dvh)`;
+      containerRef.current.style.transform = `translate3d(0, 100dvh, 0)`;
     }
-    setTimeout(() => navigate("/"), 350);
+    setTimeout(() => navigate("/"), 300);
   };
 
   useEffect(() => {
@@ -174,10 +189,7 @@ export default function AddTransaction() {
   return (
     <div
       ref={containerRef}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-      className={`flex flex-col h-[100dvh] p-5 animate-ios-slide overflow-hidden ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
+      className={`flex flex-col h-[100dvh] p-5 overflow-hidden animate-ios-slide will-change-transform ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       style={{ paddingTop: "max(env(safe-area-inset-top), 20px)" }}
     >
       <div className="w-full flex justify-center py-2 mb-2 pointer-events-none">
