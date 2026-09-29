@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, Delete, Calendar, Repeat } from "lucide-react";
 import { useAppContext } from "../AppContext";
@@ -20,58 +20,81 @@ export default function AddTransaction() {
   const currentCategories = safeCategories.filter((c) => c.type === type);
   const [category, setCategory] = useState(currentCategories[0] || {});
 
-  // BỘ CẢM BIẾN VUỐT NÂNG CẤP
-  const [startX, setStartX] = useState(0);
-  const [startY, setStartY] = useState(0);
-  const [dragY, setDragY] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isClosing, setIsClosing] = useState(false); // Trạng thái đang hiệu ứng tắt
+  // BỘ CẢM BIẾN TRỰC TIẾP VÀO PHẦN CỨNG (ZERO DELAY)
+  const containerRef = useRef(null);
+  const startYRef = useRef(0);
+  const startXRef = useRef(0);
+  const currentYRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const isClosingRef = useRef(false);
 
   const onTouchStart = (e) => {
-    if (isClosing) return; // Nếu đang đóng rồi thì khóa cảm ứng
-    setStartX(e.touches[0].clientX);
-    setStartY(e.touches[0].clientY);
-    setIsDragging(true);
+    if (isClosingRef.current) return;
+    startXRef.current = e.touches[0].clientX;
+    startYRef.current = e.touches[0].clientY;
+    isDraggingRef.current = true;
+
+    // Tắt ngay hiệu ứng transition để thẻ div bám chặt vào ngón tay 1:1 không trễ 1ms nào
+    if (containerRef.current) {
+      containerRef.current.style.transition = "none";
+    }
   };
 
   const onTouchMove = (e) => {
-    if (!isDragging || isClosing) return;
+    if (!isDraggingRef.current || isClosingRef.current) return;
 
     const currentX = e.touches[0].clientX;
     const currentY = e.touches[0].clientY;
 
-    const diffX = currentX - startX;
-    const diffY = currentY - startY;
+    const diffX = currentX - startXRef.current;
+    const diffY = currentY - startYRef.current;
 
-    // NẾU VUỐT NGANG (TRÁI/PHẢI) MẠNH HƠN VUỐT DỌC -> BỎ QUA KHÔNG TÍNH
-    if (Math.abs(diffX) > Math.abs(diffY)) {
+    // Nếu vuốt ngang mạnh hơn vuốt dọc -> Hủy lệnh, không cho kéo trang
+    if (Math.abs(diffX) > Math.abs(diffY) && currentYRef.current === 0) {
+      isDraggingRef.current = false;
       return;
     }
 
-    // CHỈ NHẬN LỆNH KHI VUỐT XUỐNG DƯỚI (diffY > 0)
+    // Chỉ nhận kéo khi vuốt xuống
     if (diffY > 0) {
-      setDragY(diffY);
+      currentYRef.current = diffY;
+      // Áp dụng trực tiếp tọa độ (DOM Manipulation) => Mượt 120fps
+      if (containerRef.current) {
+        containerRef.current.style.transform = `translateY(${diffY}px)`;
+      }
     }
   };
 
   const onTouchEnd = () => {
-    if (!isDragging || isClosing) return;
-    setIsDragging(false);
+    if (!isDraggingRef.current || isClosingRef.current) return;
+    isDraggingRef.current = false;
 
-    // Nếu vuốt xuống đủ sâu (> 120px)
-    if (dragY > 120) {
-      setIsClosing(true);
-      // Ép trang trượt thẳng xuống đáy màn hình
-      setDragY(window.innerHeight);
+    if (containerRef.current) {
+      // Bật lại gia tốc đàn hồi (Spring physics) chuẩn iOS
+      containerRef.current.style.transition =
+        "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
 
-      // Đợi 300ms cho hiệu ứng trượt xong mới chuyển về trang chủ
-      setTimeout(() => {
-        navigate("/");
-      }, 300);
-    } else {
-      // Vuốt chưa đủ lực -> Nảy về vị trí cũ
-      setDragY(0);
+      // Nếu vuốt sâu hơn 150px -> Đóng trang
+      if (currentYRef.current > 150) {
+        isClosingRef.current = true;
+        containerRef.current.style.transform = `translateY(100dvh)`;
+        setTimeout(() => navigate("/"), 350); // Chờ trượt xong mới quay về
+      } else {
+        // Vuốt chưa tới -> Nảy đàn hồi lên lại vị trí số 0
+        currentYRef.current = 0;
+        containerRef.current.style.transform = `translateY(0px)`;
+      }
     }
+  };
+
+  const handleCloseButton = () => {
+    isClosingRef.current = true;
+    if (containerRef.current) {
+      containerRef.current.style.transition =
+        "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
+      containerRef.current.style.transform = `translateY(100dvh)`;
+    }
+    setTimeout(() => navigate("/"), 350);
   };
 
   useEffect(() => {
@@ -150,20 +173,12 @@ export default function AddTransaction() {
 
   return (
     <div
+      ref={containerRef}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       className={`flex flex-col h-[100dvh] p-5 animate-ios-slide overflow-hidden ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
-      style={{
-        transform: dragY > 0 ? `translateY(${dragY}px)` : "",
-        // Khi đang vuốt (isDragging) mà chưa tắt -> không dùng hiệu ứng để bám theo tay.
-        // Khi thả tay ra hoặc đang hiệu ứng tắt (isClosing) -> Bật hiệu ứng chuyển động.
-        transition:
-          isDragging && !isClosing
-            ? "none"
-            : "transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)",
-        paddingTop: "max(env(safe-area-inset-top), 20px)",
-      }}
+      style={{ paddingTop: "max(env(safe-area-inset-top), 20px)" }}
     >
       <div className="w-full flex justify-center py-2 mb-2 pointer-events-none">
         <div
@@ -173,11 +188,7 @@ export default function AddTransaction() {
 
       <div className="flex justify-between items-center mb-5">
         <button
-          onClick={() => {
-            setIsClosing(true);
-            setDragY(window.innerHeight);
-            setTimeout(() => navigate("/"), 300);
-          }}
+          onClick={handleCloseButton}
           className={`p-1 active:opacity-50 flex-shrink-0 w-[42px] ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
         >
           <X size={26} />
