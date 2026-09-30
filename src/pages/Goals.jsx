@@ -95,7 +95,6 @@ export default function Goals() {
       ? Math.min(Math.round((earned / activeIncome) * 100), 100)
       : 0;
 
-  // Tính tiến độ cho phần Target All
   const globalSpentPercent =
     globalBudget > 0
       ? Math.min(Math.round((spent / globalBudget) * 100), 100)
@@ -171,14 +170,11 @@ export default function Goals() {
           className="flex-1 overflow-y-auto px-4 pt-4 pb-32 space-y-4 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          {/* SECTION: TARGET (MONTH) */}
-          <div className="pt-2 pb-1">
-            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2 mb-1">
-              Target (Month)
+          {/* SECTION: MONTHLY TARGET */}
+          <div className="pt-2 pb-0">
+            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2 mb-2">
+              Monthly Target
             </h3>
-            <p className="text-[#8e8e93] text-[11px] font-medium ml-2 leading-tight">
-              Specific goals set for the current month.
-            </p>
           </div>
 
           <div
@@ -195,7 +191,8 @@ export default function Goals() {
                 <Pencil size={16} />
               </button>
             </div>
-            <div className="text-[28px] font-bold mb-4 tracking-tight">
+            {/* Đã giảm khoảng cách từ mb-4 xuống mb-1.5 */}
+            <div className="text-[28px] font-bold mb-1.5 tracking-tight">
               ₫{activeBudget.toLocaleString("vi-VN")}
             </div>
             <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
@@ -226,7 +223,7 @@ export default function Goals() {
                 <Pencil size={16} />
               </button>
             </div>
-            <div className="text-[28px] font-bold mb-4 tracking-tight">
+            <div className="text-[28px] font-bold mb-1.5 tracking-tight">
               ₫{activeIncome.toLocaleString("vi-VN")}
             </div>
             <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
@@ -243,14 +240,11 @@ export default function Goals() {
             </div>
           </div>
 
-          {/* SECTION: TARGET (ALL) */}
-          <div className="pt-6 pb-1">
-            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2 mb-1">
-              Target (All)
+          {/* SECTION: OVERALL TARGET */}
+          <div className="pt-5 pb-0">
+            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2 mb-2">
+              Overall Target
             </h3>
-            <p className="text-[#8e8e93] text-[11px] font-medium ml-2 leading-tight">
-              These values apply if a specific month is not configured.
-            </p>
           </div>
 
           <div
@@ -267,7 +261,7 @@ export default function Goals() {
                 <Pencil size={16} />
               </button>
             </div>
-            <div className="text-[28px] font-bold mb-4 tracking-tight">
+            <div className="text-[28px] font-bold mb-1.5 tracking-tight">
               ₫{globalBudget.toLocaleString("vi-VN")}
             </div>
             <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
@@ -298,7 +292,7 @@ export default function Goals() {
                 <Pencil size={16} />
               </button>
             </div>
-            <div className="text-[28px] font-bold mb-4 tracking-tight">
+            <div className="text-[28px] font-bold mb-1.5 tracking-tight">
               ₫{globalIncome.toLocaleString("vi-VN")}
             </div>
             <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
