@@ -12,16 +12,21 @@ export default function AddTransaction() {
   const [note, setNote] = useState("");
   const [repeat, setRepeat] = useState("none");
 
-  // Format datetime-local chuẩn: YYYY-MM-DDTHH:mm
-  const getCurrentDateTime = () => {
+  // Tách riêng state Ngày và Giờ để tạo thành 3 nút nằm ngang
+  const getCurrentDate = () => {
     const now = new Date();
-    // Bù múi giờ địa phương để không bị lùi ngày
     const tzOffset = now.getTimezoneOffset() * 60000;
-    const localISOTime = new Date(now - tzOffset).toISOString().slice(0, 16);
-    return localISOTime;
+    return new Date(now - tzOffset).toISOString().slice(0, 10); // YYYY-MM-DD
   };
 
-  const [txDate, setTxDate] = useState(getCurrentDateTime());
+  const getCurrentTime = () => {
+    const now = new Date();
+    const tzOffset = now.getTimezoneOffset() * 60000;
+    return new Date(now - tzOffset).toISOString().slice(11, 16); // HH:mm
+  };
+
+  const [datePart, setDatePart] = useState(getCurrentDate());
+  const [timePart, setTimePart] = useState(getCurrentTime());
 
   const safeCategories = categories.map((c) => ({
     ...c,
@@ -145,7 +150,8 @@ export default function AddTransaction() {
     if (amount === "0" || amount === ",") return;
     try {
       const numericAmount = Number(amount.replace(",", "."));
-      const baseDate = new Date(txDate);
+      // Gộp chuỗi ngày và giờ lại để lưu
+      const baseDate = new Date(`${datePart}T${timePart}`);
 
       let count = 1;
       if (repeat === "daily") count = 30;
@@ -194,21 +200,6 @@ export default function AddTransaction() {
     return parts.length > 1
       ? `${parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${parts[1]}`
       : parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  };
-
-  // Format để hiển thị chữ Date & Time cho đẹp trên nút bấm
-  const getDisplayDateTime = () => {
-    const d = new Date(txDate);
-    const dateStr = d.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-    const timeStr = d.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-    return `${dateStr}, ${timeStr}`;
   };
 
   return (
@@ -302,32 +293,55 @@ export default function AddTransaction() {
         />
       </div>
 
-      <div className="flex gap-3 mb-4 mt-auto">
+      {/* KHỐI 3 NÚT: NGÀY, GIỜ, LẶP LẠI (NẰM NGANG) */}
+      <div className="flex gap-2 mb-4 mt-auto">
         <div
-          className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+          className={`flex-[1.2] relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
         >
           <span
-            className={`font-semibold text-[13px] flex items-center gap-1.5 pointer-events-none ${theme === "dark" ? "text-white" : "text-black"}`}
+            className={`font-semibold text-[12px] flex items-center gap-1.5 pointer-events-none ${theme === "dark" ? "text-white" : "text-black"}`}
           >
-            <Clock size={16} className="text-[#32ade6]" />{" "}
-            {getDisplayDateTime()}
+            <Calendar size={14} className="text-[#32ade6]" />
+            {new Date(datePart).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })}
           </span>
           <input
-            type="datetime-local"
-            value={txDate}
-            onChange={(e) => setTxDate(e.target.value)}
+            type="date"
+            value={datePart}
+            onChange={(e) => setDatePart(e.target.value)}
             onTouchStart={(e) => e.stopPropagation()}
             className="absolute inset-0 opacity-0 z-20 w-full h-full"
           />
         </div>
+
         <div
           className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
         >
           <span
-            className={`font-semibold text-[13px] flex items-center gap-2 pointer-events-none capitalize ${theme === "dark" ? "text-white" : "text-black"}`}
+            className={`font-semibold text-[12px] flex items-center gap-1.5 pointer-events-none ${theme === "dark" ? "text-white" : "text-black"}`}
           >
-            <Repeat size={16} className="text-[#32ade6]" />{" "}
-            {repeat === "none" ? "No Repeat" : repeat}
+            <Clock size={14} className="text-[#32ade6]" />
+            {timePart}
+          </span>
+          <input
+            type="time"
+            value={timePart}
+            onChange={(e) => setTimePart(e.target.value)}
+            onTouchStart={(e) => e.stopPropagation()}
+            className="absolute inset-0 opacity-0 z-20 w-full h-full"
+          />
+        </div>
+
+        <div
+          className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+        >
+          <span
+            className={`font-semibold text-[12px] flex items-center gap-1.5 pointer-events-none capitalize ${theme === "dark" ? "text-white" : "text-black"}`}
+          >
+            <Repeat size={14} className="text-[#32ade6]" />
+            {repeat === "none" ? "None" : repeat}
           </span>
           <select
             value={repeat}
@@ -335,7 +349,7 @@ export default function AddTransaction() {
             onTouchStart={(e) => e.stopPropagation()}
             className="absolute inset-0 opacity-0 z-20 w-full h-full"
           >
-            <option value="none">No Repeat</option>
+            <option value="none">None</option>
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
