@@ -9,7 +9,7 @@ export default function Goals() {
   const [monthlyBudget, setMonthlyBudget] = useState(null);
   const [monthlyIncome, setMonthlyIncome] = useState(null);
 
-  // Dữ liệu mục tiêu tổng (Overall Target)
+  // Dữ liệu mục tiêu tổng (Overall Target) - Giữ nguyên không đổi
   const [globalIncomeGoal, setGlobalIncomeGoal] = useState(10000000);
 
   // Điều hướng tháng
@@ -136,7 +136,6 @@ export default function Goals() {
     setSpent(totalSpentMonth);
     setEarned(totalEarnedMonth);
 
-    // Tổng tài sản = Tổng Thu - Tổng Chi từ trước đến nay
     setTotalNetWorth(cumulativeEarned - cumulativeSpent);
     setAllTimeEarned(cumulativeEarned);
   }, [bounds.key, cycleStartDay, editState.isOpen]);
@@ -328,7 +327,7 @@ export default function Goals() {
             </div>
           </div>
 
-          {/* SECTION: OVERALL TARGET (GIỮ NGUYÊN GIAO DIỆN, HIỆN TỔNG TÀI SẢN CỘNG DỒN) */}
+          {/* SECTION: OVERALL TARGET (GIỮ NGUYÊN SỐ GOAL, THAY THẾ DÒNG EARNED BẰNG NET WORTH TÀI SẢN) */}
           <div className="pt-5 pb-0">
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2 mb-2">
               Overall Target
@@ -340,7 +339,7 @@ export default function Goals() {
           >
             <div className="flex justify-between items-center mb-1">
               <span className="text-[13px] font-semibold text-[#8e8e93]">
-                Income Goal (Net Worth)
+                Income Goal
               </span>
               <button
                 onClick={() => openEdit("g_income", globalIncomeGoal)}
@@ -349,15 +348,20 @@ export default function Goals() {
                 <Pencil size={16} />
               </button>
             </div>
-            <div
-              className={`text-[28px] font-bold mb-1.5 tracking-tight ${totalNetWorth >= 0 ? (theme === "dark" ? "text-white" : "text-black") : "text-[#ff453a]"}`}
-            >
-              {totalNetWorth < 0 ? "-" : ""}₫
-              {Math.abs(totalNetWorth).toLocaleString("vi-VN")}
+            <div className="text-[28px] font-bold mb-1.5 tracking-tight">
+              ₫{globalIncomeGoal.toLocaleString("vi-VN")}
             </div>
             <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
               <span>
-                Total Earned: ₫{allTimeEarned.toLocaleString("vi-VN")}
+                Net Worth:{" "}
+                <strong
+                  className={
+                    totalNetWorth >= 0 ? "text-[#32d74b]" : "text-[#ff453a]"
+                  }
+                >
+                  {totalNetWorth < 0 ? "-" : ""}₫
+                  {Math.abs(totalNetWorth).toLocaleString("vi-VN")}
+                </strong>
               </span>
               <span
                 className={
