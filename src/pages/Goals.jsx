@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAppContext } from "../AppContext";
-import { Pencil, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Pencil, X, ChevronLeft, ChevronRight, Settings2 } from "lucide-react";
 
 export default function Goals() {
   const { theme, cycleStartDay } = useAppContext();
@@ -11,7 +11,7 @@ export default function Goals() {
 
   // Dữ liệu Tổng (Overall)
   const [globalIncomeGoal, setGlobalIncomeGoal] = useState(10000000);
-  const [initialBalance, setInitialBalance] = useState(0); // NÚT NHẬP SỐ DƯ BAN ĐẦU
+  const [initialBalance, setInitialBalance] = useState(0);
 
   // Điều hướng tháng
   const [offset, setOffset] = useState(0);
@@ -164,7 +164,7 @@ export default function Goals() {
     if (type === "m_budget") title = "Edit Expense Budget";
     if (type === "m_income") title = "Edit Income Goal";
     if (type === "g_income") title = "Edit Overall Income Goal";
-    if (type === "g_initial") title = "Set Initial Balance"; // Tiêu đề modal nhập vốn
+    if (type === "g_initial") title = "Set Initial Balance";
 
     setEditState({
       isOpen: true,
@@ -195,7 +195,7 @@ export default function Goals() {
       localStorage.setItem("vys_global_goals", JSON.stringify(gGoals));
       setGlobalIncomeGoal(numValue);
     } else if (editState.type === "g_initial") {
-      // Lưu số dư ban đầu
+      // Lưu số dư ban đầu, không hiển thị số này lên UI
       localStorage.setItem("vys_initial_balance", numValue);
       setInitialBalance(numValue);
     } else {
@@ -345,7 +345,7 @@ export default function Goals() {
           <div
             className={`p-5 rounded-[24px] shadow-sm relative ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
           >
-            {/* Hàng 1: Mục tiêu */}
+            {/* Hàng 1: Mục tiêu Tổng */}
             <div className="flex justify-between items-center mb-1">
               <span className="text-[13px] font-semibold text-[#8e8e93]">
                 Income Goal
@@ -357,32 +357,14 @@ export default function Goals() {
                 <Pencil size={16} />
               </button>
             </div>
-            <div className="text-[28px] font-bold mb-4 tracking-tight">
+            <div className="text-[28px] font-bold mb-5 tracking-tight">
               ₫{globalIncomeGoal.toLocaleString("vi-VN")}
             </div>
 
-            {/* Hàng 2: Nhập số tiền hiện có (Vốn ban đầu) */}
-            <div
-              className={`flex justify-between items-center mb-1 border-t pt-4 ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
-            >
-              <span className="text-[13px] font-semibold text-[#8e8e93]">
-                Initial Balance (Current Money)
-              </span>
-              <button
-                onClick={() => openEdit("g_initial", initialBalance)}
-                className="text-[#8e8e93] active:opacity-50 p-1"
-              >
-                <Pencil size={16} />
-              </button>
-            </div>
-            <div className="text-[20px] font-bold mb-5 tracking-tight">
-              ₫{initialBalance.toLocaleString("vi-VN")}
-            </div>
-
-            {/* Hàng 3: Thống kê tổng tài sản & Progress */}
-            <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
-              <span>
-                Net Worth:{" "}
+            {/* Hàng 2: Thống kê tổng tài sản & Progress */}
+            <div className="flex justify-between items-center text-[12px] text-[#8e8e93] font-medium mb-2">
+              <span className="flex items-center gap-1.5">
+                Net Worth:
                 <strong
                   className={
                     totalNetWorth >= 0 ? "text-[#32d74b]" : "text-[#ff453a]"
@@ -391,6 +373,14 @@ export default function Goals() {
                   {totalNetWorth < 0 ? "-" : ""}₫
                   {Math.abs(totalNetWorth).toLocaleString("vi-VN")}
                 </strong>
+                {/* NÚT CÀI ĐẶT SỐ DƯ BAN ĐẦU - Ẩn số tiền, chỉ hiện icon nhỏ bên cạnh */}
+                <button
+                  onClick={() => openEdit("g_initial", initialBalance)}
+                  className="p-1 ml-1 rounded-full active:opacity-50 text-[#8e8e93] hover:text-[#32ade6]"
+                  title="Set Initial Balance"
+                >
+                  <Settings2 size={14} />
+                </button>
               </span>
               <span
                 className={
@@ -400,6 +390,7 @@ export default function Goals() {
                 {overallPercent}%
               </span>
             </div>
+
             <div
               className={`h-2 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
