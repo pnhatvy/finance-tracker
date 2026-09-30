@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { useAppContext } from "../AppContext";
-import { Pencil, X, ChevronLeft, ChevronRight, Settings2 } from "lucide-react";
+import {
+  Pencil,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Settings2,
+  XCircle,
+} from "lucide-react";
 
 export default function Goals() {
   const { theme, cycleStartDay } = useAppContext();
@@ -455,7 +462,7 @@ export default function Goals() {
               <input
                 type="text"
                 inputMode="numeric"
-                autoFocus
+                // Đã bỏ autoFocus ở đây
                 placeholder="0"
                 value={editState.value}
                 onFocus={() => setIsInputFocused(true)}
@@ -463,19 +470,29 @@ export default function Goals() {
                 onChange={(e) => handleInput(e.target.value)}
                 className={`flex-1 bg-transparent py-3 outline-none font-bold text-[22px] w-full ${theme === "dark" ? "text-white" : "text-black"}`}
               />
+
+              {/* NÚT CLEAR TẤT CẢ SỐ */}
+              {editState.value !== "" && (
+                <button
+                  onClick={() => setEditState({ ...editState, value: "" })}
+                  className={`p-1 ml-2 text-[#8e8e93] active:opacity-50 transition-opacity`}
+                  title="Clear"
+                >
+                  <XCircle size={18} />
+                </button>
+              )}
             </div>
 
-            {/* NẾU LÀ MONTHLY GOAL THÌ HIỆN 2 NÚT CHỌN LƯU */}
             {editState.type.startsWith("m_") ? (
               <div className="flex flex-col gap-2.5">
                 <button
-                  onClick={() => handleSave(false)} // Lưu cho 1 tháng
+                  onClick={() => handleSave(false)}
                   className={`w-full py-3.5 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-200 text-black"}`}
                 >
                   This Month Only
                 </button>
                 <button
-                  onClick={() => handleSave(true)} // Lưu cho tương lai
+                  onClick={() => handleSave(true)}
                   className={`w-full py-3.5 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
                 >
                   This & Future Months
