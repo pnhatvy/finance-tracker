@@ -156,45 +156,9 @@ export default function Settings() {
   const handleResetData = () => {
     setIsResetting(true);
     try {
+      // Chỉ xóa lịch sử giao dịch, giữ nguyên categories, goals và cycle start day
       localStorage.removeItem("vys_transactions");
-      setCategories([
-        {
-          id: "food",
-          name: "Food",
-          icon: "🍔",
-          color: "#ff453a",
-          type: "expense",
-        },
-        {
-          id: "transport",
-          name: "Transport",
-          icon: "🚕",
-          color: "#32ade6",
-          type: "expense",
-        },
-        {
-          id: "shopping",
-          name: "Shopping",
-          icon: "🛍️",
-          color: "#ff9f0a",
-          type: "expense",
-        },
-        {
-          id: "salary",
-          name: "Salary",
-          icon: "💰",
-          color: "#32d74b",
-          type: "income",
-        },
-        {
-          id: "gift",
-          name: "Gift",
-          icon: "🎁",
-          color: "#bf5af2",
-          type: "income",
-        },
-      ]);
-      setCycleStartDay(1);
+
       closeModals();
       window.location.href = "/";
     } catch (e) {
