@@ -423,7 +423,7 @@ export default function History() {
           onClick={() => setItemToDelete(null)}
         >
           <div
-            className={`w-full max-w-md mx-auto rounded-t-3xl p-5 pb-10 shadow-2xl animate-ios-slide ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black"}`}
+            className={`w-full max-w-[320px] rounded-[32px] p-6 shadow-2xl animate-ios-slide ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black"}`}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="font-bold text-center text-lg mb-2">
