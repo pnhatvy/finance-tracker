@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAppContext } from "../AppContext";
-import { Pencil, X, ChevronLeft, ChevronRight, Settings2 } from "lucide-react";
+import { Pencil, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function Goals() {
   const { theme, cycleStartDay } = useAppContext();
@@ -161,8 +161,10 @@ export default function Goals() {
 
   const openEdit = (type, currentVal) => {
     let title = "";
-    if (type === "m_budget") title = "Edit Expense Budget";
-    if (type === "m_income") title = "Edit Income Goal";
+    if (type === "m_budget") title = "Edit Budget (This Month)";
+    if (type === "m_budget_future") title = "Edit Budget (Current & Future)";
+    if (type === "m_income") title = "Edit Income (This Month)";
+    if (type === "m_income_future") title = "Edit Income (Current & Future)";
     if (type === "g_income") title = "Edit Overall Income Goal";
     if (type === "g_initial") title = "Set Initial Balance";
 
@@ -195,10 +197,34 @@ export default function Goals() {
       localStorage.setItem("vys_global_goals", JSON.stringify(gGoals));
       setGlobalIncomeGoal(numValue);
     } else if (editState.type === "g_initial") {
-      // Lưu số dư ban đầu, không hiển thị số này lên UI
+      // Lưu số dư ban đầu, không hiển thị số này lên UI chính
       localStorage.setItem("vys_initial_balance", numValue);
       setInitialBalance(numValue);
+    } else if (
+      editState.type === "m_budget_future" ||
+      editState.type === "m_income_future"
+    ) {
+      // Logic lưu cho THÁNG HIỆN TẠI VÀ 120 THÁNG TƯƠNG LAI (10 NĂM)
+      const mGoals = JSON.parse(
+        localStorage.getItem("vys_monthly_goals") || "{}",
+      );
+      const baseDate = new Date(bounds.start);
+
+      for (let i = 0; i < 120; i++) {
+        const d = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, 1);
+        const key = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}`;
+
+        if (!mGoals[key]) mGoals[key] = { budget: null, income: null };
+
+        if (editState.type === "m_budget_future") mGoals[key].budget = numValue;
+        if (editState.type === "m_income_future") mGoals[key].income = numValue;
+      }
+
+      localStorage.setItem("vys_monthly_goals", JSON.stringify(mGoals));
+      if (editState.type === "m_budget_future") setMonthlyBudget(numValue);
+      if (editState.type === "m_income_future") setMonthlyIncome(numValue);
     } else {
+      // Logic cũ: Chỉ lưu cho duy nhất tháng hiện tại
       const mGoals = JSON.parse(
         localStorage.getItem("vys_monthly_goals") || "{}",
       );
@@ -270,12 +296,22 @@ export default function Goals() {
               <span className="text-[13px] font-semibold text-[#8e8e93]">
                 Expense Budget
               </span>
-              <button
-                onClick={() => openEdit("m_budget", activeBudget)}
-                className="text-[#8e8e93] active:opacity-50 p-1"
-              >
-                <Pencil size={16} />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => openEdit("m_budget", activeBudget)}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase transition-opacity active:opacity-50 ${theme === "dark" ? "bg-[#2c2c2e] text-[#8e8e93]" : "bg-gray-100 text-gray-500"}`}
+                  title="Sửa mục tiêu chỉ cho tháng này"
+                >
+                  <Pencil size={12} /> 1 MO
+                </button>
+                <button
+                  onClick={() => openEdit("m_budget_future", activeBudget)}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase transition-opacity active:opacity-50 ${theme === "dark" ? "bg-[#2c2c2e] text-[#8e8e93]" : "bg-gray-100 text-gray-500"}`}
+                  title="Sửa mục tiêu cho tháng này và các tháng sau"
+                >
+                  <Pencil size={12} /> FUTURE
+                </button>
+              </div>
             </div>
             <div className="text-[28px] font-bold mb-1.5 tracking-tight">
               ₫{activeBudget.toLocaleString("vi-VN")}
@@ -305,12 +341,22 @@ export default function Goals() {
               <span className="text-[13px] font-semibold text-[#8e8e93]">
                 Income Goal
               </span>
-              <button
-                onClick={() => openEdit("m_income", activeIncome)}
-                className="text-[#8e8e93] active:opacity-50 p-1"
-              >
-                <Pencil size={16} />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => openEdit("m_income", activeIncome)}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase transition-opacity active:opacity-50 ${theme === "dark" ? "bg-[#2c2c2e] text-[#8e8e93]" : "bg-gray-100 text-gray-500"}`}
+                  title="Sửa mục tiêu chỉ cho tháng này"
+                >
+                  <Pencil size={12} /> 1 MO
+                </button>
+                <button
+                  onClick={() => openEdit("m_income_future", activeIncome)}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase transition-opacity active:opacity-50 ${theme === "dark" ? "bg-[#2c2c2e] text-[#8e8e93]" : "bg-gray-100 text-gray-500"}`}
+                  title="Sửa mục tiêu cho tháng này và các tháng sau"
+                >
+                  <Pencil size={12} /> FUTURE
+                </button>
+              </div>
             </div>
             <div className="text-[28px] font-bold mb-1.5 tracking-tight">
               ₫{activeIncome.toLocaleString("vi-VN")}
@@ -357,7 +403,9 @@ export default function Goals() {
                 <Pencil size={16} />
               </button>
             </div>
-            <div className="text-[28px] font-bold mb-5 tracking-tight">
+
+            {/* Đã giảm khoảng cách với phần Net Worth (đổi mb-5 thành mb-2) */}
+            <div className="text-[28px] font-bold mb-2 tracking-tight">
               ₫{globalIncomeGoal.toLocaleString("vi-VN")}
             </div>
 
@@ -373,14 +421,6 @@ export default function Goals() {
                   {totalNetWorth < 0 ? "-" : ""}₫
                   {Math.abs(totalNetWorth).toLocaleString("vi-VN")}
                 </strong>
-                {/* NÚT CÀI ĐẶT SỐ DƯ BAN ĐẦU - Ẩn số tiền, chỉ hiện icon nhỏ bên cạnh */}
-                <button
-                  onClick={() => openEdit("g_initial", initialBalance)}
-                  className="p-1 ml-1 rounded-full active:opacity-50 text-[#8e8e93] hover:text-[#32ade6]"
-                  title="Set Initial Balance"
-                >
-                  <Settings2 size={14} />
-                </button>
               </span>
               <span
                 className={
@@ -399,6 +439,17 @@ export default function Goals() {
                 style={{ width: `${Math.min(overallPercent, 100)}%` }}
               ></div>
             </div>
+
+            {/* Hàng 3: NÚT CÀI ĐẶT SỐ DƯ BAN ĐẦU RỘNG RÃI (ẨN SỐ TIỀN) */}
+            <button
+              onClick={() => openEdit("g_initial", initialBalance)}
+              className={`w-full flex justify-between items-center px-4 py-3 mt-5 rounded-[16px] cursor-pointer ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"} active:opacity-70 transition-opacity`}
+            >
+              <span className="text-[13px] font-semibold">
+                Set Initial Balance
+              </span>
+              <ChevronRight size={16} className="text-[#8e8e93]" />
+            </button>
           </div>
         </div>
       </div>
