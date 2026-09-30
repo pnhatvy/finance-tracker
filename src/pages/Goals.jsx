@@ -430,8 +430,9 @@ export default function Goals() {
             setIsInputFocused(false);
           }}
         >
+          {/* ĐÃ GIẢM ĐỘ ĐẨY LÊN: Đổi từ -translate-y-28 xuống -translate-y-12 */}
           <div
-            className={`w-full max-w-[340px] rounded-[32px] p-6 shadow-2xl transition-transform duration-300 ease-out ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"} ${isInputFocused ? "-translate-y-28" : "translate-y-0"}`}
+            className={`w-full max-w-[340px] rounded-[32px] p-6 shadow-2xl transition-transform duration-300 ease-out ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"} ${isInputFocused ? "-translate-y-12" : "translate-y-0"}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-6">
@@ -462,7 +463,6 @@ export default function Goals() {
               <input
                 type="text"
                 inputMode="numeric"
-                // Đã bỏ autoFocus ở đây
                 placeholder="0"
                 value={editState.value}
                 onFocus={() => setIsInputFocused(true)}
@@ -471,7 +471,6 @@ export default function Goals() {
                 className={`flex-1 bg-transparent py-3 outline-none font-bold text-[22px] w-full ${theme === "dark" ? "text-white" : "text-black"}`}
               />
 
-              {/* NÚT CLEAR TẤT CẢ SỐ */}
               {editState.value !== "" && (
                 <button
                   onClick={() => setEditState({ ...editState, value: "" })}
