@@ -9,8 +9,9 @@ export default function Goals() {
   const [monthlyBudget, setMonthlyBudget] = useState(null);
   const [monthlyIncome, setMonthlyIncome] = useState(null);
 
-  // Dữ liệu mục tiêu tổng (Overall Target) - Giữ nguyên không đổi
+  // Dữ liệu Tổng (Overall)
   const [globalIncomeGoal, setGlobalIncomeGoal] = useState(10000000);
+  const [initialBalance, setInitialBalance] = useState(0); // NÚT NHẬP SỐ DƯ BAN ĐẦU
 
   // Điều hướng tháng
   const [offset, setOffset] = useState(0);
@@ -79,11 +80,14 @@ export default function Goals() {
   const bounds = getPeriodBounds();
 
   useEffect(() => {
-    // 1. Tải Global Income Goal (Overall Target)
+    // 1. Tải Global Income Goal và Initial Balance
     const gGoals = JSON.parse(
       localStorage.getItem("vys_global_goals") || '{"income": 10000000}',
     );
     setGlobalIncomeGoal(gGoals.income !== undefined ? gGoals.income : 10000000);
+
+    const initBal = Number(localStorage.getItem("vys_initial_balance") || 0);
+    setInitialBalance(initBal);
 
     // 2. Tải Monthly Goals của tháng đang chọn
     const mGoals = JSON.parse(
@@ -105,7 +109,7 @@ export default function Goals() {
       setMonthlyIncome(null);
     }
 
-    // 3. Tải toàn bộ giao dịch để tính toán thực tế tháng này & cộng dồn tổng tài sản
+    // 3. Tải toàn bộ giao dịch để tính toán
     const transactions = JSON.parse(
       localStorage.getItem("vys_transactions") || "[]",
     );
@@ -119,11 +123,9 @@ export default function Goals() {
     transactions.forEach((t) => {
       const amount = Number(t.amount) || 0;
 
-      // Tính cộng dồn toàn thời gian (All-time) cho tổng tài sản
       if (t.type === "expense") cumulativeSpent += amount;
       if (t.type === "income") cumulativeEarned += amount;
 
-      // Tính trong tháng hiện tại
       if (t.date) {
         const d = new Date(t.date);
         if (d >= bounds.start && d < bounds.end) {
@@ -136,7 +138,8 @@ export default function Goals() {
     setSpent(totalSpentMonth);
     setEarned(totalEarnedMonth);
 
-    setTotalNetWorth(cumulativeEarned - cumulativeSpent);
+    // Tổng tài sản = Số dư ban đầu + Tổng Thu - Tổng Chi
+    setTotalNetWorth(initBal + cumulativeEarned - cumulativeSpent);
     setAllTimeEarned(cumulativeEarned);
   }, [bounds.key, cycleStartDay, editState.isOpen]);
 
@@ -150,10 +153,10 @@ export default function Goals() {
   const earnedPercent =
     activeIncome > 0 ? Math.round((earned / activeIncome) * 100) : 0;
 
-  // Tiến độ khối Overall: Dựa vào tổng thu nhập cộng dồn so với mục tiêu Overall Goal đã đặt
+  // Tiến độ khối Overall: Tính bằng (Tổng tài sản hiện tại / Mục tiêu)
   const overallPercent =
     globalIncomeGoal > 0
-      ? Math.round((allTimeEarned / globalIncomeGoal) * 100)
+      ? Math.max(0, Math.round((totalNetWorth / globalIncomeGoal) * 100))
       : 0;
 
   const openEdit = (type, currentVal) => {
@@ -161,6 +164,7 @@ export default function Goals() {
     if (type === "m_budget") title = "Edit Expense Budget";
     if (type === "m_income") title = "Edit Income Goal";
     if (type === "g_income") title = "Edit Overall Income Goal";
+    if (type === "g_initial") title = "Set Initial Balance"; // Tiêu đề modal nhập vốn
 
     setEditState({
       isOpen: true,
@@ -190,6 +194,10 @@ export default function Goals() {
       gGoals.income = numValue;
       localStorage.setItem("vys_global_goals", JSON.stringify(gGoals));
       setGlobalIncomeGoal(numValue);
+    } else if (editState.type === "g_initial") {
+      // Lưu số dư ban đầu
+      localStorage.setItem("vys_initial_balance", numValue);
+      setInitialBalance(numValue);
     } else {
       const mGoals = JSON.parse(
         localStorage.getItem("vys_monthly_goals") || "{}",
@@ -327,7 +335,7 @@ export default function Goals() {
             </div>
           </div>
 
-          {/* SECTION: OVERALL TARGET (GIỮ NGUYÊN SỐ GOAL, THAY THẾ DÒNG EARNED BẰNG NET WORTH TÀI SẢN) */}
+          {/* SECTION: OVERALL TARGET */}
           <div className="pt-5 pb-0">
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2 mb-2">
               Overall Target
@@ -337,6 +345,7 @@ export default function Goals() {
           <div
             className={`p-5 rounded-[24px] shadow-sm relative ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
           >
+            {/* Hàng 1: Mục tiêu */}
             <div className="flex justify-between items-center mb-1">
               <span className="text-[13px] font-semibold text-[#8e8e93]">
                 Income Goal
@@ -348,9 +357,29 @@ export default function Goals() {
                 <Pencil size={16} />
               </button>
             </div>
-            <div className="text-[28px] font-bold mb-1.5 tracking-tight">
+            <div className="text-[28px] font-bold mb-4 tracking-tight">
               ₫{globalIncomeGoal.toLocaleString("vi-VN")}
             </div>
+
+            {/* Hàng 2: Nhập số tiền hiện có (Vốn ban đầu) */}
+            <div
+              className={`flex justify-between items-center mb-1 border-t pt-4 ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
+            >
+              <span className="text-[13px] font-semibold text-[#8e8e93]">
+                Initial Balance (Current Money)
+              </span>
+              <button
+                onClick={() => openEdit("g_initial", initialBalance)}
+                className="text-[#8e8e93] active:opacity-50 p-1"
+              >
+                <Pencil size={16} />
+              </button>
+            </div>
+            <div className="text-[20px] font-bold mb-5 tracking-tight">
+              ₫{initialBalance.toLocaleString("vi-VN")}
+            </div>
+
+            {/* Hàng 3: Thống kê tổng tài sản & Progress */}
             <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
               <span>
                 Net Worth:{" "}
@@ -437,7 +466,7 @@ export default function Goals() {
               onClick={handleSave}
               className={`w-full py-3.5 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
             >
-              Save Goal
+              Save Value
             </button>
           </div>
         </div>
