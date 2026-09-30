@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAppContext } from "../AppContext";
-import { Pencil, X } from "lucide-react";
+import { Pencil, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function Goals() {
   const { theme, cycleStartDay } = useAppContext();
@@ -10,6 +10,9 @@ export default function Goals() {
   const [globalIncome, setGlobalIncome] = useState(0);
   const [monthlyBudget, setMonthlyBudget] = useState(null);
   const [monthlyIncome, setMonthlyIncome] = useState(null);
+
+  // Điều hướng tháng
+  const [offset, setOffset] = useState(0);
 
   // Dữ liệu chi tiêu thực tế trong tháng
   const [spent, setSpent] = useState(0);
@@ -23,7 +26,8 @@ export default function Goals() {
     value: "",
   });
 
-  const getCurrentMonthKey = () => {
+  // Tính toán khoảng thời gian và Key của tháng đang xem
+  const getPeriodBounds = () => {
     const base = new Date();
     let currentStart = new Date(
       base.getFullYear(),
@@ -33,10 +37,40 @@ export default function Goals() {
     if (base.getDate() < cycleStartDay) {
       currentStart.setMonth(currentStart.getMonth() - 1);
     }
-    return `${currentStart.getFullYear()}-${(currentStart.getMonth() + 1).toString().padStart(2, "0")}`;
+    currentStart.setMonth(currentStart.getMonth() + offset);
+
+    const start = new Date(currentStart);
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + 1);
+
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    let label = "";
+    if (cycleStartDay === 1) {
+      label = `${months[start.getMonth()]} ${start.getFullYear()}`;
+    } else {
+      let endLabel = new Date(end);
+      endLabel.setDate(endLabel.getDate() - 1);
+      label = `${months[start.getMonth()]} ${start.getDate()} - ${months[endLabel.getMonth()]} ${endLabel.getDate()}`;
+    }
+
+    const key = `${start.getFullYear()}-${(start.getMonth() + 1).toString().padStart(2, "0")}`;
+    return { start, end, label, key };
   };
 
-  const currentMonthKey = getCurrentMonthKey();
+  const bounds = getPeriodBounds();
 
   useEffect(() => {
     const gGoals = JSON.parse(
@@ -49,9 +83,9 @@ export default function Goals() {
     const mGoals = JSON.parse(
       localStorage.getItem("vys_monthly_goals") || "{}",
     );
-    if (mGoals[currentMonthKey]) {
-      setMonthlyBudget(mGoals[currentMonthKey].budget);
-      setMonthlyIncome(mGoals[currentMonthKey].income);
+    if (mGoals[bounds.key]) {
+      setMonthlyBudget(mGoals[bounds.key].budget);
+      setMonthlyIncome(mGoals[bounds.key].income);
     } else {
       setMonthlyBudget(null);
       setMonthlyIncome(null);
@@ -60,19 +94,13 @@ export default function Goals() {
     const transactions = JSON.parse(
       localStorage.getItem("vys_transactions") || "[]",
     );
-    const base = new Date();
-    let start = new Date(base.getFullYear(), base.getMonth(), cycleStartDay);
-    if (base.getDate() < cycleStartDay) start.setMonth(start.getMonth() - 1);
-    const end = new Date(start);
-    end.setMonth(end.getMonth() + 1);
-
     let totalSpent = 0;
     let totalEarned = 0;
 
     transactions.forEach((t) => {
       if (t.date) {
         const d = new Date(t.date);
-        if (d >= start && d < end) {
+        if (d >= bounds.start && d < bounds.end) {
           if (t.type === "expense") totalSpent += t.amount;
           if (t.type === "income") totalEarned += t.amount;
         }
@@ -81,7 +109,7 @@ export default function Goals() {
 
     setSpent(totalSpent);
     setEarned(totalEarned);
-  }, [currentMonthKey, cycleStartDay, editState.isOpen]);
+  }, [bounds.key, cycleStartDay, editState.isOpen]);
 
   const activeBudget = monthlyBudget !== null ? monthlyBudget : globalBudget;
   const activeIncome = monthlyIncome !== null ? monthlyIncome : globalIncome;
@@ -95,10 +123,6 @@ export default function Goals() {
       ? Math.min(Math.round((earned / activeIncome) * 100), 100)
       : 0;
 
-  const globalSpentPercent =
-    globalBudget > 0
-      ? Math.min(Math.round((spent / globalBudget) * 100), 100)
-      : 0;
   const globalEarnedPercent =
     globalIncome > 0
       ? Math.min(Math.round((earned / globalIncome) * 100), 100)
@@ -108,8 +132,7 @@ export default function Goals() {
     let title = "";
     if (type === "m_budget") title = "Edit Expense Budget";
     if (type === "m_income") title = "Edit Income Goal";
-    if (type === "g_budget") title = "Edit Default Budget (All)";
-    if (type === "g_income") title = "Edit Default Income (All)";
+    if (type === "g_income") title = "Edit Overall Income Goal";
 
     setEditState({
       isOpen: true,
@@ -133,19 +156,16 @@ export default function Goals() {
 
     if (editState.type.startsWith("g_")) {
       const gGoals = { budget: globalBudget, income: globalIncome };
-      if (editState.type === "g_budget") gGoals.budget = numValue;
       if (editState.type === "g_income") gGoals.income = numValue;
       localStorage.setItem("vys_global_goals", JSON.stringify(gGoals));
     } else {
       const mGoals = JSON.parse(
         localStorage.getItem("vys_monthly_goals") || "{}",
       );
-      if (!mGoals[currentMonthKey])
-        mGoals[currentMonthKey] = { budget: null, income: null };
-      if (editState.type === "m_budget")
-        mGoals[currentMonthKey].budget = numValue;
-      if (editState.type === "m_income")
-        mGoals[currentMonthKey].income = numValue;
+      if (!mGoals[bounds.key])
+        mGoals[bounds.key] = { budget: null, income: null };
+      if (editState.type === "m_budget") mGoals[bounds.key].budget = numValue;
+      if (editState.type === "m_income") mGoals[bounds.key].income = numValue;
       localStorage.setItem("vys_monthly_goals", JSON.stringify(mGoals));
     }
 
@@ -170,11 +190,28 @@ export default function Goals() {
           className="flex-1 overflow-y-auto px-4 pt-4 pb-32 space-y-4 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          {/* SECTION: MONTHLY TARGET */}
-          <div className="pt-2 pb-0">
-            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2 mb-2">
+          {/* SECTION: MONTHLY TARGET (CÓ CHỨC NĂNG ĐỔI THÁNG) */}
+          <div className="flex justify-between items-center pt-2 pb-0">
+            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2">
               Monthly Target
             </h3>
+            <div
+              className={`flex items-center rounded-full px-2 py-0.5 shadow-sm mr-1 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+            >
+              <button
+                onClick={() => setOffset((o) => o - 1)}
+                className="p-1 text-[#32ade6] active:opacity-50"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-[11px] font-bold px-2">{bounds.label}</span>
+              <button
+                onClick={() => setOffset((o) => o + 1)}
+                className="p-1 text-[#32ade6] active:opacity-50"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
 
           <div
@@ -191,7 +228,6 @@ export default function Goals() {
                 <Pencil size={16} />
               </button>
             </div>
-            {/* Đã giảm khoảng cách từ mb-4 xuống mb-1.5 */}
             <div className="text-[28px] font-bold mb-1.5 tracking-tight">
               ₫{activeBudget.toLocaleString("vi-VN")}
             </div>
@@ -240,7 +276,7 @@ export default function Goals() {
             </div>
           </div>
 
-          {/* SECTION: OVERALL TARGET */}
+          {/* SECTION: OVERALL TARGET (ĐÃ XÓA BUDGET, CHỈ CÒN INCOME GOAL) */}
           <div className="pt-5 pb-0">
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2 mb-2">
               Overall Target
@@ -252,38 +288,7 @@ export default function Goals() {
           >
             <div className="flex justify-between items-center mb-1">
               <span className="text-[13px] font-semibold text-[#8e8e93]">
-                Default Expense Budget
-              </span>
-              <button
-                onClick={() => openEdit("g_budget", globalBudget)}
-                className="text-[#8e8e93] active:opacity-50 p-1"
-              >
-                <Pencil size={16} />
-              </button>
-            </div>
-            <div className="text-[28px] font-bold mb-1.5 tracking-tight">
-              ₫{globalBudget.toLocaleString("vi-VN")}
-            </div>
-            <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
-              <span>Spent: ₫{spent.toLocaleString("vi-VN")}</span>
-              <span>{globalSpentPercent}%</span>
-            </div>
-            <div
-              className={`h-2 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
-            >
-              <div
-                className={`h-full rounded-full transition-all duration-700 ease-out ${globalSpentPercent >= 100 ? "bg-[#ff453a]" : "bg-gray-300"}`}
-                style={{ width: `${globalSpentPercent}%` }}
-              ></div>
-            </div>
-          </div>
-
-          <div
-            className={`p-5 rounded-[24px] shadow-sm relative ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
-          >
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-[13px] font-semibold text-[#8e8e93]">
-                Default Income Goal
+                Income Goal
               </span>
               <button
                 onClick={() => openEdit("g_income", globalIncome)}
@@ -311,13 +316,14 @@ export default function Goals() {
         </div>
       </div>
 
+      {/* MODAL CĂN GIỮA MÀN HÌNH ĐỂ KHÔNG BỊ BÀN PHÍM CHE */}
       {editState.isOpen && (
         <div
-          className="fixed inset-0 bg-black/70 z-[60] flex flex-col justify-end animate-ios-fade"
+          className="fixed inset-0 bg-black/70 z-[70] flex items-center justify-center p-4 animate-ios-fade"
           onClick={() => setEditState({ ...editState, isOpen: false })}
         >
           <div
-            className={`w-full max-w-md mx-auto rounded-t-[32px] p-6 shadow-2xl pb-10 animate-ios-slide ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+            className={`w-full max-w-[340px] rounded-[32px] p-6 shadow-2xl animate-ios-slide ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-6">
