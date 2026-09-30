@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Calendar,
   Clock,
-  Trash2,
   Repeat,
 } from "lucide-react";
 
@@ -133,6 +132,19 @@ export default function History() {
     if (!editForm.amount) return;
     const numAmount = Number(editForm.amount.replace(/\./g, ""));
 
+    // Nếu gõ amount = 0 thì coi như xóa luôn
+    if (numAmount === 0) {
+      if (
+        window.confirm("Amount is 0. Do you want to delete this transaction?")
+      ) {
+        const updated = transactions.filter((t) => t.id !== editForm.id);
+        localStorage.setItem("vys_transactions", JSON.stringify(updated));
+        setTransactions(updated);
+        closeModal();
+      }
+      return;
+    }
+
     const updated = transactions.map((t) => {
       if (t.id === editForm.id) {
         return {
@@ -150,16 +162,6 @@ export default function History() {
     localStorage.setItem("vys_transactions", JSON.stringify(updated));
     setTransactions(updated);
     closeModal();
-  };
-
-  // Xóa giao dịch
-  const handleDeleteTransaction = () => {
-    if (window.confirm("Are you sure you want to delete this transaction?")) {
-      const updated = transactions.filter((t) => t.id !== editForm.id);
-      localStorage.setItem("vys_transactions", JSON.stringify(updated));
-      setTransactions(updated);
-      closeModal();
-    }
   };
 
   return (
@@ -216,7 +218,7 @@ export default function History() {
           )}
         </div>
 
-        {/* LIST */}
+        {/* LIST GIAO DỊCH */}
         <div
           className="flex-1 overflow-y-auto px-4 pt-4 pb-32 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
@@ -291,64 +293,48 @@ export default function History() {
         </div>
       </div>
 
-      {/* TRANSACTION EDIT MODAL - ĐÃ ÉP TEXT-WHITE TOÀN BỘ */}
+      {/* TRANSACTION EDIT MODAL - GIỮ NGUYÊN GIAO DIỆN GỐC CỦA ÔNG, FIX CHÌM CHỮ */}
       {selectedTx && (
         <div
-          className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end animate-ios-fade"
+          className="fixed inset-0 bg-black/70 z-[60] flex flex-col justify-end animate-ios-fade"
           onClick={closeModal}
         >
           <div
-            className={`w-full max-w-[360px] mx-auto rounded-t-[32px] p-5 pb-10 shadow-2xl animate-ios-slide ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+            className={`w-full max-w-[400px] mx-auto rounded-t-[32px] p-5 pb-8 shadow-2xl animate-ios-slide ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black"}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div
-              className={`w-12 h-1.5 rounded-full mx-auto mb-5 ${theme === "dark" ? "bg-[#3a3a3c]" : "bg-gray-300"}`}
+              className={`w-12 h-1.5 rounded-full mx-auto mb-5 ${theme === "dark" ? "bg-gray-600" : "bg-gray-300"}`}
             ></div>
 
-            <div className="flex justify-between items-center mb-5">
-              <h2
-                className={`font-bold text-xl ${theme === "dark" ? "text-white" : "text-black"}`}
-              >
-                Edit {editForm.type === "expense" ? "Expense" : "Income"}
-              </h2>
-              <button
-                onClick={closeModal}
-                className={`p-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
-              >
-                <X size={20} />
-              </button>
-            </div>
+            {/* TIÊU ĐỀ ÉP MÀU TRẮNG KHI DARK MODE */}
+            <h2
+              className={`font-bold text-center text-lg mb-6 ${theme === "dark" ? "text-white" : "text-black"}`}
+            >
+              Edit {editForm.type === "expense" ? "Expense" : "Income"}
+            </h2>
 
+            {/* Ô NHẬP TIỀN & NÚT LOẠI GIAO DỊCH */}
             <div className="flex gap-2 mb-4">
-              <div
-                className={`flex-1 flex items-center rounded-2xl px-4 py-2 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
-              >
-                <span
-                  className={`text-lg font-bold mr-1 ${theme === "dark" ? "text-white" : "text-black"}`}
-                >
-                  ₫
-                </span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={editForm.amount}
-                  onChange={(e) => {
-                    const raw = e.target.value
-                      .replace(/\./g, "")
-                      .replace(/\D/g, "");
-                    if (!raw) {
-                      setEditForm({ ...editForm, amount: "" });
-                      return;
-                    }
-                    setEditForm({
-                      ...editForm,
-                      amount: Number(raw).toLocaleString("vi-VN"),
-                    });
-                  }}
-                  className={`flex-1 bg-transparent py-2 outline-none font-bold text-xl w-full ${theme === "dark" ? "text-white" : "text-black"}`}
-                />
-              </div>
-
+              <input
+                type="text"
+                inputMode="numeric"
+                value={editForm.amount}
+                onChange={(e) => {
+                  const raw = e.target.value
+                    .replace(/\./g, "")
+                    .replace(/\D/g, "");
+                  if (!raw) {
+                    setEditForm({ ...editForm, amount: "" });
+                    return;
+                  }
+                  setEditForm({
+                    ...editForm,
+                    amount: Number(raw).toLocaleString("vi-VN"),
+                  });
+                }}
+                className={`flex-1 rounded-xl px-4 py-3 outline-none font-bold text-lg ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
+              />
               <button
                 onClick={() =>
                   setEditForm({
@@ -356,12 +342,13 @@ export default function History() {
                     type: editForm.type === "expense" ? "income" : "expense",
                   })
                 }
-                className={`px-4 rounded-2xl font-bold w-24 transition-colors ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
+                className={`px-4 rounded-xl font-semibold w-24 ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
               >
                 {editForm.type === "expense" ? "Credit" : "Cash"}
               </button>
             </div>
 
+            {/* DANH SÁCH CATEGORY */}
             <div className="flex overflow-x-auto gap-2 py-1 mb-4 scrollbar-hide">
               {categories
                 .filter((c) => c.type === editForm.type)
@@ -369,7 +356,7 @@ export default function History() {
                   <button
                     key={cat.id}
                     onClick={() => setEditForm({ ...editForm, category: cat })}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap transition-colors flex-shrink-0 border-2 ${editForm.category?.id === cat.id ? `border-[${cat.color}]` : "border-transparent"} ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-full whitespace-nowrap transition-colors flex-shrink-0 border-2 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
                     style={{
                       borderColor:
                         editForm.category?.id === cat.id
@@ -377,7 +364,8 @@ export default function History() {
                           : "transparent",
                     }}
                   >
-                    <span className="text-base">{cat.icon}</span>
+                    <span>{cat.icon}</span>
+                    {/* Tên danh mục tự động trắng ở dark mode */}
                     <span
                       className={`text-sm font-semibold ${theme === "dark" ? "text-white" : "text-black"}`}
                     >
@@ -387,16 +375,18 @@ export default function History() {
                 ))}
             </div>
 
+            {/* Ô NHẬP NOTE/CARD (Y CHANG GIAO DIỆN CŨ) */}
             <input
               type="text"
-              placeholder="Note"
+              placeholder="Note / Card"
               value={editForm.note}
               onChange={(e) =>
                 setEditForm({ ...editForm, note: e.target.value })
               }
-              className={`w-full rounded-2xl px-4 py-4 mb-4 outline-none font-medium ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
+              className={`w-full rounded-xl px-4 py-3 mb-4 outline-none ${theme === "dark" ? "bg-[#2c2c2e] text-white placeholder-gray-400" : "bg-gray-100 text-black placeholder-gray-500"}`}
             />
 
+            {/* HÀNG 3 NÚT DATE / TIME / REPEAT BẰNG NHAU */}
             <div className="flex gap-2 mb-6">
               <div
                 className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
@@ -419,7 +409,7 @@ export default function History() {
                     d.setFullYear(y, m - 1, day);
                     setEditForm({ ...editForm, date: d.toISOString() });
                   }}
-                  className="absolute inset-0 opacity-0 z-20 w-full h-full"
+                  className="absolute inset-0 opacity-0 z-20 w-full h-full cursor-pointer"
                 />
               </div>
               <div
@@ -448,7 +438,7 @@ export default function History() {
                     d.setHours(h, m);
                     setEditForm({ ...editForm, date: d.toISOString() });
                   }}
-                  className="absolute inset-0 opacity-0 z-20 w-full h-full"
+                  className="absolute inset-0 opacity-0 z-20 w-full h-full cursor-pointer"
                 />
               </div>
               <div
@@ -460,20 +450,23 @@ export default function History() {
                   <Repeat size={14} /> Once
                 </span>
               </div>
-              <button
-                onClick={handleDeleteTransaction}
-                className={`w-[46px] flex items-center justify-center rounded-xl py-2.5 ${theme === "dark" ? "bg-[#ff453a]/20 text-[#ff453a]" : "bg-red-100 text-red-500"}`}
-              >
-                <Trash2 size={16} />
-              </button>
             </div>
 
-            <button
-              onClick={saveTransaction}
-              className={`w-full py-3.5 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
-            >
-              Save
-            </button>
+            {/* 2 NÚT CANCEL VÀ SAVE BÊN DƯỚI */}
+            <div className="flex gap-3">
+              <button
+                onClick={closeModal}
+                className={`flex-1 py-3.5 rounded-2xl font-bold ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-200 text-black"}`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveTransaction}
+                className={`flex-1 py-3.5 rounded-2xl font-bold ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
+              >
+                Save
+              </button>
+            </div>
           </div>
         </div>
       )}
