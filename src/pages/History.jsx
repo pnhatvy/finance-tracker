@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAppContext } from "../AppContext";
 import {
   ChevronLeft,
@@ -6,7 +6,125 @@ import {
   Calendar,
   Clock,
   Repeat,
+  X,
+  Trash2,
 } from "lucide-react";
+
+// BỘ CẢM BIẾN VUỐT GIAO DỊCH (SWIPE-TO-ACTION)
+const TransactionRow = ({ tx, isLast, theme, onEdit, onDelete }) => {
+  const rowRef = useRef(null);
+  const startX = useRef(0);
+  const startY = useRef(0);
+  const currentX = useRef(0);
+  const isDragging = useRef(false);
+  const dragDirection = useRef(null);
+
+  const handleTouchStart = (e) => {
+    startX.current = e.touches[0].clientX;
+    startY.current = e.touches[0].clientY;
+    isDragging.current = true;
+    dragDirection.current = null;
+    if (rowRef.current) rowRef.current.style.transition = "none";
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging.current) return;
+    const diffX = e.touches[0].clientX - startX.current;
+    const diffY = e.touches[0].clientY - startY.current;
+
+    if (!dragDirection.current) {
+      if (Math.abs(diffX) > Math.abs(diffY)) {
+        dragDirection.current = "horizontal";
+      } else {
+        dragDirection.current = "vertical";
+        isDragging.current = false;
+        return;
+      }
+    }
+
+    if (dragDirection.current === "horizontal") {
+      currentX.current = diffX;
+      // Khóa giới hạn kéo 80px
+      const clampedX = Math.max(-80, Math.min(80, currentX.current));
+      if (rowRef.current)
+        rowRef.current.style.transform = `translate3d(${clampedX}px, 0, 0)`;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+
+    if (rowRef.current) {
+      rowRef.current.style.transition =
+        "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
+      rowRef.current.style.transform = "translate3d(0, 0, 0)";
+    }
+
+    if (currentX.current < -50) {
+      // Vuốt trái -> Sửa
+      setTimeout(() => onEdit(tx), 150);
+    } else if (currentX.current > 50) {
+      // Vuốt phải -> Xóa
+      setTimeout(() => onDelete(tx), 150);
+    }
+    currentX.current = 0;
+  };
+
+  return (
+    <div className="relative w-full overflow-hidden">
+      {/* Lớp nền lộ ra khi vuốt */}
+      <div className="absolute inset-0 flex justify-between items-center px-4">
+        <div className="text-[#ff453a] font-bold text-[13px] flex items-center gap-1.5">
+          <Trash2 size={16} /> Delete
+        </div>
+        <div className="text-[#32ade6] font-bold text-[13px] flex items-center gap-1.5">
+          Edit <ChevronRight size={16} />
+        </div>
+      </div>
+
+      {/* Lớp nội dung chính */}
+      <div
+        ref={rowRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={() => onEdit(tx)}
+        className={`relative z-10 flex items-center p-3.5 cursor-pointer ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"} ${!isLast ? (theme === "dark" ? "border-b border-white/5" : "border-b border-black/5") : ""}`}
+      >
+        <div
+          className="w-10 h-10 rounded-full flex items-center justify-center text-xl mr-3"
+          style={{ backgroundColor: `${tx.category?.color || "#ff453a"}20` }}
+        >
+          {tx.category?.icon || "🍔"}
+        </div>
+        <div className="flex-1 min-w-0 pointer-events-none">
+          <p
+            className={`font-semibold text-[15px] truncate ${theme === "dark" ? "text-white" : "text-black"}`}
+          >
+            {tx.category?.name || "Unknown"}
+          </p>
+          <p className="text-[#8e8e93] text-xs truncate mt-0.5">{tx.note}</p>
+        </div>
+        <div className="text-right ml-3 pointer-events-none">
+          <p
+            className={`font-bold text-[15px] ${tx.type === "expense" ? (theme === "dark" ? "text-white" : "text-black") : "text-[#32d74b]"}`}
+          >
+            {tx.type === "expense" ? "-" : "+"}₫
+            {tx.amount.toLocaleString("vi-VN")}
+          </p>
+          <p className="text-[#8e8e93] text-[11px] mt-0.5">
+            {new Date(tx.date).toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            })}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function History() {
   const { theme, cycleStartDay, categories } = useAppContext();
@@ -14,17 +132,16 @@ export default function History() {
   const [offset, setOffset] = useState(0);
   const [transactions, setTransactions] = useState([]);
 
-  // State quản lý Edit Modal
+  // State quản lý Modals
   const [selectedTx, setSelectedTx] = useState(null);
   const [editForm, setEditForm] = useState(null);
+  const [txToDelete, setTxToDelete] = useState(null);
 
-  // Load dữ liệu
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
     setTransactions(data);
-  }, [editForm]);
+  }, [editForm, txToDelete]);
 
-  // Tính toán thời gian
   const getPeriodBounds = () => {
     const base = new Date();
     let start, end, label;
@@ -84,7 +201,6 @@ export default function History() {
 
   const bounds = tab !== "all" ? getPeriodBounds() : null;
 
-  // Lọc giao dịch
   const filteredTx = transactions
     .filter((t) => {
       if (tab === "all") return true;
@@ -94,7 +210,6 @@ export default function History() {
     })
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  // Nhóm theo ngày
   const groupedTx = {};
   filteredTx.forEach((t) => {
     const dateStr = new Date(t.date)
@@ -109,7 +224,6 @@ export default function History() {
     groupedTx[dateStr].total += t.type === "expense" ? -t.amount : t.amount;
   });
 
-  // Mở modal Edit
   const openModal = (tx) => {
     setSelectedTx(tx);
     setEditForm({
@@ -127,21 +241,25 @@ export default function History() {
     setEditForm(null);
   };
 
-  // Lưu chỉnh sửa
+  const openDeleteConfirm = (tx) => {
+    setTxToDelete(tx);
+  };
+
+  const confirmDelete = () => {
+    if (txToDelete) {
+      const updated = transactions.filter((t) => t.id !== txToDelete.id);
+      localStorage.setItem("vys_transactions", JSON.stringify(updated));
+      setTransactions(updated);
+      setTxToDelete(null);
+    }
+  };
+
   const saveTransaction = () => {
     if (!editForm.amount) return;
     const numAmount = Number(editForm.amount.replace(/\./g, ""));
 
-    // Nếu gõ amount = 0 thì coi như xóa luôn
     if (numAmount === 0) {
-      if (
-        window.confirm("Amount is 0. Do you want to delete this transaction?")
-      ) {
-        const updated = transactions.filter((t) => t.id !== editForm.id);
-        localStorage.setItem("vys_transactions", JSON.stringify(updated));
-        setTransactions(updated);
-        closeModal();
-      }
+      openDeleteConfirm(selectedTx); // Bấm save số 0 -> Đẩy ra hỏi xóa
       return;
     }
 
@@ -169,7 +287,7 @@ export default function History() {
       <div
         className={`h-[100dvh] w-full flex flex-col relative overflow-hidden animate-ios-page ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       >
-        {/* HEADER & TABS */}
+        {/* HEADER */}
         <div
           className={`flex-shrink-0 z-40 px-4 pb-3 flex flex-col justify-end shadow-[0_1px_0_0_rgba(0,0,0,0.05)] relative ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
@@ -218,7 +336,7 @@ export default function History() {
           )}
         </div>
 
-        {/* LIST GIAO DỊCH */}
+        {/* DANH SÁCH GIAO DỊCH */}
         <div
           className="flex-1 overflow-y-auto px-4 pt-4 pb-32 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
@@ -246,45 +364,14 @@ export default function History() {
                   className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
                 >
                   {groupedTx[dateStr].items.map((tx, index) => (
-                    <div
+                    <TransactionRow
                       key={tx.id}
-                      onClick={() => openModal(tx)}
-                      className={`flex items-center p-3.5 cursor-pointer active:opacity-60 transition-opacity ${index !== groupedTx[dateStr].items.length - 1 ? (theme === "dark" ? "border-b border-white/5" : "border-b border-black/5") : ""}`}
-                    >
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-xl mr-3"
-                        style={{
-                          backgroundColor: `${tx.category?.color || "#ff453a"}20`,
-                        }}
-                      >
-                        {tx.category?.icon || "🍔"}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={`font-semibold text-[15px] truncate ${theme === "dark" ? "text-white" : "text-black"}`}
-                        >
-                          {tx.category?.name || "Unknown"}
-                        </p>
-                        <p className="text-[#8e8e93] text-xs truncate mt-0.5">
-                          {tx.note}
-                        </p>
-                      </div>
-                      <div className="text-right ml-3">
-                        <p
-                          className={`font-bold text-[15px] ${tx.type === "expense" ? (theme === "dark" ? "text-white" : "text-black") : "text-[#32d74b]"}`}
-                        >
-                          {tx.type === "expense" ? "-" : "+"}₫
-                          {tx.amount.toLocaleString("vi-VN")}
-                        </p>
-                        <p className="text-[#8e8e93] text-[11px] mt-0.5">
-                          {new Date(tx.date).toLocaleTimeString("en-US", {
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          })}
-                        </p>
-                      </div>
-                    </div>
+                      tx={tx}
+                      isLast={index === groupedTx[dateStr].items.length - 1}
+                      theme={theme}
+                      onEdit={openModal}
+                      onDelete={openDeleteConfirm}
+                    />
                   ))}
                 </div>
               </div>
@@ -293,8 +380,49 @@ export default function History() {
         </div>
       </div>
 
-      {/* TRANSACTION EDIT MODAL - GIỮ NGUYÊN GIAO DIỆN GỐC CỦA ÔNG, FIX CHÌM CHỮ */}
-      {selectedTx && (
+      {/* MODAL XÁC NHẬN XÓA (VUỐT PHẢI) */}
+      {txToDelete && (
+        <div
+          className="fixed inset-0 bg-black/70 z-[70] flex items-center justify-center p-4 animate-ios-fade"
+          onClick={() => setTxToDelete(null)}
+        >
+          <div
+            className={`w-full max-w-[320px] rounded-[32px] p-6 shadow-2xl animate-ios-slide ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-full bg-[#ff453a]/20 text-[#ff453a] flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={24} />
+            </div>
+            <h3
+              className={`font-bold text-center text-xl mb-2 ${theme === "dark" ? "text-white" : "text-black"}`}
+            >
+              Delete Transaction?
+            </h3>
+            <p
+              className={`text-center text-sm mb-6 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}
+            >
+              This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setTxToDelete(null)}
+                className={`flex-1 py-3.5 rounded-2xl font-bold ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-200 text-black"}`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 bg-[#ff453a] text-white py-3.5 rounded-2xl font-bold"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TRANSACTION EDIT MODAL - ĐÃ SỬA LỖI CHÌM CHỮ */}
+      {selectedTx && !txToDelete && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex flex-col justify-end animate-ios-fade"
           onClick={closeModal}
@@ -307,14 +435,12 @@ export default function History() {
               className={`w-12 h-1.5 rounded-full mx-auto mb-5 ${theme === "dark" ? "bg-gray-600" : "bg-gray-300"}`}
             ></div>
 
-            {/* TIÊU ĐỀ ÉP MÀU TRẮNG KHI DARK MODE */}
             <h2
               className={`font-bold text-center text-lg mb-6 ${theme === "dark" ? "text-white" : "text-black"}`}
             >
               Edit {editForm.type === "expense" ? "Expense" : "Income"}
             </h2>
 
-            {/* Ô NHẬP TIỀN & NÚT LOẠI GIAO DỊCH */}
             <div className="flex gap-2 mb-4">
               <input
                 type="text"
@@ -348,7 +474,6 @@ export default function History() {
               </button>
             </div>
 
-            {/* DANH SÁCH CATEGORY */}
             <div className="flex overflow-x-auto gap-2 py-1 mb-4 scrollbar-hide">
               {categories
                 .filter((c) => c.type === editForm.type)
@@ -365,7 +490,6 @@ export default function History() {
                     }}
                   >
                     <span>{cat.icon}</span>
-                    {/* Tên danh mục tự động trắng ở dark mode */}
                     <span
                       className={`text-sm font-semibold ${theme === "dark" ? "text-white" : "text-black"}`}
                     >
@@ -375,7 +499,6 @@ export default function History() {
                 ))}
             </div>
 
-            {/* Ô NHẬP NOTE/CARD (Y CHANG GIAO DIỆN CŨ) */}
             <input
               type="text"
               placeholder="Note / Card"
@@ -386,7 +509,6 @@ export default function History() {
               className={`w-full rounded-xl px-4 py-3 mb-4 outline-none ${theme === "dark" ? "bg-[#2c2c2e] text-white placeholder-gray-400" : "bg-gray-100 text-black placeholder-gray-500"}`}
             />
 
-            {/* HÀNG 3 NÚT DATE / TIME / REPEAT BẰNG NHAU */}
             <div className="flex gap-2 mb-6">
               <div
                 className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
@@ -452,7 +574,6 @@ export default function History() {
               </div>
             </div>
 
-            {/* 2 NÚT CANCEL VÀ SAVE BÊN DƯỚI */}
             <div className="flex gap-3">
               <button
                 onClick={closeModal}
