@@ -116,19 +116,14 @@ export default function Goals() {
   const activeBudget = monthlyBudget !== null ? monthlyBudget : globalBudget;
   const activeIncome = monthlyIncome !== null ? monthlyIncome : globalIncome;
 
+  // ĐÃ SỬA: Cho phép hiển thị phần trăm vượt quá 100% (ví dụ 123%)
   const spentPercent =
-    activeBudget > 0
-      ? Math.min(Math.round((spent / activeBudget) * 100), 100)
-      : 0;
+    activeBudget > 0 ? Math.round((spent / activeBudget) * 100) : 0;
   const earnedPercent =
-    activeIncome > 0
-      ? Math.min(Math.round((earned / activeIncome) * 100), 100)
-      : 0;
+    activeIncome > 0 ? Math.round((earned / activeIncome) * 100) : 0;
 
   const globalEarnedPercent =
-    globalIncome > 0
-      ? Math.min(Math.round((earned / globalIncome) * 100), 100)
-      : 0;
+    globalIncome > 0 ? Math.round((earned / globalIncome) * 100) : 0;
 
   const openEdit = (type, currentVal) => {
     let title = "";
@@ -235,14 +230,18 @@ export default function Goals() {
             </div>
             <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
               <span>Spent: ₫{spent.toLocaleString("vi-VN")}</span>
-              <span>{spentPercent}%</span>
+              <span
+                className={spentPercent > 100 ? "text-[#ff453a] font-bold" : ""}
+              >
+                {spentPercent}%
+              </span>
             </div>
             <div
               className={`h-2 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
               <div
                 className={`h-full rounded-full transition-all duration-700 ease-out ${spentPercent >= 100 ? "bg-[#ff453a]" : "bg-gray-300"}`}
-                style={{ width: `${spentPercent}%` }}
+                style={{ width: `${Math.min(spentPercent, 100)}%` }}
               ></div>
             </div>
           </div>
@@ -266,14 +265,20 @@ export default function Goals() {
             </div>
             <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
               <span>Earned: ₫{earned.toLocaleString("vi-VN")}</span>
-              <span>{earnedPercent}%</span>
+              <span
+                className={
+                  earnedPercent >= 100 ? "text-[#32d74b] font-bold" : ""
+                }
+              >
+                {earnedPercent}%
+              </span>
             </div>
             <div
               className={`h-2 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
               <div
                 className={`h-full rounded-full transition-all duration-700 ease-out ${earnedPercent >= 100 ? "bg-[#32d74b]" : "bg-gray-300"}`}
-                style={{ width: `${earnedPercent}%` }}
+                style={{ width: `${Math.min(earnedPercent, 100)}%` }}
               ></div>
             </div>
           </div>
@@ -303,14 +308,20 @@ export default function Goals() {
             </div>
             <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
               <span>Earned: ₫{earned.toLocaleString("vi-VN")}</span>
-              <span>{globalEarnedPercent}%</span>
+              <span
+                className={
+                  globalEarnedPercent >= 100 ? "text-[#32d74b] font-bold" : ""
+                }
+              >
+                {globalEarnedPercent}%
+              </span>
             </div>
             <div
               className={`h-2 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
               <div
                 className={`h-full rounded-full transition-all duration-700 ease-out ${globalEarnedPercent >= 100 ? "bg-[#32d74b]" : "bg-gray-300"}`}
-                style={{ width: `${globalEarnedPercent}%` }}
+                style={{ width: `${Math.min(globalEarnedPercent, 100)}%` }}
               ></div>
             </div>
           </div>
