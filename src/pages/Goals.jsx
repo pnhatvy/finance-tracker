@@ -5,11 +5,12 @@ import { Pencil, X, ChevronLeft, ChevronRight } from "lucide-react";
 export default function Goals() {
   const { theme, cycleStartDay } = useAppContext();
 
-  // Dữ liệu mục tiêu
-  const [globalBudget, setGlobalBudget] = useState(0);
-  const [globalIncome, setGlobalIncome] = useState(0);
+  // Dữ liệu mục tiêu tháng
   const [monthlyBudget, setMonthlyBudget] = useState(null);
   const [monthlyIncome, setMonthlyIncome] = useState(null);
+
+  // Dữ liệu mục tiêu tổng (Overall Target)
+  const [globalIncomeGoal, setGlobalIncomeGoal] = useState(10000000);
 
   // Điều hướng tháng
   const [offset, setOffset] = useState(0);
@@ -17,6 +18,10 @@ export default function Goals() {
   // Dữ liệu chi tiêu thực tế trong tháng
   const [spent, setSpent] = useState(0);
   const [earned, setEarned] = useState(0);
+
+  // Dữ liệu tổng tài sản & cộng dồn toàn thời gian (All-time)
+  const [totalNetWorth, setTotalNetWorth] = useState(0);
+  const [allTimeEarned, setAllTimeEarned] = useState(0);
 
   // State Modal chỉnh sửa
   const [editState, setEditState] = useState({
@@ -26,7 +31,6 @@ export default function Goals() {
     value: "",
   });
 
-  // CẢM BIẾN BÀN PHÍM
   const [isInputFocused, setIsInputFocused] = useState(false);
 
   const getPeriodBounds = () => {
@@ -75,55 +79,83 @@ export default function Goals() {
   const bounds = getPeriodBounds();
 
   useEffect(() => {
+    // 1. Tải Global Income Goal (Overall Target)
     const gGoals = JSON.parse(
-      localStorage.getItem("vys_global_goals") ||
-        '{"budget": 9500000, "income": 10000000}',
+      localStorage.getItem("vys_global_goals") || '{"income": 10000000}',
     );
-    setGlobalBudget(gGoals.budget);
-    setGlobalIncome(gGoals.income);
+    setGlobalIncomeGoal(gGoals.income !== undefined ? gGoals.income : 10000000);
 
+    // 2. Tải Monthly Goals của tháng đang chọn
     const mGoals = JSON.parse(
       localStorage.getItem("vys_monthly_goals") || "{}",
     );
     if (mGoals[bounds.key]) {
-      setMonthlyBudget(mGoals[bounds.key].budget);
-      setMonthlyIncome(mGoals[bounds.key].income);
+      setMonthlyBudget(
+        mGoals[bounds.key].budget !== undefined
+          ? mGoals[bounds.key].budget
+          : null,
+      );
+      setMonthlyIncome(
+        mGoals[bounds.key].income !== undefined
+          ? mGoals[bounds.key].income
+          : null,
+      );
     } else {
       setMonthlyBudget(null);
       setMonthlyIncome(null);
     }
 
+    // 3. Tải toàn bộ giao dịch để tính toán thực tế tháng này & cộng dồn tổng tài sản
     const transactions = JSON.parse(
       localStorage.getItem("vys_transactions") || "[]",
     );
-    let totalSpent = 0;
-    let totalEarned = 0;
+
+    let totalSpentMonth = 0;
+    let totalEarnedMonth = 0;
+
+    let cumulativeEarned = 0;
+    let cumulativeSpent = 0;
 
     transactions.forEach((t) => {
+      const amount = Number(t.amount) || 0;
+
+      // Tính cộng dồn toàn thời gian (All-time) cho tổng tài sản
+      if (t.type === "expense") cumulativeSpent += amount;
+      if (t.type === "income") cumulativeEarned += amount;
+
+      // Tính trong tháng hiện tại
       if (t.date) {
         const d = new Date(t.date);
         if (d >= bounds.start && d < bounds.end) {
-          if (t.type === "expense") totalSpent += t.amount;
-          if (t.type === "income") totalEarned += t.amount;
+          if (t.type === "expense") totalSpentMonth += amount;
+          if (t.type === "income") totalEarnedMonth += amount;
         }
       }
     });
 
-    setSpent(totalSpent);
-    setEarned(totalEarned);
+    setSpent(totalSpentMonth);
+    setEarned(totalEarnedMonth);
+
+    // Tổng tài sản = Tổng Thu - Tổng Chi từ trước đến nay
+    setTotalNetWorth(cumulativeEarned - cumulativeSpent);
+    setAllTimeEarned(cumulativeEarned);
   }, [bounds.key, cycleStartDay, editState.isOpen]);
 
-  const activeBudget = monthlyBudget !== null ? monthlyBudget : globalBudget;
-  const activeIncome = monthlyIncome !== null ? monthlyIncome : globalIncome;
+  const activeBudget =
+    monthlyBudget !== null && monthlyBudget !== "" ? monthlyBudget : 9500000;
+  const activeIncome =
+    monthlyIncome !== null && monthlyIncome !== "" ? monthlyIncome : 10000000;
 
-  // ĐÃ SỬA: Cho phép hiển thị phần trăm vượt quá 100% (ví dụ 123%)
   const spentPercent =
     activeBudget > 0 ? Math.round((spent / activeBudget) * 100) : 0;
   const earnedPercent =
     activeIncome > 0 ? Math.round((earned / activeIncome) * 100) : 0;
 
-  const globalEarnedPercent =
-    globalIncome > 0 ? Math.round((earned / globalIncome) * 100) : 0;
+  // Tiến độ khối Overall: Dựa vào tổng thu nhập cộng dồn so với mục tiêu Overall Goal đã đặt
+  const overallPercent =
+    globalIncomeGoal > 0
+      ? Math.round((allTimeEarned / globalIncomeGoal) * 100)
+      : 0;
 
   const openEdit = (type, currentVal) => {
     let title = "";
@@ -149,20 +181,32 @@ export default function Goals() {
   };
 
   const handleSave = () => {
-    const numValue = Number(editState.value.replace(/\./g, ""));
+    const numValue =
+      editState.value === "" ? 0 : Number(editState.value.replace(/\./g, ""));
 
-    if (editState.type.startsWith("g_")) {
-      const gGoals = { budget: globalBudget, income: globalIncome };
-      if (editState.type === "g_income") gGoals.income = numValue;
+    if (editState.type === "g_income") {
+      const gGoals = JSON.parse(
+        localStorage.getItem("vys_global_goals") || "{}",
+      );
+      gGoals.income = numValue;
       localStorage.setItem("vys_global_goals", JSON.stringify(gGoals));
+      setGlobalIncomeGoal(numValue);
     } else {
       const mGoals = JSON.parse(
         localStorage.getItem("vys_monthly_goals") || "{}",
       );
       if (!mGoals[bounds.key])
         mGoals[bounds.key] = { budget: null, income: null };
-      if (editState.type === "m_budget") mGoals[bounds.key].budget = numValue;
-      if (editState.type === "m_income") mGoals[bounds.key].income = numValue;
+
+      if (editState.type === "m_budget") {
+        mGoals[bounds.key].budget = numValue;
+        setMonthlyBudget(numValue);
+      }
+      if (editState.type === "m_income") {
+        mGoals[bounds.key].income = numValue;
+        setMonthlyIncome(numValue);
+      }
+
       localStorage.setItem("vys_monthly_goals", JSON.stringify(mGoals));
     }
 
@@ -188,6 +232,7 @@ export default function Goals() {
           className="flex-1 overflow-y-auto px-4 pt-4 pb-32 space-y-4 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
+          {/* SECTION: MONTHLY TARGET */}
           <div className="flex justify-between items-center pt-2 pb-0">
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2">
               Monthly Target
@@ -283,6 +328,7 @@ export default function Goals() {
             </div>
           </div>
 
+          {/* SECTION: OVERALL TARGET (GIỮ NGUYÊN GIAO DIỆN, HIỆN TỔNG TÀI SẢN CỘNG DỒN) */}
           <div className="pt-5 pb-0">
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2 mb-2">
               Overall Target
@@ -294,34 +340,39 @@ export default function Goals() {
           >
             <div className="flex justify-between items-center mb-1">
               <span className="text-[13px] font-semibold text-[#8e8e93]">
-                Income Goal
+                Income Goal (Net Worth)
               </span>
               <button
-                onClick={() => openEdit("g_income", globalIncome)}
+                onClick={() => openEdit("g_income", globalIncomeGoal)}
                 className="text-[#8e8e93] active:opacity-50 p-1"
               >
                 <Pencil size={16} />
               </button>
             </div>
-            <div className="text-[28px] font-bold mb-1.5 tracking-tight">
-              ₫{globalIncome.toLocaleString("vi-VN")}
+            <div
+              className={`text-[28px] font-bold mb-1.5 tracking-tight ${totalNetWorth >= 0 ? (theme === "dark" ? "text-white" : "text-black") : "text-[#ff453a]"}`}
+            >
+              {totalNetWorth < 0 ? "-" : ""}₫
+              {Math.abs(totalNetWorth).toLocaleString("vi-VN")}
             </div>
             <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
-              <span>Earned: ₫{earned.toLocaleString("vi-VN")}</span>
+              <span>
+                Total Earned: ₫{allTimeEarned.toLocaleString("vi-VN")}
+              </span>
               <span
                 className={
-                  globalEarnedPercent >= 100 ? "text-[#32d74b] font-bold" : ""
+                  overallPercent >= 100 ? "text-[#32d74b] font-bold" : ""
                 }
               >
-                {globalEarnedPercent}%
+                {overallPercent}%
               </span>
             </div>
             <div
               className={`h-2 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
               <div
-                className={`h-full rounded-full transition-all duration-700 ease-out ${globalEarnedPercent >= 100 ? "bg-[#32d74b]" : "bg-gray-300"}`}
-                style={{ width: `${Math.min(globalEarnedPercent, 100)}%` }}
+                className={`h-full rounded-full transition-all duration-700 ease-out ${overallPercent >= 100 ? "bg-[#32d74b]" : "bg-gray-300"}`}
+                style={{ width: `${Math.min(overallPercent, 100)}%` }}
               ></div>
             </div>
           </div>
@@ -336,7 +387,6 @@ export default function Goals() {
             setIsInputFocused(false);
           }}
         >
-          {/* SỬ DỤNG TRANSLATE ĐỂ ĐẨY MODAL LÊN KHI CÓ BÀN PHÍM */}
           <div
             className={`w-full max-w-[340px] rounded-[32px] p-6 shadow-2xl transition-transform duration-300 ease-out ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"} ${isInputFocused ? "-translate-y-28" : "translate-y-0"}`}
             onClick={(e) => e.stopPropagation()}
@@ -372,8 +422,8 @@ export default function Goals() {
                 autoFocus
                 placeholder="0"
                 value={editState.value}
-                onFocus={() => setIsInputFocused(true)} // Khi nhấp vào input -> đẩy Modal lên
-                onBlur={() => setIsInputFocused(false)} // Khi mất focus -> thả Modal về giữa
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => setIsInputFocused(false)}
                 onChange={(e) => handleInput(e.target.value)}
                 className={`flex-1 bg-transparent py-3 outline-none font-bold text-[22px] w-full ${theme === "dark" ? "text-white" : "text-black"}`}
               />
