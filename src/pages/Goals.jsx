@@ -365,7 +365,7 @@ export default function Goals() {
           >
             <div className="flex justify-between items-center mb-1">
               <span className="text-[13px] font-semibold text-[#8e8e93]">
-                Income Goal
+                Wallets
               </span>
               <button
                 onClick={() => openEdit("g_income", globalIncomeGoal)}

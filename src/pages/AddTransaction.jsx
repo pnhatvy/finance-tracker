@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Delete, Calendar, Repeat } from "lucide-react";
+import { X, Delete, Calendar, Repeat, Clock } from "lucide-react";
 import { useAppContext } from "../AppContext";
 
 export default function AddTransaction() {
@@ -10,8 +10,18 @@ export default function AddTransaction() {
   const [amount, setAmount] = useState("0");
   const [type, setType] = useState("expense");
   const [note, setNote] = useState("");
-  const [txDate, setTxDate] = useState(new Date().toISOString().split("T")[0]);
   const [repeat, setRepeat] = useState("none");
+
+  // Format datetime-local chuẩn: YYYY-MM-DDTHH:mm
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    // Bù múi giờ địa phương để không bị lùi ngày
+    const tzOffset = now.getTimezoneOffset() * 60000;
+    const localISOTime = new Date(now - tzOffset).toISOString().slice(0, 16);
+    return localISOTime;
+  };
+
+  const [txDate, setTxDate] = useState(getCurrentDateTime());
 
   const safeCategories = categories.map((c) => ({
     ...c,
@@ -33,7 +43,7 @@ export default function AddTransaction() {
     let isDragging = false;
     let isClosing = false;
     let dragDirection = null;
-    let rafId = null; // Biến lưu trữ khung hình quét màn hình
+    let rafId = null;
 
     const handleTouchStart = (e) => {
       if (isClosing) return;
@@ -42,7 +52,6 @@ export default function AddTransaction() {
       isDragging = true;
       dragDirection = null;
 
-      // Khóa ngay lập tức mọi hiệu ứng CSS có thể gây độ trễ
       container.style.transition = "none";
       container.style.animation = "none";
     };
@@ -64,7 +73,6 @@ export default function AddTransaction() {
         e.preventDefault();
         currentY = diffY;
 
-        // Đồng bộ chuyển động với tần số quét 60Hz/120Hz của màn hình
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
           container.style.transform = `translate3d(0, ${currentY}px, 0)`;
@@ -75,9 +83,8 @@ export default function AddTransaction() {
     const handleTouchEnd = () => {
       if (!isDragging || isClosing) return;
       isDragging = false;
-      if (rafId) cancelAnimationFrame(rafId); // Dừng render khung hình
+      if (rafId) cancelAnimationFrame(rafId);
 
-      // Bật lại hiệu ứng đàn hồi nảy nảy của iOS
       container.style.transition =
         "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
 
@@ -139,7 +146,6 @@ export default function AddTransaction() {
     try {
       const numericAmount = Number(amount.replace(",", "."));
       const baseDate = new Date(txDate);
-      baseDate.setHours(new Date().getHours(), new Date().getMinutes());
 
       let count = 1;
       if (repeat === "daily") count = 30;
@@ -188,6 +194,21 @@ export default function AddTransaction() {
     return parts.length > 1
       ? `${parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${parts[1]}`
       : parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  };
+
+  // Format để hiển thị chữ Date & Time cho đẹp trên nút bấm
+  const getDisplayDateTime = () => {
+    const d = new Date(txDate);
+    const dateStr = d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const timeStr = d.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    return `${dateStr}, ${timeStr}`;
   };
 
   return (
@@ -286,17 +307,13 @@ export default function AddTransaction() {
           className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
         >
           <span
-            className={`font-semibold text-[13px] flex items-center gap-2 pointer-events-none ${theme === "dark" ? "text-white" : "text-black"}`}
+            className={`font-semibold text-[13px] flex items-center gap-1.5 pointer-events-none ${theme === "dark" ? "text-white" : "text-black"}`}
           >
-            <Calendar size={16} className="text-[#32ade6]" />{" "}
-            {new Date(txDate).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
+            <Clock size={16} className="text-[#32ade6]" />{" "}
+            {getDisplayDateTime()}
           </span>
           <input
-            type="date"
+            type="datetime-local"
             value={txDate}
             onChange={(e) => setTxDate(e.target.value)}
             onTouchStart={(e) => e.stopPropagation()}
