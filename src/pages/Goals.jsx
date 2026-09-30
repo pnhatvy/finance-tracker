@@ -190,7 +190,7 @@ export default function Goals() {
           className="flex-1 overflow-y-auto px-4 pt-4 pb-32 space-y-4 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          {/* SECTION: MONTHLY TARGET (CÓ CHỨC NĂNG ĐỔI THÁNG) */}
+          {/* SECTION: MONTHLY TARGET */}
           <div className="flex justify-between items-center pt-2 pb-0">
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2">
               Monthly Target
@@ -276,7 +276,7 @@ export default function Goals() {
             </div>
           </div>
 
-          {/* SECTION: OVERALL TARGET (ĐÃ XÓA BUDGET, CHỈ CÒN INCOME GOAL) */}
+          {/* SECTION: OVERALL TARGET */}
           <div className="pt-5 pb-0">
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2 mb-2">
               Overall Target
@@ -316,7 +316,7 @@ export default function Goals() {
         </div>
       </div>
 
-      {/* MODAL CĂN GIỮA MÀN HÌNH ĐỂ KHÔNG BỊ BÀN PHÍM CHE */}
+      {/* MODAL CĂN GIỮA VÀ ÉP TEXT-WHITE KHI DARK MODE */}
       {editState.isOpen && (
         <div
           className="fixed inset-0 bg-black/70 z-[70] flex items-center justify-center p-4 animate-ios-fade"
@@ -327,7 +327,12 @@ export default function Goals() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-6">
-              <h2 className="font-bold text-lg">{editState.title}</h2>
+              {/* Đã thêm text-white ở đây */}
+              <h2
+                className={`font-bold text-lg ${theme === "dark" ? "text-white" : "text-black"}`}
+              >
+                {editState.title}
+              </h2>
               <button
                 onClick={() => setEditState({ ...editState, isOpen: false })}
                 className={`p-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}

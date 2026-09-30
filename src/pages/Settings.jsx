@@ -1,10 +1,8 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { useAppContext } from "../AppContext";
-import { ChevronLeft, X, Moon, Menu, Trash2 } from "lucide-react";
+import { X, Moon, Menu, Trash2 } from "lucide-react";
 
 export default function Settings() {
-  const navigate = useNavigate();
   const {
     theme,
     setTheme,
@@ -124,6 +122,7 @@ export default function Settings() {
       setItemToDelete(null);
     }
   };
+
   const openCycleModal = () => {
     setModalType("cycle");
     setIsModalOpen(true);
@@ -268,13 +267,10 @@ export default function Settings() {
 
         if (dragState && dragState.type === type) {
           if (isDragging) {
-            // THUẬT TOÁN GIỚI HẠN PHẠM VI KÉO THẢ (CLAMPING)
             const rawTranslateY = dragState.currentY - dragState.startY;
-            const maxUp = -dragState.startIndex * dragState.itemHeight; // Giới hạn trên cùng
+            const maxUp = -dragState.startIndex * dragState.itemHeight;
             const maxDown =
-              (list.length - 1 - dragState.startIndex) * dragState.itemHeight; // Giới hạn dưới cùng
-
-            // Ép tọa độ y không được vượt quá maxUp và maxDown
+              (list.length - 1 - dragState.startIndex) * dragState.itemHeight;
             translateY = Math.max(maxUp, Math.min(rawTranslateY, maxDown));
 
             zIndex = 50;
@@ -323,7 +319,9 @@ export default function Settings() {
                 }}
               >
                 <span className="text-xl pointer-events-none">{c.icon}</span>
-                <span className="font-semibold pointer-events-none">
+                <span
+                  className={`font-semibold pointer-events-none ${theme === "dark" ? "text-white" : "text-black"}`}
+                >
                   {c.name}
                 </span>
               </div>
@@ -354,7 +352,7 @@ export default function Settings() {
       })}
       <button
         onClick={openAddCategory}
-        className="w-full text-center p-4 font-semibold active:opacity-50"
+        className={`w-full text-center p-4 font-semibold active:opacity-50 ${theme === "dark" ? "text-white" : "text-black"}`}
       >
         + Add Category
       </button>
@@ -467,16 +465,20 @@ export default function Settings() {
           onClick={!isResetting ? closeModals : undefined}
         >
           <div
-            className={`w-full max-w-[320px] rounded-3xl p-6 shadow-2xl ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-white"}`}
+            className={`w-full max-w-[320px] rounded-[32px] p-6 shadow-2xl ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-12 h-12 rounded-full bg-[#ff453a]/20 text-[#ff453a] flex items-center justify-center mx-auto mb-4">
               <Trash2 size={24} />
             </div>
-            <h3 className="font-bold text-center text-xl mb-2">
+            <h3
+              className={`font-bold text-center text-xl mb-2 ${theme === "dark" ? "text-white" : "text-black"}`}
+            >
               Reset Everything?
             </h3>
-            <p className="text-[#8e8e93] text-center text-sm mb-6 leading-relaxed">
+            <p
+              className={`text-center text-sm mb-6 leading-relaxed ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}
+            >
               This will permanently delete all data.{" "}
               <strong
                 className={theme === "dark" ? "text-white" : "text-black"}
@@ -488,14 +490,14 @@ export default function Settings() {
               <button
                 disabled={isResetting}
                 onClick={closeModals}
-                className={`flex-1 py-3 rounded-2xl font-bold active:opacity-70 disabled:opacity-50 ${theme === "dark" ? "bg-[#3a3a3c] text-white" : "bg-gray-200 text-black"}`}
+                className={`flex-1 py-3.5 rounded-2xl font-bold active:opacity-70 disabled:opacity-50 ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-200 text-black"}`}
               >
                 Cancel
               </button>
               <button
                 disabled={isResetting}
                 onClick={handleResetData}
-                className="flex-1 bg-[#ff453a] text-white py-3 rounded-2xl font-bold active:opacity-70 flex items-center justify-center disabled:opacity-50"
+                className="flex-1 bg-[#ff453a] text-white py-3.5 rounded-2xl font-bold active:opacity-70 flex items-center justify-center disabled:opacity-50"
               >
                 {isResetting ? "Erasing..." : "Erase"}
               </button>
@@ -510,25 +512,29 @@ export default function Settings() {
           onClick={() => setItemToDelete(null)}
         >
           <div
-            className={`w-full max-w-[300px] rounded-3xl p-6 shadow-2xl ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-white"}`}
+            className={`w-full max-w-[320px] rounded-[32px] p-6 shadow-2xl ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="font-bold text-center text-lg mb-2">
+            <h3
+              className={`font-bold text-center text-xl mb-2 ${theme === "dark" ? "text-white" : "text-black"}`}
+            >
               Delete Category?
             </h3>
-            <p className="text-[#8e8e93] text-center text-sm mb-6">
+            <p
+              className={`text-center text-sm mb-6 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}
+            >
               Transactions will lose this category.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setItemToDelete(null)}
-                className={`flex-1 py-2.5 rounded-xl font-semibold ${theme === "dark" ? "bg-[#3a3a3c] text-white" : "bg-gray-200 text-black"}`}
+                className={`flex-1 py-3.5 rounded-2xl font-bold ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-200 text-black"}`}
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDeleteCategory}
-                className="flex-1 bg-[#ff453a] text-white py-2.5 rounded-xl font-semibold"
+                className="flex-1 bg-[#ff453a] text-white py-3.5 rounded-2xl font-bold"
               >
                 Delete
               </button>
@@ -543,10 +549,12 @@ export default function Settings() {
           onClick={closeModals}
         >
           <div
-            className={`w-full max-w-[320px] rounded-3xl p-6 shadow-2xl ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-white"}`}
+            className={`w-full max-w-[340px] rounded-[32px] p-6 shadow-2xl ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="font-semibold text-center mb-6 text-lg">
+            <h2
+              className={`font-bold text-center mb-6 text-xl ${theme === "dark" ? "text-white" : "text-black"}`}
+            >
               Cycle start day
             </h2>
             <div className="grid grid-cols-7 gap-2 mb-6">
@@ -557,7 +565,7 @@ export default function Settings() {
                     setCycleStartDay(day);
                     closeModals();
                   }}
-                  className={`aspect-square flex items-center justify-center rounded-lg font-bold text-sm ${cycleStartDay === day ? "bg-[#32ade6] text-black" : theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-gray-100 text-black"}`}
+                  className={`aspect-square flex items-center justify-center rounded-lg font-bold text-sm ${cycleStartDay === day ? "bg-[#32ade6] text-black" : theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
                 >
                   {day}
                 </button>
@@ -565,7 +573,7 @@ export default function Settings() {
             </div>
             <button
               onClick={closeModals}
-              className={`w-full py-2.5 rounded-xl font-semibold ${theme === "dark" ? "bg-[#3a3a3c] text-white" : "bg-gray-200 text-black"}`}
+              className={`w-full py-3.5 rounded-2xl font-bold ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-200 text-black"}`}
             >
               Cancel
             </button>
@@ -579,24 +587,35 @@ export default function Settings() {
           onClick={closeModals}
         >
           <div
-            className={`w-full max-w-[340px] rounded-3xl p-5 shadow-2xl ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-white"}`}
+            className={`w-full max-w-[340px] rounded-[32px] p-6 shadow-2xl ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="font-semibold text-center mb-4 text-lg">
-              {catForm.id ? "Edit Category" : "Add Category"}
-            </h2>
+            <div className="flex justify-between items-center mb-5">
+              <h2
+                className={`font-bold text-xl ${theme === "dark" ? "text-white" : "text-black"}`}
+              >
+                {catForm.id ? "Edit Category" : "Add Category"}
+              </h2>
+              <button
+                onClick={closeModals}
+                className={`p-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
             <div
-              className={`flex rounded-xl p-1 mb-4 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-100"}`}
+              className={`flex rounded-xl p-1 mb-4 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
               <button
                 onClick={() => setCatForm({ ...catForm, type: "expense" })}
-                className={`flex-1 py-2 rounded-lg font-semibold text-sm ${catForm.type === "expense" ? "bg-[#ff453a] text-white" : "text-[#8e8e93]"}`}
+                className={`flex-1 py-2 rounded-lg font-semibold text-sm transition-colors ${catForm.type === "expense" ? "bg-[#ff453a] text-white" : "text-[#8e8e93]"}`}
               >
                 Expense
               </button>
               <button
                 onClick={() => setCatForm({ ...catForm, type: "income" })}
-                className={`flex-1 py-2 rounded-lg font-semibold text-sm ${catForm.type === "income" ? "bg-[#32d74b] text-white" : "text-[#8e8e93]"}`}
+                className={`flex-1 py-2 rounded-lg font-semibold text-sm transition-colors ${catForm.type === "income" ? "bg-[#32d74b] text-white" : "text-[#8e8e93]"}`}
               >
                 Income
               </button>
@@ -606,11 +625,11 @@ export default function Settings() {
               placeholder="Category name"
               value={catForm.name}
               onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
-              className={`w-full text-center rounded-xl px-4 py-3 outline-none mb-4 font-semibold ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-gray-100 text-black"}`}
+              className={`w-full text-center rounded-xl px-4 py-3 outline-none mb-4 font-bold text-lg ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
             />
 
             <div
-              className={`grid grid-cols-6 gap-2 mb-4 h-[180px] overflow-y-auto p-2 rounded-xl scrollbar-hide ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-100"}`}
+              className={`grid grid-cols-6 gap-2 mb-4 h-[160px] overflow-y-auto p-2 rounded-xl scrollbar-hide ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
               {EMOJI_LIST.map((emoji) => (
                 <button
@@ -624,7 +643,7 @@ export default function Settings() {
             </div>
 
             <div
-              className={`grid grid-cols-6 gap-y-3 mb-6 p-3 rounded-xl ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-100"}`}
+              className={`grid grid-cols-6 gap-y-3 mb-6 p-3 rounded-xl ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
               {COLOR_LIST.map((color) => (
                 <div key={color} className="flex justify-center items-center">
@@ -647,20 +666,12 @@ export default function Settings() {
               ))}
             </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={closeModals}
-                className={`flex-1 py-3 rounded-2xl font-bold ${theme === "dark" ? "bg-[#3a3a3c] text-white" : "bg-gray-200 text-black"}`}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={saveCategory}
-                className={`flex-1 py-3 rounded-2xl font-bold ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
-              >
-                Save
-              </button>
-            </div>
+            <button
+              onClick={saveCategory}
+              className={`w-full py-3.5 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
+            >
+              Save Category
+            </button>
           </div>
         </div>
       )}

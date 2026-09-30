@@ -1,332 +1,207 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { useAppContext } from "../AppContext";
 import {
-  Trash2,
-  Calendar,
-  Clock,
   ChevronLeft,
   ChevronRight,
+  Calendar,
+  Clock,
+  Trash2,
   Repeat,
 } from "lucide-react";
-import { useAppContext } from "../AppContext";
-
-const SwipeableItem = ({ children, onEdit, onDelete, isLast, theme }) => {
-  const [startX, setStartX] = useState(0);
-  const [offsetX, setOffsetX] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
-  const handleTouchStart = (e) => {
-    setStartX(e.touches[0].clientX);
-    setIsSwiping(true);
-  };
-  const handleTouchMove = (e) => {
-    if (!isSwiping) return;
-    const diff = e.touches[0].clientX - startX;
-    if (diff > 80) setOffsetX(80);
-    else if (diff < -80) setOffsetX(-80);
-    else setOffsetX(diff);
-  };
-  const handleTouchEnd = () => {
-    setIsSwiping(false);
-    if (offsetX > 50) {
-      onEdit();
-      setOffsetX(0);
-    } else if (offsetX < -50) {
-      onDelete();
-      setOffsetX(0);
-    } else {
-      setOffsetX(0);
-    }
-  };
-  return (
-    <div
-      className={`relative w-full overflow-hidden ${theme === "dark" ? "bg-black" : "bg-gray-100"}`}
-    >
-      <div
-        className={`absolute inset-0 flex justify-between items-center px-6 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
-      >
-        <div className="text-[#32ade6] font-semibold flex items-center gap-2">
-          Edit
-        </div>
-        <div className="text-[#ff453a] font-semibold flex items-center gap-2">
-          <Trash2 size={18} />
-        </div>
-      </div>
-      <div
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        className={`relative w-full transition-transform duration-200 ease-out flex items-center py-3.5 px-4 ${theme === "dark" ? "bg-black" : "bg-[#f2f2f7]"} ${!isLast ? (theme === "dark" ? "border-b border-[#1c1c1e]" : "border-b border-gray-200") : ""}`}
-        style={{ transform: `translateX(${offsetX}px)` }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-};
 
 export default function History() {
-  const [transactions, setTransactions] = useState([]);
-  const [timeFilter, setTimeFilter] = useState("month");
-  const { categories, setIsModalOpen, cycleStartDay, theme } = useAppContext();
-  const [editingItem, setEditingItem] = useState(null);
-  const [itemToDelete, setItemToDelete] = useState(null);
+  const { theme, cycleStartDay, categories } = useAppContext();
+  const [tab, setTab] = useState("month");
   const [offset, setOffset] = useState(0);
+  const [transactions, setTransactions] = useState([]);
 
+  // State quản lý Edit Modal
+  const [selectedTx, setSelectedTx] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+
+  // Load dữ liệu
   useEffect(() => {
-    const loadData = () => {
-      const data = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
-      data.sort((a, b) => new Date(b.date) - new Date(a.date));
-      setTransactions(data);
-    };
-    loadData();
-  }, []);
+    const data = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
+    setTransactions(data);
+  }, [editForm]);
 
+  // Tính toán thời gian
   const getPeriodBounds = () => {
     const base = new Date();
     let start, end, label;
-    const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    if (timeFilter === "today") {
-      base.setDate(base.getDate() + offset);
-      start = new Date(base.setHours(0, 0, 0, 0));
-      end = new Date(start);
-      end.setDate(end.getDate() + 1);
-      label = `${months[start.getMonth()]} ${start.getDate()}, ${start.getFullYear()}`;
-    } else if (timeFilter === "week") {
-      base.setDate(base.getDate() + offset * 7);
-      const day = base.getDay();
-      const diff = base.getDate() - day + (day === 0 ? -6 : 1);
-      start = new Date(base.setDate(diff));
-      start.setHours(0, 0, 0, 0);
-      end = new Date(start);
-      end.setDate(end.getDate() + 7);
-      let endLabel = new Date(end);
-      endLabel.setDate(endLabel.getDate() - 1);
-      label = `${months[start.getMonth()]} ${start.getDate()} - ${months[endLabel.getMonth()]} ${endLabel.getDate()}`;
-    } else if (timeFilter === "month") {
-      let currentStart = new Date(
-        base.getFullYear(),
-        base.getMonth(),
-        cycleStartDay,
-      );
-      if (base.getDate() < cycleStartDay)
-        currentStart.setMonth(currentStart.getMonth() - 1);
-      currentStart.setMonth(currentStart.getMonth() + offset);
-      start = new Date(currentStart);
+
+    if (tab === "month") {
+      start = new Date(base.getFullYear(), base.getMonth(), cycleStartDay);
+      if (base.getDate() < cycleStartDay) start.setMonth(start.getMonth() - 1);
+      start.setMonth(start.getMonth() + offset);
       end = new Date(start);
       end.setMonth(end.getMonth() + 1);
-      if (cycleStartDay === 1)
+
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+      if (cycleStartDay === 1) {
         label = `${months[start.getMonth()]} ${start.getFullYear()}`;
-      else {
+      } else {
         let endLabel = new Date(end);
         endLabel.setDate(endLabel.getDate() - 1);
         label = `${months[start.getMonth()]} ${start.getDate()} - ${months[endLabel.getMonth()]} ${endLabel.getDate()}`;
       }
+    } else if (tab === "day") {
+      start = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+      start.setDate(start.getDate() + offset);
+      end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      label = start.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } else if (tab === "week") {
+      start = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+      const dayOfWeek = start.getDay() === 0 ? 6 : start.getDay() - 1;
+      start.setDate(start.getDate() - dayOfWeek + offset * 7);
+      end = new Date(start);
+      end.setDate(end.getDate() + 7);
+
+      let endLabel = new Date(end);
+      endLabel.setDate(endLabel.getDate() - 1);
+      label = `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${endLabel.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
     }
+
     return { start, end, label };
   };
 
-  const bounds = timeFilter !== "all" ? getPeriodBounds() : null;
-  const filteredTransactions = transactions.filter((tItem) => {
-    if (timeFilter === "all") return true;
-    if (!tItem.date) return false;
-    const d = new Date(tItem.date);
-    return d >= bounds.start && d < bounds.end;
+  const bounds = tab !== "all" ? getPeriodBounds() : null;
+
+  // Lọc giao dịch
+  const filteredTx = transactions
+    .filter((t) => {
+      if (tab === "all") return true;
+      if (!t.date) return false;
+      const d = new Date(t.date);
+      return d >= bounds.start && d < bounds.end;
+    })
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  // Nhóm theo ngày
+  const groupedTx = {};
+  filteredTx.forEach((t) => {
+    const dateStr = new Date(t.date)
+      .toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      })
+      .toUpperCase();
+    if (!groupedTx[dateStr]) groupedTx[dateStr] = { items: [], total: 0 };
+    groupedTx[dateStr].items.push(t);
+    groupedTx[dateStr].total += t.type === "expense" ? -t.amount : t.amount;
   });
-  const groupedData = filteredTransactions.reduce((acc, tran) => {
-    const d = tran.date ? new Date(tran.date) : new Date();
-    d.setHours(0, 0, 0, 0);
-    const dateKey = d.toISOString();
-    if (!acc[dateKey]) acc[dateKey] = { date: d, items: [], totalDay: 0 };
-    acc[dateKey].items.push(tran);
-    acc[dateKey].totalDay +=
-      tran.type === "expense" ? -tran.amount : tran.amount;
-    return acc;
-  }, {});
-  const sortedGroups = Object.values(groupedData).sort(
-    (a, b) => b.date - a.date,
-  );
 
-  const confirmDelete = () => {
-    if (itemToDelete) {
-      const newData = transactions.filter((t) => t.id !== itemToDelete);
-      setTransactions(newData);
-      localStorage.setItem("vys_transactions", JSON.stringify(newData));
-      setItemToDelete(null);
-    }
-  };
-
-  const openEdit = (item) => {
-    const d = item.date ? new Date(item.date) : new Date();
-    setEditingItem({
-      ...item,
-      amount: item.amount ? item.amount.toString().replace(".", ",") : "0",
-      editDate: d.toISOString().split("T")[0],
-      editTime: d.toTimeString().slice(0, 5),
-      type: item.type || "expense",
-      repeat: "none",
+  // Mở modal Edit
+  const openModal = (tx) => {
+    setSelectedTx(tx);
+    setEditForm({
+      id: tx.id,
+      amount: tx.amount.toLocaleString("vi-VN"),
+      type: tx.type,
+      note: tx.note,
+      category: tx.category,
+      date: tx.date,
     });
-    setIsModalOpen(true);
-  };
-  const closeEdit = () => {
-    setEditingItem(null);
-    setIsModalOpen(false);
   };
 
-  const handleSaveEdit = () => {
-    if (!editingItem.amount || editingItem.amount === ",") return;
-    try {
-      const combinedDateTime = new Date(
-        `${editingItem.editDate}T${editingItem.editTime}:00`,
-      );
-      const numericAmount = Number(
-        editingItem.amount.toString().replace(",", "."),
-      );
+  const closeModal = () => {
+    setSelectedTx(null);
+    setEditForm(null);
+  };
 
-      let updatedList = [...transactions];
-      const index = updatedList.findIndex((t) => t.id === editingItem.id);
+  // Lưu chỉnh sửa
+  const saveTransaction = () => {
+    if (!editForm.amount) return;
+    const numAmount = Number(editForm.amount.replace(/\./g, ""));
 
-      if (index !== -1) {
-        updatedList[index] = {
-          ...updatedList[index],
-          amount: numericAmount,
-          type: editingItem.type,
-          note: editingItem.note,
-          category: editingItem.category,
-          date: combinedDateTime.toISOString(),
+    const updated = transactions.map((t) => {
+      if (t.id === editForm.id) {
+        return {
+          ...t,
+          amount: numAmount,
+          type: editForm.type,
+          note: editForm.note,
+          category: editForm.category,
+          date: editForm.date,
         };
       }
-
-      if (editingItem.repeat !== "none") {
-        let count = 0;
-        if (editingItem.repeat === "daily") count = 30;
-        if (editingItem.repeat === "weekly") count = 12;
-        if (editingItem.repeat === "monthly") count = 12;
-        if (editingItem.repeat === "yearly") count = 5;
-        const groupId = "rep_" + Date.now();
-        for (let i = 1; i <= count; i++) {
-          const d = new Date(combinedDateTime);
-          if (editingItem.repeat === "daily") d.setDate(d.getDate() + i);
-          if (editingItem.repeat === "weekly") d.setDate(d.getDate() + i * 7);
-          if (editingItem.repeat === "monthly") d.setMonth(d.getMonth() + i);
-          if (editingItem.repeat === "yearly")
-            d.setFullYear(d.getFullYear() + i);
-          updatedList.push({
-            id: Date.now().toString() + "_" + i,
-            amount: numericAmount,
-            type: editingItem.type,
-            note: editingItem.note,
-            category: editingItem.category,
-            date: d.toISOString(),
-            recurringId: groupId,
-          });
-        }
-      }
-
-      updatedList.sort((a, b) => new Date(b.date) - new Date(a.date));
-      setTransactions(updatedList);
-      localStorage.setItem("vys_transactions", JSON.stringify(updatedList));
-      closeEdit();
-    } catch (e) {}
-  };
-
-  const toggleEditType = () => {
-    const newType = editingItem.type === "expense" ? "income" : "expense";
-    setEditingItem({
-      ...editingItem,
-      type: newType,
-      category: categories.filter((c) => c.type === newType)[0] || {},
+      return t;
     });
+
+    localStorage.setItem("vys_transactions", JSON.stringify(updated));
+    setTransactions(updated);
+    closeModal();
   };
-  const formatDisplayAmount = (val) => {
-    if (!val) return "";
-    const parts = val.toString().split(",");
-    return parts.length > 1
-      ? `${parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${parts[1]}`
-      : parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  };
-  const formatGroupHeader = (d) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (d.getTime() === today.getTime()) return "TODAY";
-    const days = [
-      "SUNDAY",
-      "MONDAY",
-      "TUESDAY",
-      "WEDNESDAY",
-      "THURSDAY",
-      "FRIDAY",
-      "SATURDAY",
-    ];
-    const months = [
-      "JAN",
-      "FEB",
-      "MAR",
-      "APR",
-      "MAY",
-      "JUN",
-      "JUL",
-      "AUG",
-      "SEP",
-      "OCT",
-      "NOV",
-      "DEC",
-    ];
-    return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`;
+
+  // Xóa giao dịch
+  const handleDeleteTransaction = () => {
+    if (window.confirm("Are you sure you want to delete this transaction?")) {
+      const updated = transactions.filter((t) => t.id !== editForm.id);
+      localStorage.setItem("vys_transactions", JSON.stringify(updated));
+      setTransactions(updated);
+      closeModal();
+    }
   };
 
   return (
     <>
-      {/* THÂN TRANG BỊ GIỚI HẠN HIỆU ỨNG */}
       <div
         className={`h-[100dvh] w-full flex flex-col relative overflow-hidden animate-ios-page ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       >
+        {/* HEADER & TABS */}
         <div
-          className={`flex-shrink-0 z-40 px-4 pb-3 flex flex-col gap-3 shadow-[0_1px_0_0_rgba(0,0,0,0.05)] ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
+          className={`flex-shrink-0 z-40 px-4 pb-3 flex flex-col justify-end shadow-[0_1px_0_0_rgba(0,0,0,0.05)] relative ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
         >
-          <h1 className="text-[22px] font-bold w-full text-center tracking-tight">
+          <h1 className="text-[22px] font-bold tracking-tight w-full text-center mb-4">
             History
           </h1>
-          <div className="flex justify-center gap-2">
-            {[
-              { id: "today", label: "Day" },
-              { id: "week", label: "Week" },
-              { id: "month", label: "Month" },
-              { id: "all", label: "All" },
-            ].map((filter) => (
+
+          <div
+            className={`flex rounded-full p-1 mx-auto w-full max-w-[340px] mb-4 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-200"}`}
+          >
+            {["Day", "Week", "Month", "All"].map((t) => (
               <button
-                key={filter.id}
+                key={t}
                 onClick={() => {
-                  setTimeFilter(filter.id);
+                  setTab(t.toLowerCase());
                   setOffset(0);
                 }}
-                className={`flex-1 py-2 rounded-full text-[13px] font-bold transition-colors ${timeFilter === filter.id ? (theme === "dark" ? "bg-white text-black" : "bg-black text-white") : theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500"}`}
+                className={`flex-1 py-1.5 text-[13px] font-semibold rounded-full transition-all duration-300 ${tab === t.toLowerCase() ? (theme === "dark" ? "bg-[#2c2c2e] text-white shadow-sm" : "bg-white text-black shadow-sm") : "text-[#8e8e93]"}`}
               >
-                {filter.label}
+                {t}
               </button>
             ))}
           </div>
-          {timeFilter !== "all" && (
+
+          {tab !== "all" && (
             <div
-              className={`flex items-center justify-between rounded-xl px-4 py-2 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+              className={`flex items-center justify-between rounded-xl px-4 py-2 mx-auto w-full max-w-[340px] ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
             >
               <button
                 onClick={() => setOffset((o) => o - 1)}
                 className="p-1 text-[#32ade6] active:opacity-50"
               >
-                <ChevronLeft size={20} />
+                <ChevronLeft size={18} />
               </button>
               <span className="text-[13px] font-bold tracking-wide">
                 {bounds.label}
@@ -335,176 +210,176 @@ export default function History() {
                 onClick={() => setOffset((o) => o + 1)}
                 className="p-1 text-[#32ade6] active:opacity-50"
               >
-                <ChevronRight size={20} />
+                <ChevronRight size={18} />
               </button>
             </div>
           )}
         </div>
 
+        {/* LIST */}
         <div
           className="flex-1 overflow-y-auto px-4 pt-4 pb-32 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          <div className="w-full">
-            {sortedGroups.map((group) => (
-              <div key={group.date.toISOString()} className="mb-6 w-full">
-                <div className="flex justify-between items-center mb-1 px-1">
-                  <span className="text-xs font-semibold text-[#8e8e93] uppercase tracking-wide">
-                    {formatGroupHeader(group.date)}
+          {Object.keys(groupedTx).length === 0 ? (
+            <div className="flex flex-col items-center justify-center mt-20 text-[#8e8e93]">
+              <p className="text-sm font-medium">No transactions found.</p>
+            </div>
+          ) : (
+            Object.keys(groupedTx).map((dateStr) => (
+              <div key={dateStr} className="mb-6 animate-ios-fade">
+                <div className="flex justify-between items-center mb-2 px-1">
+                  <span className="text-[11px] font-bold text-[#8e8e93] uppercase tracking-wider">
+                    {dateStr}
                   </span>
-                  <span className="text-xs font-semibold text-[#8e8e93]">
-                    ₫{Math.abs(group.totalDay).toLocaleString("vi-VN")}
+                  <span
+                    className={`text-[12px] font-bold ${groupedTx[dateStr].total >= 0 ? "text-[#32d74b]" : "text-[#8e8e93]"}`}
+                  >
+                    {groupedTx[dateStr].total >= 0 ? "+" : "-"}₫
+                    {Math.abs(groupedTx[dateStr].total).toLocaleString("vi-VN")}
                   </span>
                 </div>
+
                 <div
-                  className={`w-full rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+                  className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
                 >
-                  {group.items.map((tItem, index) => (
-                    <SwipeableItem
-                      key={tItem.id}
-                      onEdit={() => openEdit(tItem)}
-                      onDelete={() => setItemToDelete(tItem.id)}
-                      isLast={index === group.items.length - 1}
-                      theme={theme}
+                  {groupedTx[dateStr].items.map((tx, index) => (
+                    <div
+                      key={tx.id}
+                      onClick={() => openModal(tx)}
+                      className={`flex items-center p-3.5 cursor-pointer active:opacity-60 transition-opacity ${index !== groupedTx[dateStr].items.length - 1 ? (theme === "dark" ? "border-b border-white/5" : "border-b border-black/5") : ""}`}
                     >
-                      <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-[42px] h-[42px] rounded-full flex items-center justify-center text-[22px] ${theme === "dark" ? "bg-black/50" : "bg-gray-100"}`}
-                          >
-                            {tItem.category?.icon || "💰"}
-                          </div>
-                          <div className="flex flex-col">
-                            <p className="font-bold text-[16px] leading-tight">
-                              {tItem.category?.name || tItem.note}
-                            </p>
-                            <p className="text-[13px] text-[#8e8e93] mt-0.5 leading-tight">
-                              {tItem.note}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right flex flex-col items-end">
-                          <div className="font-bold text-[16px] leading-tight">
-                            {tItem.type === "income" ? "+" : ""}₫
-                            {tItem.amount.toLocaleString("vi-VN")}
-                          </div>
-                          <div className="text-[12px] text-[#8e8e93] mt-0.5 leading-tight uppercase font-medium">
-                            {tItem.date
-                              ? new Date(tItem.date).toLocaleTimeString(
-                                  "en-US",
-                                  {
-                                    hour: "numeric",
-                                    minute: "2-digit",
-                                    hour12: true,
-                                  },
-                                )
-                              : ""}
-                          </div>
-                        </div>
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-xl mr-3"
+                        style={{
+                          backgroundColor: `${tx.category?.color || "#ff453a"}20`,
+                        }}
+                      >
+                        {tx.category?.icon || "🍔"}
                       </div>
-                    </SwipeableItem>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className={`font-semibold text-[15px] truncate ${theme === "dark" ? "text-white" : "text-black"}`}
+                        >
+                          {tx.category?.name || "Unknown"}
+                        </p>
+                        <p className="text-[#8e8e93] text-xs truncate mt-0.5">
+                          {tx.note}
+                        </p>
+                      </div>
+                      <div className="text-right ml-3">
+                        <p
+                          className={`font-bold text-[15px] ${tx.type === "expense" ? (theme === "dark" ? "text-white" : "text-black") : "text-[#32d74b]"}`}
+                        >
+                          {tx.type === "expense" ? "-" : "+"}₫
+                          {tx.amount.toLocaleString("vi-VN")}
+                        </p>
+                        <p className="text-[#8e8e93] text-[11px] mt-0.5">
+                          {new Date(tx.date).toLocaleTimeString("en-US", {
+                            hour: "numeric",
+                            minute: "2-digit",
+                            hour12: true,
+                          })}
+                        </p>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
-            ))}
-            {sortedGroups.length === 0 && (
-              <p className="text-center text-[#8e8e93] mt-12 text-sm">
-                No transactions found.
-              </p>
-            )}
-          </div>
+            ))
+          )}
         </div>
       </div>
 
-      {/* ĐƯA CÁC MODAL RA BÊN NGOÀI ĐỂ NÓ ĐÈ LÊN ĐƯỢC NAV BAR */}
-      {itemToDelete && (
+      {/* TRANSACTION EDIT MODAL - ĐÃ ÉP TEXT-WHITE TOÀN BỘ */}
+      {selectedTx && (
         <div
-          className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
-          onClick={() => setItemToDelete(null)}
+          className="fixed inset-0 bg-black/70 z-50 flex flex-col justify-end animate-ios-fade"
+          onClick={closeModal}
         >
           <div
-            className={`w-full max-w-[300px] rounded-3xl p-6 shadow-2xl ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-white"}`}
+            className={`w-full max-w-[360px] mx-auto rounded-t-[32px] p-5 pb-10 shadow-2xl animate-ios-slide ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="font-bold text-center text-lg mb-2">
-              Delete Transaction?
-            </h3>
-            <p className="text-[#8e8e93] text-center text-sm mb-6">
-              You cannot undo this action.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setItemToDelete(null)}
-                className={`flex-1 py-2.5 rounded-xl font-semibold active:opacity-70 ${theme === "dark" ? "bg-[#3a3a3c] text-white" : "bg-gray-200 text-black"}`}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="flex-1 bg-[#ff453a] text-white py-2.5 rounded-xl font-semibold active:opacity-70"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            <div
+              className={`w-12 h-1.5 rounded-full mx-auto mb-5 ${theme === "dark" ? "bg-[#3a3a3c]" : "bg-gray-300"}`}
+            ></div>
 
-      {editingItem && (
-        <div
-          className="fixed inset-0 bg-black/70 z-[60] flex flex-col justify-end animate-ios-fade"
-          onClick={closeEdit}
-        >
-          <div
-            className={`w-full max-w-md mx-auto rounded-t-[32px] p-6 shadow-2xl pb-10 animate-ios-slide ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="font-bold text-center mb-6 text-lg">
-              Edit {editingItem.type === "expense" ? "Expense" : "Income"}
-            </h2>
-
-            <div className="flex gap-2 mb-6">
-              <input
-                type="text"
-                inputMode="decimal"
-                value={formatDisplayAmount(editingItem.amount)}
-                onChange={(e) => {
-                  let val = e.target.value
-                    .replace(/\./g, "")
-                    .replace(/[^0-9,]/g, "");
-                  if (val.split(",").length > 2) val = val.slice(0, -1);
-                  setEditingItem({ ...editingItem, amount: val });
-                }}
-                className={`flex-1 rounded-xl px-4 py-3 outline-none font-bold text-lg ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
-              />
-              <button
-                onClick={toggleEditType}
-                className={`px-4 rounded-xl font-semibold text-sm ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
+            <div className="flex justify-between items-center mb-5">
+              <h2
+                className={`font-bold text-xl ${theme === "dark" ? "text-white" : "text-black"}`}
               >
-                {editingItem.type === "expense" ? "Credit" : "Debit"}
+                Edit {editForm.type === "expense" ? "Expense" : "Income"}
+              </h2>
+              <button
+                onClick={closeModal}
+                className={`p-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
+              >
+                <X size={20} />
               </button>
             </div>
 
-            <div className="flex overflow-x-auto flex-nowrap gap-3 mb-4 pb-2 scrollbar-hide">
+            <div className="flex gap-2 mb-4">
+              <div
+                className={`flex-1 flex items-center rounded-2xl px-4 py-2 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+              >
+                <span
+                  className={`text-lg font-bold mr-1 ${theme === "dark" ? "text-white" : "text-black"}`}
+                >
+                  ₫
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={editForm.amount}
+                  onChange={(e) => {
+                    const raw = e.target.value
+                      .replace(/\./g, "")
+                      .replace(/\D/g, "");
+                    if (!raw) {
+                      setEditForm({ ...editForm, amount: "" });
+                      return;
+                    }
+                    setEditForm({
+                      ...editForm,
+                      amount: Number(raw).toLocaleString("vi-VN"),
+                    });
+                  }}
+                  className={`flex-1 bg-transparent py-2 outline-none font-bold text-xl w-full ${theme === "dark" ? "text-white" : "text-black"}`}
+                />
+              </div>
+
+              <button
+                onClick={() =>
+                  setEditForm({
+                    ...editForm,
+                    type: editForm.type === "expense" ? "income" : "expense",
+                  })
+                }
+                className={`px-4 rounded-2xl font-bold w-24 transition-colors ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
+              >
+                {editForm.type === "expense" ? "Credit" : "Cash"}
+              </button>
+            </div>
+
+            <div className="flex overflow-x-auto gap-2 py-1 mb-4 scrollbar-hide">
               {categories
-                .filter((c) => c.type === editingItem.type)
+                .filter((c) => c.type === editForm.type)
                 .map((cat) => (
                   <button
                     key={cat.id}
-                    onClick={() =>
-                      setEditingItem({ ...editingItem, category: cat })
-                    }
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap transition-all border flex-shrink-0 ${editingItem.category?.id === cat.id ? (theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-200") : theme === "dark" ? "bg-[#2c2c2e]/40 border-transparent text-[#8e8e93]" : "bg-gray-50 border-transparent text-gray-400"}`}
+                    onClick={() => setEditForm({ ...editForm, category: cat })}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap transition-colors flex-shrink-0 border-2 ${editForm.category?.id === cat.id ? `border-[${cat.color}]` : "border-transparent"} ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
                     style={{
                       borderColor:
-                        editingItem.category?.id === cat.id
+                        editForm.category?.id === cat.id
                           ? cat.color
                           : "transparent",
                     }}
                   >
-                    <span>{cat.icon}</span>
+                    <span className="text-base">{cat.icon}</span>
                     <span
-                      className={`text-sm font-semibold ${editingItem.category?.id === cat.id ? "" : theme === "dark" ? "" : "text-gray-500"}`}
+                      className={`text-sm font-semibold ${theme === "dark" ? "text-white" : "text-black"}`}
                     >
                       {cat.name}
                     </span>
@@ -514,86 +389,91 @@ export default function History() {
 
             <input
               type="text"
-              value={editingItem.note}
+              placeholder="Note"
+              value={editForm.note}
               onChange={(e) =>
-                setEditingItem({ ...editingItem, note: e.target.value })
+                setEditForm({ ...editForm, note: e.target.value })
               }
-              className={`w-full rounded-xl px-4 py-3 outline-none mb-4 font-medium ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
+              className={`w-full rounded-2xl px-4 py-4 mb-4 outline-none font-medium ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
             />
 
-            <div className="flex gap-3 mb-6">
+            <div className="flex gap-2 mb-6">
               <div
-                className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+                className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
               >
-                <span className="font-semibold text-[13px] flex items-center gap-1 pointer-events-none">
-                  <Calendar size={14} className="text-[#32ade6]" />{" "}
-                  {new Date(editingItem.editDate).toLocaleDateString("en-US", {
+                <span
+                  className={`font-semibold text-xs flex items-center gap-1.5 ${theme === "dark" ? "text-[#32ade6]" : "text-blue-500"}`}
+                >
+                  <Calendar size={14} />{" "}
+                  {new Date(editForm.date).toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
                   })}
                 </span>
                 <input
                   type="date"
-                  value={editingItem.editDate}
-                  onChange={(e) =>
-                    setEditingItem({ ...editingItem, editDate: e.target.value })
-                  }
+                  value={editForm.date.split("T")[0]}
+                  onChange={(e) => {
+                    const d = new Date(editForm.date);
+                    const [y, m, day] = e.target.value.split("-");
+                    d.setFullYear(y, m - 1, day);
+                    setEditForm({ ...editForm, date: d.toISOString() });
+                  }}
                   className="absolute inset-0 opacity-0 z-20 w-full h-full"
                 />
               </div>
               <div
-                className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+                className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
               >
-                <span className="font-semibold text-[13px] flex items-center gap-1 pointer-events-none">
-                  <Clock size={14} className="text-[#32ade6]" />{" "}
-                  {editingItem.editTime}
+                <span
+                  className={`font-semibold text-xs flex items-center gap-1.5 ${theme === "dark" ? "text-[#32ade6]" : "text-blue-500"}`}
+                >
+                  <Clock size={14} />{" "}
+                  {new Date(editForm.date).toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                  })}
                 </span>
                 <input
                   type="time"
-                  value={editingItem.editTime}
-                  onChange={(e) =>
-                    setEditingItem({ ...editingItem, editTime: e.target.value })
-                  }
+                  value={new Date(editForm.date).toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                  })}
+                  onChange={(e) => {
+                    const d = new Date(editForm.date);
+                    const [h, m] = e.target.value.split(":");
+                    d.setHours(h, m);
+                    setEditForm({ ...editForm, date: d.toISOString() });
+                  }}
                   className="absolute inset-0 opacity-0 z-20 w-full h-full"
                 />
               </div>
               <div
-                className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+                className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
               >
-                <span className="font-semibold text-[13px] flex items-center gap-1 pointer-events-none capitalize">
-                  <Repeat size={14} className="text-[#32ade6]" />{" "}
-                  {editingItem.repeat === "none" ? "Once" : editingItem.repeat}
-                </span>
-                <select
-                  value={editingItem.repeat}
-                  onChange={(e) =>
-                    setEditingItem({ ...editingItem, repeat: e.target.value })
-                  }
-                  className="absolute inset-0 opacity-0 z-20 w-full h-full"
+                <span
+                  className={`font-semibold text-xs flex items-center gap-1.5 ${theme === "dark" ? "text-[#32ade6]" : "text-blue-500"}`}
                 >
-                  <option value="none">Once</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
-                </select>
+                  <Repeat size={14} /> Once
+                </span>
               </div>
+              <button
+                onClick={handleDeleteTransaction}
+                className={`w-[46px] flex items-center justify-center rounded-xl py-2.5 ${theme === "dark" ? "bg-[#ff453a]/20 text-[#ff453a]" : "bg-red-100 text-red-500"}`}
+              >
+                <Trash2 size={16} />
+              </button>
             </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={closeEdit}
-                className={`flex-1 py-3.5 rounded-2xl font-bold ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-200 text-black"}`}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveEdit}
-                className={`flex-1 py-3.5 rounded-2xl font-bold ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
-              >
-                Save
-              </button>
-            </div>
+            <button
+              onClick={saveTransaction}
+              className={`w-full py-3.5 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
+            >
+              Save
+            </button>
           </div>
         </div>
       )}
