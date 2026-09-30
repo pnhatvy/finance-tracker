@@ -1,192 +1,344 @@
-import { useState, useEffect } from 'react';
-import { useAppContext } from '../AppContext';
-import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp, CheckCircle2, Globe, CalendarDays } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useAppContext } from "../AppContext";
+import { Pencil, X } from "lucide-react";
 
 export default function Goals() {
   const { theme, cycleStartDay } = useAppContext();
-  const [offset, setOffset] = useState(0);
-  const [showToast, setShowToast] = useState(false);
 
-  // State cho Global (Mặc định)
-  const [globalBudget, setGlobalBudget] = useState('');
-  const [globalIncome, setGlobalIncome] = useState('');
+  // Dữ liệu mục tiêu
+  const [globalBudget, setGlobalBudget] = useState(0);
+  const [globalIncome, setGlobalIncome] = useState(0);
+  const [monthlyBudget, setMonthlyBudget] = useState(null);
+  const [monthlyIncome, setMonthlyIncome] = useState(null);
 
-  // State cho Monthly (Tháng hiện tại)
-  const [monthlyBudget, setMonthlyBudget] = useState('');
-  const [monthlyIncome, setMonthlyIncome] = useState('');
+  // Dữ liệu chi tiêu thực tế trong tháng
+  const [spent, setSpent] = useState(0);
+  const [earned, setEarned] = useState(0);
 
-  const getPeriodBounds = () => {
+  // State Modal chỉnh sửa
+  const [editState, setEditState] = useState({
+    isOpen: false,
+    type: "",
+    title: "",
+    value: "",
+  });
+
+  // Tính toán Key của tháng hiện tại dựa vào ngày bắt đầu chu kỳ
+  const getCurrentMonthKey = () => {
     const base = new Date();
-    let currentStart = new Date(base.getFullYear(), base.getMonth(), cycleStartDay);
-    if (base.getDate() < cycleStartDay) currentStart.setMonth(currentStart.getMonth() - 1);
-    currentStart.setMonth(currentStart.getMonth() + offset);
-    
-    const start = new Date(currentStart);
-    const end = new Date(start);
-    end.setMonth(end.getMonth() + 1);
-    
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    let label = '';
-    if (cycleStartDay === 1) {
-      label = `${months[start.getMonth()]} ${start.getFullYear()}`;
-    } else {
-      let endLabel = new Date(end);
-      endLabel.setDate(endLabel.getDate() - 1);
-      label = `${months[start.getMonth()]} ${start.getDate()} - ${months[endLabel.getMonth()]} ${endLabel.getDate()}`;
+    let currentStart = new Date(
+      base.getFullYear(),
+      base.getMonth(),
+      cycleStartDay,
+    );
+    if (base.getDate() < cycleStartDay) {
+      currentStart.setMonth(currentStart.getMonth() - 1);
     }
-    
-    const key = `${start.getFullYear()}-${(start.getMonth() + 1).toString().padStart(2, '0')}`;
-    return { start, label, key };
+    return `${currentStart.getFullYear()}-${(currentStart.getMonth() + 1).toString().padStart(2, "0")}`;
   };
 
-  const bounds = getPeriodBounds();
+  const currentMonthKey = getCurrentMonthKey();
 
-  // Load Global Goals một lần
   useEffect(() => {
-    const gGoals = JSON.parse(localStorage.getItem('vys_global_goals') || '{"budget": 0, "income": 0}');
-    setGlobalBudget(gGoals.budget ? gGoals.budget.toLocaleString('vi-VN') : '');
-    setGlobalIncome(gGoals.income ? gGoals.income.toLocaleString('vi-VN') : '');
-  }, []);
+    // 1. Tải Global Goals (Mục tiêu mặc định)
+    const gGoals = JSON.parse(
+      localStorage.getItem("vys_global_goals") ||
+        '{"budget": 9500000, "income": 10000000}',
+    );
+    setGlobalBudget(gGoals.budget);
+    setGlobalIncome(gGoals.income);
 
-  // Load Monthly Goals mỗi khi đổi tháng
-  useEffect(() => {
-    const mGoals = JSON.parse(localStorage.getItem('vys_monthly_goals') || '{}');
-    if (mGoals[bounds.key]) {
-      setMonthlyBudget(mGoals[bounds.key].budget ? mGoals[bounds.key].budget.toLocaleString('vi-VN') : '');
-      setMonthlyIncome(mGoals[bounds.key].income ? mGoals[bounds.key].income.toLocaleString('vi-VN') : '');
+    // 2. Tải Monthly Goals (Mục tiêu tháng này)
+    const mGoals = JSON.parse(
+      localStorage.getItem("vys_monthly_goals") || "{}",
+    );
+    if (mGoals[currentMonthKey]) {
+      setMonthlyBudget(mGoals[currentMonthKey].budget);
+      setMonthlyIncome(mGoals[currentMonthKey].income);
     } else {
-      setMonthlyBudget('');
-      setMonthlyIncome('');
+      setMonthlyBudget(null);
+      setMonthlyIncome(null);
     }
-  }, [bounds.key]);
 
-  const handleInput = (val, setter) => {
-    const raw = val.replace(/\./g, '').replace(/\D/g, ''); 
-    if (!raw) { setter(''); return; }
-    setter(Number(raw).toLocaleString('vi-VN')); 
+    // 3. Tính toán số tiền đã thu/chi trong tháng từ lịch sử giao dịch
+    const transactions = JSON.parse(
+      localStorage.getItem("vys_transactions") || "[]",
+    );
+
+    // Tính khoảng thời gian của tháng này
+    const base = new Date();
+    let start = new Date(base.getFullYear(), base.getMonth(), cycleStartDay);
+    if (base.getDate() < cycleStartDay) start.setMonth(start.getMonth() - 1);
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + 1);
+
+    let totalSpent = 0;
+    let totalEarned = 0;
+
+    transactions.forEach((t) => {
+      if (t.date) {
+        const d = new Date(t.date);
+        if (d >= start && d < end) {
+          if (t.type === "expense") totalSpent += t.amount;
+          if (t.type === "income") totalEarned += t.amount;
+        }
+      }
+    });
+
+    setSpent(totalSpent);
+    setEarned(totalEarned);
+  }, [currentMonthKey, cycleStartDay, editState.isOpen]);
+
+  // Xác định mục tiêu áp dụng cho tháng này (Ưu tiên số của tháng, nếu không có lấy số Global)
+  const activeBudget = monthlyBudget !== null ? monthlyBudget : globalBudget;
+  const activeIncome = monthlyIncome !== null ? monthlyIncome : globalIncome;
+
+  // Tính phần trăm tiến độ
+  const spentPercent =
+    activeBudget > 0
+      ? Math.min(Math.round((spent / activeBudget) * 100), 100)
+      : 0;
+  const earnedPercent =
+    activeIncome > 0
+      ? Math.min(Math.round((earned / activeIncome) * 100), 100)
+      : 0;
+
+  // Xử lý mở Modal
+  const openEdit = (type, currentVal) => {
+    let title = "";
+    if (type === "m_budget") title = "Edit Expense Budget";
+    if (type === "m_income") title = "Edit Income Goal";
+    if (type === "g_budget") title = "Edit Default Budget (All)";
+    if (type === "g_income") title = "Edit Default Income (All)";
+
+    setEditState({
+      isOpen: true,
+      type,
+      title,
+      value: currentVal ? currentVal.toLocaleString("vi-VN") : "",
+    });
+  };
+
+  const handleInput = (val) => {
+    const raw = val.replace(/\./g, "").replace(/\D/g, "");
+    if (!raw) {
+      setEditState({ ...editState, value: "" });
+      return;
+    }
+    setEditState({ ...editState, value: Number(raw).toLocaleString("vi-VN") });
   };
 
   const handleSave = () => {
-    // Lưu Global
-    localStorage.setItem('vys_global_goals', JSON.stringify({
-      budget: Number(globalBudget.replace(/\./g, '')),
-      income: Number(globalIncome.replace(/\./g, ''))
-    }));
+    const numValue = Number(editState.value.replace(/\./g, ""));
 
-    // Lưu Monthly
-    const mGoals = JSON.parse(localStorage.getItem('vys_monthly_goals') || '{}');
-    mGoals[bounds.key] = {
-      budget: Number(monthlyBudget.replace(/\./g, '')),
-      income: Number(monthlyIncome.replace(/\./g, ''))
-    };
-    localStorage.setItem('vys_monthly_goals', JSON.stringify(mGoals));
-    
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 2000);
+    if (editState.type.startsWith("g_")) {
+      // Lưu vào Global
+      const gGoals = { budget: globalBudget, income: globalIncome };
+      if (editState.type === "g_budget") gGoals.budget = numValue;
+      if (editState.type === "g_income") gGoals.income = numValue;
+      localStorage.setItem("vys_global_goals", JSON.stringify(gGoals));
+    } else {
+      // Lưu vào Monthly
+      const mGoals = JSON.parse(
+        localStorage.getItem("vys_monthly_goals") || "{}",
+      );
+      if (!mGoals[currentMonthKey])
+        mGoals[currentMonthKey] = { budget: null, income: null };
+
+      if (editState.type === "m_budget")
+        mGoals[currentMonthKey].budget = numValue;
+      if (editState.type === "m_income")
+        mGoals[currentMonthKey].income = numValue;
+
+      localStorage.setItem("vys_monthly_goals", JSON.stringify(mGoals));
+    }
+
+    setEditState({ ...editState, isOpen: false });
   };
 
   return (
-    <div className={`h-[100dvh] w-full flex flex-col relative overflow-hidden animate-ios-page ${theme === 'dark' ? 'bg-black text-white' : 'bg-[#f2f2f7] text-black'}`}>
-      
-      {/* HEADER */}
-      <div 
-        className={`flex-shrink-0 z-40 px-4 pb-3 flex flex-col justify-end shadow-[0_1px_0_0_rgba(0,0,0,0.05)] relative ${theme === 'dark' ? 'bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]' : 'bg-[#f2f2f7]/90'}`}
-        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)' }}
+    <>
+      <div
+        className={`h-[100dvh] w-full flex flex-col relative overflow-hidden animate-ios-page ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       >
-        <h1 className="text-[22px] font-bold tracking-tight w-full text-center">Goals</h1>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 pt-5 pb-32 space-y-6 overscroll-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-        
-        {/* PHẦN 1: MONTHLY GOALS */}
-        <div className="animate-ios-slide">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-[#8e8e93] text-[12px] font-bold uppercase tracking-widest ml-1 flex items-center gap-1.5">
-              <CalendarDays size={14} /> Specific Month
-            </h3>
-            <div className={`flex items-center justify-between rounded-full px-2 py-0.5 shadow-sm ${theme === 'dark' ? 'bg-[#1c1c1e]' : 'bg-white'}`}>
-              <button onClick={() => setOffset(o => o - 1)} className="p-1 text-[#32ade6] active:opacity-50"><ChevronLeft size={16}/></button>
-              <span className="text-[12px] font-bold tracking-wide px-2">{bounds.label}</span>
-              <button onClick={() => setOffset(o => o + 1)} className="p-1 text-[#32ade6] active:opacity-50"><ChevronRight size={16}/></button>
-            </div>
-          </div>
-
-          <div className={`rounded-3xl overflow-hidden shadow-sm ${theme === 'dark' ? 'bg-[#1c1c1e]' : 'bg-white'}`}>
-            <div className={`flex items-center px-4 py-3 border-b ${theme === 'dark' ? 'border-white/5' : 'border-black/5'}`}>
-              <TrendingDown size={20} className="text-[#ff453a] mr-3" />
-              <div className="flex-1">
-                <p className="text-[11px] font-bold text-[#8e8e93] uppercase mb-0.5">Expense Budget</p>
-                <div className="flex items-center">
-                  <span className="font-bold text-[#ff453a] mr-1.5">₫</span>
-                  <input type="text" inputMode="numeric" placeholder="0" value={monthlyBudget} onChange={(e) => handleInput(e.target.value, setMonthlyBudget)} className={`bg-transparent outline-none font-bold text-[17px] w-full ${theme === 'dark' ? 'text-white' : 'text-black'}`} />
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center px-4 py-3">
-              <TrendingUp size={20} className="text-[#32d74b] mr-3" />
-              <div className="flex-1">
-                <p className="text-[11px] font-bold text-[#8e8e93] uppercase mb-0.5">Income Goal</p>
-                <div className="flex items-center">
-                  <span className="font-bold text-[#32d74b] mr-1.5">₫</span>
-                  <input type="text" inputMode="numeric" placeholder="0" value={monthlyIncome} onChange={(e) => handleInput(e.target.value, setMonthlyIncome)} className={`bg-transparent outline-none font-bold text-[17px] w-full ${theme === 'dark' ? 'text-white' : 'text-black'}`} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* PHẦN 2: GLOBAL GOALS */}
-        <div className="animate-ios-slide" style={{ animationDelay: '0.05s' }}>
-          <div className="mb-3">
-            <h3 className="text-[#8e8e93] text-[12px] font-bold uppercase tracking-widest ml-1 flex items-center gap-1.5">
-              <Globe size={14} /> Default Goals (All Months)
-            </h3>
-            <p className="text-[#8e8e93] text-[11px] font-medium ml-1 mt-1 leading-tight">Applied automatically if a specific month is not set.</p>
-          </div>
-
-          <div className={`rounded-3xl overflow-hidden shadow-sm ${theme === 'dark' ? 'bg-[#1c1c1e]' : 'bg-white'}`}>
-            <div className={`flex items-center px-4 py-3 border-b ${theme === 'dark' ? 'border-white/5' : 'border-black/5'}`}>
-              <TrendingDown size={20} className="text-[#ff453a] mr-3" />
-              <div className="flex-1">
-                <p className="text-[11px] font-bold text-[#8e8e93] uppercase mb-0.5">Default Expense Budget</p>
-                <div className="flex items-center">
-                  <span className="font-bold text-[#ff453a] mr-1.5">₫</span>
-                  <input type="text" inputMode="numeric" placeholder="0" value={globalBudget} onChange={(e) => handleInput(e.target.value, setGlobalBudget)} className={`bg-transparent outline-none font-bold text-[17px] w-full ${theme === 'dark' ? 'text-white' : 'text-black'}`} />
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center px-4 py-3">
-              <TrendingUp size={20} className="text-[#32d74b] mr-3" />
-              <div className="flex-1">
-                <p className="text-[11px] font-bold text-[#8e8e93] uppercase mb-0.5">Default Income Goal</p>
-                <div className="flex items-center">
-                  <span className="font-bold text-[#32d74b] mr-1.5">₫</span>
-                  <input type="text" inputMode="numeric" placeholder="0" value={globalIncome} onChange={(e) => handleInput(e.target.value, setGlobalIncome)} className={`bg-transparent outline-none font-bold text-[17px] w-full ${theme === 'dark' ? 'text-white' : 'text-black'}`} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* NÚT SAVE */}
-        <button 
-          onClick={handleSave} 
-          className={`w-full py-3.5 mt-4 rounded-full font-bold text-[17px] active:scale-[0.98] transition-transform animate-ios-slide shadow-sm ${theme === 'dark' ? 'bg-[#32ade6] text-black' : 'bg-black text-white'}`}
-          style={{ animationDelay: '0.1s' }}
+        {/* HEADER */}
+        <div
+          className={`flex-shrink-0 z-40 px-4 pb-3 flex flex-col justify-end shadow-[0_1px_0_0_rgba(0,0,0,0.05)] relative ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
         >
-          Save All Goals
-        </button>
+          <h1 className="text-[22px] font-bold tracking-tight w-full text-center">
+            Goals
+          </h1>
+        </div>
 
+        <div
+          className="flex-1 overflow-y-auto px-4 pt-6 pb-32 space-y-4 overscroll-y-auto"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          {/* CARD 1: EXPENSE BUDGET (THÁNG NÀY) */}
+          <div
+            className={`p-5 rounded-[24px] shadow-sm relative ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+          >
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-[13px] font-semibold text-[#8e8e93]">
+                Expense Budget
+              </span>
+              <button
+                onClick={() => openEdit("m_budget", activeBudget)}
+                className="text-[#8e8e93] active:opacity-50 p-1"
+              >
+                <Pencil size={16} />
+              </button>
+            </div>
+            <div className="text-[28px] font-bold mb-4 tracking-tight">
+              ₫{activeBudget.toLocaleString("vi-VN")}
+            </div>
+            <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
+              <span>Spent: ₫{spent.toLocaleString("vi-VN")}</span>
+              <span>{spentPercent}%</span>
+            </div>
+            <div
+              className={`h-2 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+            >
+              <div
+                className={`h-full rounded-full transition-all duration-700 ease-out ${spentPercent >= 100 ? "bg-[#ff453a]" : "bg-gray-300"}`}
+                style={{ width: `${spentPercent}%` }}
+              ></div>
+            </div>
+          </div>
+
+          {/* CARD 2: INCOME GOAL (THÁNG NÀY) */}
+          <div
+            className={`p-5 rounded-[24px] shadow-sm relative ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+          >
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-[13px] font-semibold text-[#8e8e93]">
+                Income Goal
+              </span>
+              <button
+                onClick={() => openEdit("m_income", activeIncome)}
+                className="text-[#8e8e93] active:opacity-50 p-1"
+              >
+                <Pencil size={16} />
+              </button>
+            </div>
+            <div className="text-[28px] font-bold mb-4 tracking-tight">
+              ₫{activeIncome.toLocaleString("vi-VN")}
+            </div>
+            <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
+              <span>Earned: ₫{earned.toLocaleString("vi-VN")}</span>
+              <span>{earnedPercent}%</span>
+            </div>
+            <div
+              className={`h-2 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+            >
+              <div
+                className={`h-full rounded-full transition-all duration-700 ease-out ${earnedPercent >= 100 ? "bg-[#32d74b]" : "bg-gray-300"}`}
+                style={{ width: `${earnedPercent}%` }}
+              ></div>
+            </div>
+          </div>
+
+          {/* SECTION: DEFAULT GOALS (ALL) */}
+          <div className="pt-6 pb-2">
+            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2 mb-1">
+              Default Goals (All Months)
+            </h3>
+            <p className="text-[#8e8e93] text-[11px] font-medium ml-2 leading-tight">
+              These values apply if a specific month is not configured.
+            </p>
+          </div>
+
+          {/* CARD 3: DEFAULT EXPENSE BUDGET */}
+          <div
+            className={`p-5 rounded-[24px] shadow-sm relative ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+          >
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-[13px] font-semibold text-[#8e8e93]">
+                Default Expense Budget
+              </span>
+              <button
+                onClick={() => openEdit("g_budget", globalBudget)}
+                className="text-[#8e8e93] active:opacity-50 p-1"
+              >
+                <Pencil size={16} />
+              </button>
+            </div>
+            <div className="text-[24px] font-bold tracking-tight">
+              ₫{globalBudget.toLocaleString("vi-VN")}
+            </div>
+          </div>
+
+          {/* CARD 4: DEFAULT INCOME GOAL */}
+          <div
+            className={`p-5 rounded-[24px] shadow-sm relative ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+          >
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-[13px] font-semibold text-[#8e8e93]">
+                Default Income Goal
+              </span>
+              <button
+                onClick={() => openEdit("g_income", globalIncome)}
+                className="text-[#8e8e93] active:opacity-50 p-1"
+              >
+                <Pencil size={16} />
+              </button>
+            </div>
+            <div className="text-[24px] font-bold tracking-tight">
+              ₫{globalIncome.toLocaleString("vi-VN")}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* THÔNG BÁO LƯU THÀNH CÔNG */}
-      <div 
-        className={`fixed top-12 left-1/2 -translate-x-1/2 px-5 py-3 rounded-full flex items-center gap-2 font-semibold shadow-xl transition-all duration-300 z-50 pointer-events-none ${showToast ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-10'} ${theme === 'dark' ? 'bg-[#2c2c2e] text-white' : 'bg-white text-black'}`}
-      >
-        <CheckCircle2 size={20} className="text-[#32d74b]" />
-        Goals updated!
-      </div>
+      {/* BẢNG CHỈNH SỬA (MODAL) */}
+      {editState.isOpen && (
+        <div
+          className="fixed inset-0 bg-black/70 z-[60] flex flex-col justify-end animate-ios-fade"
+          onClick={() => setEditState({ ...editState, isOpen: false })}
+        >
+          <div
+            className={`w-full max-w-md mx-auto rounded-t-[32px] p-6 shadow-2xl pb-10 animate-ios-slide ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="font-bold text-lg">{editState.title}</h2>
+              <button
+                onClick={() => setEditState({ ...editState, isOpen: false })}
+                className={`p-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-    </div>
+            <div
+              className={`flex items-center rounded-2xl px-4 py-2 mb-6 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+            >
+              <span
+                className={`text-xl font-bold mr-2 ${theme === "dark" ? "text-white" : "text-black"}`}
+              >
+                ₫
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoFocus
+                placeholder="0"
+                value={editState.value}
+                onChange={(e) => handleInput(e.target.value)}
+                className={`flex-1 bg-transparent py-3 outline-none font-bold text-[22px] w-full ${theme === "dark" ? "text-white" : "text-black"}`}
+              />
+            </div>
+
+            <button
+              onClick={handleSave}
+              className={`w-full py-3.5 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
+            >
+              Save Goal
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
