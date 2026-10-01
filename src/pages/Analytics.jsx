@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-import { collection, query, onSnapshot, orderBy } from "firebase/firestore";
-import { db } from "../firebase";
 import { useAppContext } from "../AppContext";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -80,11 +78,14 @@ export default function Analytics() {
   };
 
   const bounds = getPeriodBounds();
+  
+  // Dữ liệu trong toàn bộ kỳ hạn (Dùng để hiển thị biểu đồ danh mục, tổng chung)
   const filteredData = transactions.filter((tItem) => {
     if (tItem.type !== typeFilter || !tItem.date) return false;
     const d = new Date(tItem.date);
     return d >= bounds.start && d < bounds.end;
   });
+
   const formatDetailDate = (dateString) => {
     if (!dateString) return "";
     const d = new Date(dateString);
@@ -124,27 +125,44 @@ export default function Analytics() {
       catMap[catId].spent += item.amount;
     }
   });
+  
   const categoryData = Object.values(catMap)
     .map((cat) => ({
       ...cat,
       percent: totalAmount > 0 ? (cat.spent / totalAmount) * 100 : 0,
     }))
     .sort((a, b) => b.spent - a.spent);
+    
   const budgetLeft =
     typeFilter === "expense"
       ? monthlyBudget - totalAmount
       : monthlyIncomeGoal - totalAmount;
+      
   const isCurrentPeriod = offset === 0;
-  const daysPassed = Math.max(
-    1,
-    Math.floor((new Date() - bounds.start) / (1000 * 60 * 60 * 24)) + 1,
-  );
-  const daysInCycle = Math.round(
-    (bounds.end - bounds.start) / (1000 * 60 * 60 * 24),
-  );
-  const dailyAverage =
-    totalAmount / (isCurrentPeriod ? daysPassed : daysInCycle);
-  const onPaceFor = isCurrentPeriod ? dailyAverage * daysInCycle : totalAmount;
+  
+  // LOGIC ON PACE FOR SỬA LẠI:
+  const now = new Date();
+  
+  // Tổng số ngày trong kỳ hiện tại
+  const daysInCycle = Math.round((bounds.end - bounds.start) / (1000 * 60 * 60 * 24));
+  
+  // Lọc chỉ những giao dịch xảy ra từ HÔM NAY trở về trước trong kỳ này (quá khứ + hiện tại)
+  const pastData = filteredData.filter(item => new Date(item.date) <= now);
+  
+  // Tổng tiền đã tiêu thực tế đến hôm nay
+  const totalAmountPast = pastData.reduce((sum, item) => sum + item.amount, 0);
+  
+  // Số ngày ĐÃ QUA trong kỳ (Tối thiểu là 1 để tránh chia cho 0)
+  const daysPassed = Math.max(1, Math.floor((now - bounds.start) / (1000 * 60 * 60 * 24)) + 1);
+  
+  // Trung bình mỗi ngày CHỈ TÍNH THEO NHỮNG NGÀY ĐÃ QUA
+  const dailyAverage = totalAmountPast / daysPassed;
+  
+  // Tổng dự kiến cuối kỳ = Trung bình 1 ngày đã qua * Tổng số ngày
+  // Nếu có nhập trước tương lai, khoản đó sẽ được cộng riêng
+  const futureDataTotal = totalAmount - totalAmountPast;
+  const onPaceFor = isCurrentPeriod ? (dailyAverage * daysInCycle) + futureDataTotal : totalAmount;
+
   const catTransactions = selectedCategory
     ? filteredData.filter((t) => t.category?.id === selectedCategory.id)
     : [];
