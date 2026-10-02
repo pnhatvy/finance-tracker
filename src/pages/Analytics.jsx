@@ -6,6 +6,8 @@ export default function Analytics() {
   const { cycleStartDay, theme } = useAppContext();
   const [transactions, setTransactions] = useState([]);
   const [monthlyGoals, setMonthlyGoals] = useState({});
+  const [globalGoals, setGlobalGoals] = useState({});
+
   const [timeFilter, setTimeFilter] = useState("month");
   const [typeFilter, setTypeFilter] = useState("expense");
   const [offset, setOffset] = useState(0);
@@ -18,13 +20,20 @@ export default function Analytics() {
       const data = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
       setTransactions(data);
 
-      // Load thêm dữ liệu từ trang Goals để lấy chuẩn ngân sách từng tháng
-      const goalsData = JSON.parse(
-        localStorage.getItem("vys_monthly_goals") || "{}",
+      // Load ĐẦY ĐỦ cả Mục tiêu theo tháng lẫn Mục tiêu chung
+      setMonthlyGoals(
+        JSON.parse(localStorage.getItem("vys_monthly_goals") || "{}"),
       );
-      setMonthlyGoals(goalsData);
+      setGlobalGoals(
+        JSON.parse(localStorage.getItem("vys_global_goals") || "{}"),
+      );
     };
+
     loadData();
+
+    // Tự động cập nhật số liệu ngay khi quay lại tab Analytics
+    window.addEventListener("focus", loadData);
+    return () => window.removeEventListener("focus", loadData);
   }, []);
 
   const getPeriodBounds = () => {
@@ -69,7 +78,6 @@ export default function Analytics() {
       end = new Date(start);
       end.setMonth(end.getMonth() + 1);
 
-      // Lấy key tháng để tìm ngân sách (Ví dụ: "10-2026")
       monthKey = `${start.getMonth() + 1}-${start.getFullYear()}`;
 
       if (cycleStartDay === 1)
@@ -90,10 +98,17 @@ export default function Analytics() {
 
   const bounds = getPeriodBounds();
 
-  // Tự động tìm ngân sách đúng của tháng đang chọn từ trang Goals
+  // LOGIC ƯU TIÊN: Lấy ngân sách tháng, nếu không có thì lấy ngân sách chung (Global)
   const currentGoalData = monthlyGoals[bounds.monthKey] || {};
-  const currentBudget = currentGoalData.budget || 0;
-  const currentIncomeGoal = currentGoalData.incomeGoal || 0;
+  const currentBudget =
+    currentGoalData.budget !== undefined
+      ? currentGoalData.budget
+      : globalGoals.budget || 0;
+
+  const currentIncomeGoal =
+    currentGoalData.incomeGoal !== undefined
+      ? currentGoalData.incomeGoal
+      : globalGoals.incomeGoal || 0;
 
   const filteredData = transactions.filter((tItem) => {
     if (tItem.type !== typeFilter || !tItem.date) return false;
@@ -150,7 +165,7 @@ export default function Analytics() {
     }))
     .sort((a, b) => b.spent - a.spent);
 
-  // Tính số dư dựa trên ngân sách lấy từ trang Goals!
+  // Tính số dư chính xác dựa trên ngân sách hợp lệ
   const budgetLeft =
     typeFilter === "expense"
       ? currentBudget - totalAmount
@@ -273,8 +288,12 @@ export default function Analytics() {
                   <p className="text-[#8e8e93] text-xs font-semibold mb-1">
                     {typeFilter === "expense" ? "Budget left" : "Goal left"}
                   </p>
-                  <div className="text-[22px] font-bold tracking-tight">
-                    ₫{Math.abs(budgetLeft).toLocaleString("vi-VN")}
+                  {/* Có thể thêm hiển thị màu đỏ nếu budgetLeft bị âm (tiêu lố) */}
+                  <div
+                    className={`text-[22px] font-bold tracking-tight ${budgetLeft < 0 ? "text-[#ff453a]" : ""}`}
+                  >
+                    {budgetLeft < 0 ? "-" : ""}₫
+                    {Math.abs(budgetLeft).toLocaleString("vi-VN")}
                   </div>
                 </div>
               </div>
