@@ -40,6 +40,15 @@ export default function Settings() {
 
   const [user, setUser] = useState(null);
   const [syncLoading, setSyncLoading] = useState(null);
+  const [syncMessage, setSyncMessage] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // Auto-backup ngầm khi mở Settings và đã đăng nhập
+  useEffect(() => {
+    if (user) {
+      handleBackup(true);
+    }
+  }, [user]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -49,12 +58,18 @@ export default function Settings() {
   }, []);
 
   const handleLogin = async () => {
+    setIsLoggingIn(true);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
     } catch (error) {
-      console.error("Login failed", error);
-      alert("Đăng nhập thất bại, vui lòng thử lại.");
+      console.error("Login error", error);
+      // Chỉ báo lỗi nếu không phải do user tự tắt popup
+      if (error.code !== "auth/popup-closed-by-user") {
+        showTempMessage("Sign in failed");
+      }
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -63,9 +78,15 @@ export default function Settings() {
     closeModals();
   };
 
-  const handleBackup = async () => {
+  const showTempMessage = (msg) => {
+    setSyncMessage(msg);
+    setTimeout(() => setSyncMessage(""), 3000);
+  };
+
+  const handleBackup = async (isAuto = false) => {
     if (!user) return;
-    setSyncLoading("backup");
+    if (!isAuto) setSyncLoading("backup");
+
     try {
       const dataToBackup = {
         transactions: JSON.parse(
@@ -84,20 +105,22 @@ export default function Settings() {
       };
 
       await setDoc(doc(db, "users", user.uid), dataToBackup);
-      alert(
-        "Backup thành công! Dữ liệu của bạn đã được lưu an toàn trên mây. ☁️",
-      );
+
+      if (!isAuto) {
+        showTempMessage("Backup successful");
+      }
     } catch (e) {
       console.error(e);
-      alert("Backup thất bại, vui lòng kiểm tra kết nối mạng!");
+      if (!isAuto) showTempMessage("Backup failed");
+    } finally {
+      if (!isAuto) setSyncLoading(null);
     }
-    setSyncLoading(null);
   };
 
   const handleRestore = async () => {
     if (!user) return;
     const confirmRest = window.confirm(
-      "Cảnh báo: Thao tác này sẽ ghi đè toàn bộ dữ liệu trên máy hiện tại bằng dữ liệu trên mây. Bạn có chắc chắn không?",
+      "Ghi đè toàn bộ dữ liệu trên máy bằng dữ liệu đám mây?",
     );
     if (!confirmRest) return;
 
@@ -136,24 +159,22 @@ export default function Settings() {
           localStorage.setItem("vys_cycle_start_day", data.cycleStartDay);
           setCycleStartDay(Number(data.cycleStartDay));
         }
-        alert(
-          "Khôi phục thành công! Ứng dụng sẽ tải lại để cập nhật dữ liệu. 📥",
-        );
-        window.location.reload();
+        showTempMessage("Restore successful");
+        setTimeout(() => window.location.reload(), 1500);
       } else {
-        alert("Không tìm thấy bản sao lưu nào trên tài khoản này.");
+        showTempMessage("No backup found");
+        setSyncLoading(null);
       }
     } catch (e) {
       console.error(e);
-      alert("Khôi phục thất bại, vui lòng thử lại sau!");
+      showTempMessage("Restore failed");
+      setSyncLoading(null);
     }
-    setSyncLoading(null);
   };
 
   const handleExportData = () => {
     try {
       const txs = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
-
       let csvContent = "\uFEFFNgày,Giờ,Loại,Danh mục,Số tiền,Ghi chú\n";
 
       txs.forEach((t) => {
@@ -250,7 +271,7 @@ export default function Settings() {
     "🐾",
     "🐶",
     "🐱",
-    "👨‍👩‍👧",
+    "👨‍‍👩‍👧",
     "🏫",
     "📚",
     "🎓",
@@ -574,21 +595,29 @@ export default function Settings() {
 
           {/* SECTION 4: ACCOUNT & SYNC */}
           <div>
-            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
-              Account & Sync
-            </h3>
+            <div className="flex justify-between items-end mb-2 ml-4 pr-2">
+              <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest">
+                Account & Sync
+              </h3>
+              {syncMessage && (
+                <span className="text-[#32d74b] text-[10px] font-bold animate-pulse">
+                  {syncMessage}
+                </span>
+              )}
+            </div>
             <div
               className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
             >
               {!user ? (
                 <button
                   onClick={handleLogin}
+                  disabled={isLoggingIn}
                   className="w-full flex items-center gap-3 p-4 text-left active:opacity-70 transition-opacity"
                 >
                   <UserCircle size={22} className="text-[#8e8e93]" />
                   <div>
                     <p className="font-semibold text-[15px]">
-                      Sign in with Google
+                      {isLoggingIn ? "Signing in..." : "Sign in with Google"}
                     </p>
                     <p className="text-xs text-[#8e8e93] mt-0.5">
                       Backup data to cloud
@@ -623,7 +652,6 @@ export default function Settings() {
                         </p>
                       </div>
                     </div>
-                    {/* Đổi màu LogOut thành xám, bấm vào sẽ gọi Modal Logout thay vì thoát thẳng */}
                     <button
                       onClick={() => {
                         setModalType("logout");
@@ -635,43 +663,31 @@ export default function Settings() {
                     </button>
                   </div>
 
-                  {/* Nút Backup dạng danh sách dọc (Trắng/Đen cơ bản) */}
-                  <button
-                    onClick={handleBackup}
-                    disabled={syncLoading !== null}
-                    className={`w-full flex justify-between items-center p-4 text-left active:bg-white/5 transition-colors border-b ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
+                  {/* Hàng nút Backup / Restore */}
+                  <div
+                    className={`flex divide-x ${theme === "dark" ? "divide-white/5" : "divide-black/5"}`}
                   >
-                    <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => handleBackup(false)}
+                      disabled={syncLoading !== null}
+                      className={`flex-1 p-3 flex flex-col items-center gap-1.5 transition-colors ${syncLoading ? "opacity-50" : "active:bg-black/5 dark:active:bg-white/5"}`}
+                    >
                       <UploadCloud size={20} className="text-[#8e8e93]" />
-                      <span className="font-semibold text-[15px]">
-                        Backup to Cloud
+                      <span className="text-[13px] font-semibold">
+                        {syncLoading === "backup" ? "Syncing..." : "Backup"}
                       </span>
-                    </div>
-                    {syncLoading === "backup" && (
-                      <span className="text-xs text-[#8e8e93] font-medium animate-pulse">
-                        Syncing...
-                      </span>
-                    )}
-                  </button>
-
-                  {/* Nút Restore dạng danh sách dọc */}
-                  <button
-                    onClick={handleRestore}
-                    disabled={syncLoading !== null}
-                    className="w-full flex justify-between items-center p-4 text-left active:bg-white/5 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
+                    </button>
+                    <button
+                      onClick={handleRestore}
+                      disabled={syncLoading !== null}
+                      className={`flex-1 p-3 flex flex-col items-center gap-1.5 transition-colors ${syncLoading ? "opacity-50" : "active:bg-black/5 dark:active:bg-white/5"}`}
+                    >
                       <DownloadCloud size={20} className="text-[#8e8e93]" />
-                      <span className="font-semibold text-[15px]">
-                        Restore to Device
+                      <span className="text-[13px] font-semibold">
+                        {syncLoading === "restore" ? "Restoring..." : "Restore"}
                       </span>
-                    </div>
-                    {syncLoading === "restore" && (
-                      <span className="text-xs text-[#8e8e93] font-medium animate-pulse">
-                        Downloading...
-                      </span>
-                    )}
-                  </button>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -685,7 +701,6 @@ export default function Settings() {
             <div
               className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
             >
-              {/* Nút Export đơn sắc, căn trái chuẩn iOS */}
               <button
                 onClick={handleExportData}
                 className={`w-full flex items-center gap-3 p-4 text-left font-semibold active:bg-white/5 transition-colors border-b ${theme === "dark" ? "border-white/5 text-white" : "border-black/5 text-black"}`}
@@ -694,7 +709,6 @@ export default function Settings() {
                 <span className="text-[15px]">Export to Excel (.csv)</span>
               </button>
 
-              {/* Nút Xóa vẫn giữ màu đỏ cảnh báo (Danger Zone tiêu chuẩn) */}
               <button
                 onClick={() => {
                   setModalType("reset");
@@ -710,7 +724,7 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* MODAL ĐĂNG XUẤT MỚI THÊM */}
+      {/* MODAL ĐĂNG XUẤT */}
       {modalType === "logout" && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
