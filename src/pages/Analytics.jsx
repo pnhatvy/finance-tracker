@@ -1,13 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAppContext } from "../AppContext";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function Analytics() {
-  // Nối lại trực tiếp với AppContext để đồng bộ lập tức với trang Goals
   const { monthlyBudget, monthlyIncomeGoal, cycleStartDay, theme } =
     useAppContext();
-
   const [transactions, setTransactions] = useState([]);
+
   const [timeFilter, setTimeFilter] = useState("month");
   const [typeFilter, setTypeFilter] = useState("expense");
   const [offset, setOffset] = useState(0);
@@ -15,15 +14,34 @@ export default function Analytics() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
 
+  // Biến ép re-render để Analytics cập nhật ngay lập tức khi đổi số bên trang Goals
+  const [, setGoalsTrigger] = useState(0);
+  const rawDataRef = useRef({ tx: "", goals: "" });
+
   useEffect(() => {
     const loadData = () => {
-      const data = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
-      setTransactions(data);
+      // 1. Tải Giao dịch
+      const txRaw = localStorage.getItem("vys_transactions") || "[]";
+      if (txRaw !== rawDataRef.current.tx) {
+        rawDataRef.current.tx = txRaw;
+        setTransactions(JSON.parse(txRaw));
+      }
+
+      // 2. Tải Mục tiêu (Goals)
+      const gRaw1 = localStorage.getItem("vys_monthly_goals") || "{}";
+      const gRaw2 = localStorage.getItem("vys_global_goals") || "{}";
+      const combinedGoals = gRaw1 + gRaw2;
+
+      if (combinedGoals !== rawDataRef.current.goals) {
+        rawDataRef.current.goals = combinedGoals;
+        setGoalsTrigger((prev) => prev + 1); // Ép trang cập nhật số liệu
+      }
     };
 
     loadData();
-    window.addEventListener("focus", loadData);
-    return () => window.removeEventListener("focus", loadData);
+    // Quét nhẹ mỗi nửa giây để đảm bảo 2 trang Goals và Analytics luôn đồng bộ số với nhau
+    const interval = setInterval(loadData, 500);
+    return () => clearInterval(interval);
   }, []);
 
   const getPeriodBounds = () => {
@@ -86,6 +104,55 @@ export default function Analytics() {
 
   const bounds = getPeriodBounds();
 
+  // --- BỘ MÁY ĐỌC NGÂN SÁCH ĐỘNG (BẤT CHẤP MỌI LOẠI FORMAT) ---
+  let currentBudget = Number(monthlyBudget) || 0;
+  let currentIncomeGoal = Number(monthlyIncomeGoal) || 0;
+
+  try {
+    // Ưu tiên 1: Đọc từ Global Goals (nếu user setup chung cho mọi tháng)
+    const glob = JSON.parse(localStorage.getItem("vys_global_goals") || "{}");
+    if (glob.expense !== undefined) currentBudget = Number(glob.expense);
+    else if (glob.budget !== undefined) currentBudget = Number(glob.budget);
+
+    if (glob.income !== undefined) currentIncomeGoal = Number(glob.income);
+    else if (glob.incomeGoal !== undefined)
+      currentIncomeGoal = Number(glob.incomeGoal);
+
+    // Ưu tiên 2: Đọc từ Monthly Goals (nếu user setup số 9tr4 riêng cho tháng 10 này)
+    if (timeFilter === "month" && bounds.start) {
+      const monthObj = JSON.parse(
+        localStorage.getItem("vys_monthly_goals") || "{}",
+      );
+      const m = bounds.start.getMonth() + 1;
+      const y = bounds.start.getFullYear();
+
+      // Quét tất cả các dạng tên (key) lưu trữ có thể có
+      const keys = [
+        `${y}-${String(m).padStart(2, "0")}`,
+        `${m}-${y}`,
+        `${String(m).padStart(2, "0")}-${y}`,
+      ];
+
+      for (let k of keys) {
+        if (monthObj[k]) {
+          if (monthObj[k].expense !== undefined)
+            currentBudget = Number(monthObj[k].expense);
+          else if (monthObj[k].budget !== undefined)
+            currentBudget = Number(monthObj[k].budget);
+
+          if (monthObj[k].income !== undefined)
+            currentIncomeGoal = Number(monthObj[k].income);
+          else if (monthObj[k].incomeGoal !== undefined)
+            currentIncomeGoal = Number(monthObj[k].incomeGoal);
+          break; // Tìm thấy thì dừng ngay
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Lỗi khi đọc Goals:", e);
+  }
+  // -----------------------------------------------------------
+
   const filteredData = transactions.filter((tItem) => {
     if (tItem.type !== typeFilter || !tItem.date) return false;
     const d = new Date(tItem.date);
@@ -141,10 +208,7 @@ export default function Analytics() {
     }))
     .sort((a, b) => b.spent - a.spent);
 
-  // Tính toán số dư dựa vào AppContext
-  const currentBudget = Number(monthlyBudget) || 0;
-  const currentIncomeGoal = Number(monthlyIncomeGoal) || 0;
-
+  // Tính toán số dư dựa vào Ngân sách chính xác đã được quét
   const budgetLeft =
     typeFilter === "expense"
       ? currentBudget - totalAmount
@@ -267,6 +331,7 @@ export default function Analytics() {
                   <p className="text-[#8e8e93] text-xs font-semibold mb-1">
                     {typeFilter === "expense" ? "Budget left" : "Goal left"}
                   </p>
+                  {/* Hiển thị màu đỏ nếu chi tiêu âm (tiêu lố ngân sách) */}
                   <div
                     className={`text-[22px] font-bold tracking-tight ${budgetLeft < 0 ? "text-[#ff453a]" : ""}`}
                   >
