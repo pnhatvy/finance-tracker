@@ -14,39 +14,35 @@ export default function Analytics() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
 
-  // Biến ép re-render để Analytics cập nhật ngay lập tức khi đổi số bên trang Goals
   const [, setGoalsTrigger] = useState(0);
   const rawDataRef = useRef({ tx: "", goals: "" });
 
   useEffect(() => {
     const loadData = () => {
-      // 1. Tải Giao dịch
       const txRaw = localStorage.getItem("vys_transactions") || "[]";
       if (txRaw !== rawDataRef.current.tx) {
         rawDataRef.current.tx = txRaw;
         setTransactions(JSON.parse(txRaw));
       }
 
-      // 2. Tải Mục tiêu (Goals)
       const gRaw1 = localStorage.getItem("vys_monthly_goals") || "{}";
       const gRaw2 = localStorage.getItem("vys_global_goals") || "{}";
       const combinedGoals = gRaw1 + gRaw2;
 
       if (combinedGoals !== rawDataRef.current.goals) {
         rawDataRef.current.goals = combinedGoals;
-        setGoalsTrigger((prev) => prev + 1); // Ép trang cập nhật số liệu
+        setGoalsTrigger((prev) => prev + 1);
       }
     };
 
     loadData();
-    // Quét nhẹ mỗi nửa giây để đảm bảo 2 trang Goals và Analytics luôn đồng bộ số với nhau
     const interval = setInterval(loadData, 500);
     return () => clearInterval(interval);
   }, []);
 
   const getPeriodBounds = () => {
     const base = new Date();
-    let start, end, label;
+    let start, end, label, monthKey;
     const months = [
       "Jan",
       "Feb",
@@ -86,6 +82,8 @@ export default function Analytics() {
       end = new Date(start);
       end.setMonth(end.getMonth() + 1);
 
+      monthKey = `${start.getMonth() + 1}-${start.getFullYear()}`;
+
       if (cycleStartDay === 1)
         label = `${months[start.getMonth()]} ${start.getFullYear()}`;
       else {
@@ -99,17 +97,15 @@ export default function Analytics() {
       end = new Date(base.getFullYear() + 1, 0, 1);
       label = `${start.getFullYear()}`;
     }
-    return { start, end, label };
+    return { start, end, label, monthKey };
   };
 
   const bounds = getPeriodBounds();
 
-  // --- BỘ MÁY ĐỌC NGÂN SÁCH ĐỘNG (BẤT CHẤP MỌI LOẠI FORMAT) ---
   let currentBudget = Number(monthlyBudget) || 0;
   let currentIncomeGoal = Number(monthlyIncomeGoal) || 0;
 
   try {
-    // Ưu tiên 1: Đọc từ Global Goals (nếu user setup chung cho mọi tháng)
     const glob = JSON.parse(localStorage.getItem("vys_global_goals") || "{}");
     if (glob.expense !== undefined) currentBudget = Number(glob.expense);
     else if (glob.budget !== undefined) currentBudget = Number(glob.budget);
@@ -118,7 +114,6 @@ export default function Analytics() {
     else if (glob.incomeGoal !== undefined)
       currentIncomeGoal = Number(glob.incomeGoal);
 
-    // Ưu tiên 2: Đọc từ Monthly Goals (nếu user setup số 9tr4 riêng cho tháng 10 này)
     if (timeFilter === "month" && bounds.start) {
       const monthObj = JSON.parse(
         localStorage.getItem("vys_monthly_goals") || "{}",
@@ -126,7 +121,6 @@ export default function Analytics() {
       const m = bounds.start.getMonth() + 1;
       const y = bounds.start.getFullYear();
 
-      // Quét tất cả các dạng tên (key) lưu trữ có thể có
       const keys = [
         `${y}-${String(m).padStart(2, "0")}`,
         `${m}-${y}`,
@@ -144,14 +138,13 @@ export default function Analytics() {
             currentIncomeGoal = Number(monthObj[k].income);
           else if (monthObj[k].incomeGoal !== undefined)
             currentIncomeGoal = Number(monthObj[k].incomeGoal);
-          break; // Tìm thấy thì dừng ngay
+          break;
         }
       }
     }
   } catch (e) {
-    console.error("Lỗi khi đọc Goals:", e);
+    console.error("Error reading Goals:", e);
   }
-  // -----------------------------------------------------------
 
   const filteredData = transactions.filter((tItem) => {
     if (tItem.type !== typeFilter || !tItem.date) return false;
@@ -208,7 +201,6 @@ export default function Analytics() {
     }))
     .sort((a, b) => b.spent - a.spent);
 
-  // Tính toán số dư dựa vào Ngân sách chính xác đã được quét
   const budgetLeft =
     typeFilter === "expense"
       ? currentBudget - totalAmount
@@ -331,7 +323,6 @@ export default function Analytics() {
                   <p className="text-[#8e8e93] text-xs font-semibold mb-1">
                     {typeFilter === "expense" ? "Budget left" : "Goal left"}
                   </p>
-                  {/* Hiển thị màu đỏ nếu chi tiêu âm (tiêu lố ngân sách) */}
                   <div
                     className={`text-[22px] font-bold tracking-tight ${budgetLeft < 0 ? "text-[#ff453a]" : ""}`}
                   >
@@ -457,7 +448,7 @@ export default function Analytics() {
           <div className="flex-1 overflow-y-auto px-6 pt-6 pb-32 overscroll-y-auto">
             <div className="flex items-center gap-5 mb-8">
               <div
-                className={`w-[72px] h-[72px] rounded-full flex items-center justify-center text-[36px] ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+                className={`w-[72px] h-[72px] rounded-full flex items-center justify-center text-[36px] flex-shrink-0 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
               >
                 {selectedCategory.icon}
               </div>
@@ -470,27 +461,36 @@ export default function Analytics() {
                 </div>
               </div>
             </div>
-            <div>
+
+            <div className="flex flex-col">
               {catTransactions.map((t) => (
                 <div
                   key={t.id}
-                  className={`flex justify-between items-center py-4 border-b ${theme === "dark" ? "border-[#1c1c1e]" : "border-gray-200"}`}
+                  className={`flex justify-between items-center py-4 border-b ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
                     <div
-                      className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: selectedCategory.color }}
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{
+                        backgroundColor: selectedCategory.color || "#32ade6",
+                      }}
                     ></div>
                     <div className="flex flex-col">
-                      <p className="font-bold text-[15px] leading-tight mb-1">
-                        {t.note}
+                      {/* HIỂN THỊ NOTE BỰ LÊN TRÊN */}
+                      <p
+                        className={`font-bold text-[16px] leading-tight mb-1 ${theme === "dark" ? "text-white" : "text-black"}`}
+                      >
+                        {t.note || selectedCategory.name}
                       </p>
-                      <p className="text-[13px] text-[#8e8e93] leading-tight">
+                      <p className="text-[13px] text-[#8e8e93] leading-tight font-medium">
                         {formatDetailDate(t.date)}
                       </p>
                     </div>
                   </div>
-                  <div className="font-bold text-[16px]">
+                  {/* SỐ TIỀN CĂN PHẢI */}
+                  <div
+                    className={`font-bold text-[16px] flex-shrink-0 ${theme === "dark" ? "text-white" : "text-black"}`}
+                  >
                     ₫{t.amount.toLocaleString("vi-VN")}
                   </div>
                 </div>
