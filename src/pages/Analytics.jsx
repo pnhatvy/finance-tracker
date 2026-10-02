@@ -3,9 +3,9 @@ import { useAppContext } from "../AppContext";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function Analytics() {
-  const { monthlyBudget, monthlyIncomeGoal, cycleStartDay, theme } =
-    useAppContext();
+  const { cycleStartDay, theme } = useAppContext();
   const [transactions, setTransactions] = useState([]);
+  const [monthlyGoals, setMonthlyGoals] = useState({});
   const [timeFilter, setTimeFilter] = useState("month");
   const [typeFilter, setTypeFilter] = useState("expense");
   const [offset, setOffset] = useState(0);
@@ -17,13 +17,19 @@ export default function Analytics() {
     const loadData = () => {
       const data = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
       setTransactions(data);
+
+      // Load thêm dữ liệu từ trang Goals để lấy chuẩn ngân sách từng tháng
+      const goalsData = JSON.parse(
+        localStorage.getItem("vys_monthly_goals") || "{}",
+      );
+      setMonthlyGoals(goalsData);
     };
     loadData();
   }, []);
 
   const getPeriodBounds = () => {
     const base = new Date();
-    let start, end, label;
+    let start, end, label, monthKey;
     const months = [
       "Jan",
       "Feb",
@@ -38,6 +44,7 @@ export default function Analytics() {
       "Nov",
       "Dec",
     ];
+
     if (timeFilter === "week") {
       base.setDate(base.getDate() + offset * 7);
       const day = base.getDay();
@@ -61,6 +68,10 @@ export default function Analytics() {
       start = new Date(currentStart);
       end = new Date(start);
       end.setMonth(end.getMonth() + 1);
+
+      // Lấy key tháng để tìm ngân sách (Ví dụ: "10-2026")
+      monthKey = `${start.getMonth() + 1}-${start.getFullYear()}`;
+
       if (cycleStartDay === 1)
         label = `${months[start.getMonth()]} ${start.getFullYear()}`;
       else {
@@ -74,12 +85,16 @@ export default function Analytics() {
       end = new Date(base.getFullYear() + 1, 0, 1);
       label = `${start.getFullYear()}`;
     }
-    return { start, end, label };
+    return { start, end, label, monthKey };
   };
 
   const bounds = getPeriodBounds();
-  
-  // Dữ liệu trong toàn bộ kỳ hạn (Dùng để hiển thị biểu đồ danh mục, tổng chung)
+
+  // Tự động tìm ngân sách đúng của tháng đang chọn từ trang Goals
+  const currentGoalData = monthlyGoals[bounds.monthKey] || {};
+  const currentBudget = currentGoalData.budget || 0;
+  const currentIncomeGoal = currentGoalData.incomeGoal || 0;
+
   const filteredData = transactions.filter((tItem) => {
     if (tItem.type !== typeFilter || !tItem.date) return false;
     const d = new Date(tItem.date);
@@ -106,10 +121,12 @@ export default function Analytics() {
     ];
     return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()} • ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}`;
   };
+
   const openDetail = (cat) => {
     setSelectedCategory(cat);
     setTimeout(() => setShowDetail(true), 10);
   };
+
   const closeDetail = () => {
     setShowDetail(false);
     setTimeout(() => setSelectedCategory(null), 300);
@@ -125,43 +142,37 @@ export default function Analytics() {
       catMap[catId].spent += item.amount;
     }
   });
-  
+
   const categoryData = Object.values(catMap)
     .map((cat) => ({
       ...cat,
       percent: totalAmount > 0 ? (cat.spent / totalAmount) * 100 : 0,
     }))
     .sort((a, b) => b.spent - a.spent);
-    
+
+  // Tính số dư dựa trên ngân sách lấy từ trang Goals!
   const budgetLeft =
     typeFilter === "expense"
-      ? monthlyBudget - totalAmount
-      : monthlyIncomeGoal - totalAmount;
-      
+      ? currentBudget - totalAmount
+      : currentIncomeGoal - totalAmount;
+
   const isCurrentPeriod = offset === 0;
-  
-  // LOGIC ON PACE FOR SỬA LẠI:
+
   const now = new Date();
-  
-  // Tổng số ngày trong kỳ hiện tại
-  const daysInCycle = Math.round((bounds.end - bounds.start) / (1000 * 60 * 60 * 24));
-  
-  // Lọc chỉ những giao dịch xảy ra từ HÔM NAY trở về trước trong kỳ này (quá khứ + hiện tại)
-  const pastData = filteredData.filter(item => new Date(item.date) <= now);
-  
-  // Tổng tiền đã tiêu thực tế đến hôm nay
+  const daysInCycle = Math.round(
+    (bounds.end - bounds.start) / (1000 * 60 * 60 * 24),
+  );
+  const pastData = filteredData.filter((item) => new Date(item.date) <= now);
   const totalAmountPast = pastData.reduce((sum, item) => sum + item.amount, 0);
-  
-  // Số ngày ĐÃ QUA trong kỳ (Tối thiểu là 1 để tránh chia cho 0)
-  const daysPassed = Math.max(1, Math.floor((now - bounds.start) / (1000 * 60 * 60 * 24)) + 1);
-  
-  // Trung bình mỗi ngày CHỈ TÍNH THEO NHỮNG NGÀY ĐÃ QUA
+  const daysPassed = Math.max(
+    1,
+    Math.floor((now - bounds.start) / (1000 * 60 * 60 * 24)) + 1,
+  );
   const dailyAverage = totalAmountPast / daysPassed;
-  
-  // Tổng dự kiến cuối kỳ = Trung bình 1 ngày đã qua * Tổng số ngày
-  // Nếu có nhập trước tương lai, khoản đó sẽ được cộng riêng
   const futureDataTotal = totalAmount - totalAmountPast;
-  const onPaceFor = isCurrentPeriod ? (dailyAverage * daysInCycle) + futureDataTotal : totalAmount;
+  const onPaceFor = isCurrentPeriod
+    ? dailyAverage * daysInCycle + futureDataTotal
+    : totalAmount;
 
   const catTransactions = selectedCategory
     ? filteredData.filter((t) => t.category?.id === selectedCategory.id)
@@ -173,7 +184,6 @@ export default function Analytics() {
       <div
         className={`h-[100dvh] w-full flex flex-col relative overflow-hidden animate-ios-page ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       >
-        {/* HEADER CỐ ĐỊNH CHIA CẮT */}
         <div
           className={`flex-shrink-0 z-40 px-4 pb-3 flex flex-col gap-3 shadow-[0_1px_0_0_rgba(0,0,0,0.05)] ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
@@ -240,7 +250,6 @@ export default function Analytics() {
           </div>
         </div>
 
-        {/* NỘI DUNG CUỘN ĐỘC LẬP */}
         <div
           className="flex-1 overflow-y-auto px-4 pt-4 pb-32 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
@@ -363,7 +372,6 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* OVERLAY CHI TIẾT KHI BẤM VÀO CATEGORY */}
       {selectedCategory && (
         <div
           className={`fixed inset-0 z-50 flex flex-col overflow-hidden transition-transform duration-300 ease-out ${showDetail ? "translate-y-0" : "translate-y-full"} ${theme === "dark" ? "bg-black" : "bg-[#f2f2f7]"}`}

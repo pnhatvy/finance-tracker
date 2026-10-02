@@ -41,7 +41,6 @@ export default function Settings() {
   const [user, setUser] = useState(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Trạng thái Sync: { type: 'backup' | 'restore', status: 'loading' | 'success' | 'error' }
   const [syncState, setSyncState] = useState({ type: null, status: null });
 
   useEffect(() => {
@@ -89,6 +88,10 @@ export default function Settings() {
         ),
         initialBalance: localStorage.getItem("vys_initial_balance") || "0",
         cycleStartDay: localStorage.getItem("vys_cycle_start_day") || "1",
+        // Bổ sung ngân sách và mục tiêu thu nhập vào mây
+        monthlyBudget: localStorage.getItem("vys_monthly_budget") || "0",
+        monthlyIncomeGoal:
+          localStorage.getItem("vys_monthly_income_goal") || "0",
         updatedAt: new Date().toISOString(),
       };
 
@@ -145,6 +148,14 @@ export default function Settings() {
           localStorage.setItem("vys_cycle_start_day", data.cycleStartDay);
           setCycleStartDay(Number(data.cycleStartDay));
         }
+        // Kéo ngân sách và mục tiêu thu nhập về lại máy
+        if (data.monthlyBudget)
+          localStorage.setItem("vys_monthly_budget", data.monthlyBudget);
+        if (data.monthlyIncomeGoal)
+          localStorage.setItem(
+            "vys_monthly_income_goal",
+            data.monthlyIncomeGoal,
+          );
 
         setSyncState({ type: "restore", status: "success" });
         setTimeout(() => window.location.reload(), 1500);
