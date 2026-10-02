@@ -9,10 +9,19 @@ import {
 } from "lucide-react";
 import { useAppContext } from "../AppContext";
 
-const SwipeableItem = ({ children, onEdit, onDelete, isLast, theme }) => {
+// SwipeableItem được cập nhật thêm thuộc tính txType để vẽ viền màu
+const SwipeableItem = ({
+  children,
+  onEdit,
+  onDelete,
+  isLast,
+  theme,
+  txType,
+}) => {
   const [startX, setStartX] = useState(0);
   const [offsetX, setOffsetX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
+
   const handleTouchStart = (e) => {
     setStartX(e.touches[0].clientX);
     setIsSwiping(true);
@@ -36,6 +45,11 @@ const SwipeableItem = ({ children, onEdit, onDelete, isLast, theme }) => {
       setOffsetX(0);
     }
   };
+
+  // Cấu hình màu viền trái tĩnh (Muted/Trầm)
+  // Chi: Đỏ trầm | Thu: Xanh rêu/trầm
+  const indicatorColor = txType === "expense" ? "#d35400" : "#27ae60";
+
   return (
     <div
       className={`relative w-full overflow-hidden ${theme === "dark" ? "bg-black" : "bg-gray-100"}`}
@@ -54,9 +68,15 @@ const SwipeableItem = ({ children, onEdit, onDelete, isLast, theme }) => {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`relative w-full transition-transform duration-200 ease-out flex items-center py-3.5 px-4 ${theme === "dark" ? "bg-black" : "bg-[#f2f2f7]"} ${!isLast ? (theme === "dark" ? "border-b border-[#1c1c1e]" : "border-b border-gray-200") : ""}`}
+        className={`relative w-full transition-transform duration-200 ease-out flex items-center py-3.5 px-4 pl-5 ${theme === "dark" ? "bg-black" : "bg-[#f2f2f7]"} ${!isLast ? (theme === "dark" ? "border-b border-[#1c1c1e]" : "border-b border-gray-200") : ""}`}
         style={{ transform: `translateX(${offsetX}px)` }}
       >
+        {/* Vạch viền trái hiển thị màu trầm */}
+        <div
+          className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-md opacity-70"
+          style={{ backgroundColor: indicatorColor }}
+        ></div>
+
         {children}
       </div>
     </div>
@@ -288,7 +308,6 @@ export default function History() {
 
   return (
     <>
-      {/* THÂN TRANG BỊ GIỚI HẠN HIỆU ỨNG */}
       <div
         className={`h-[100dvh] w-full flex flex-col relative overflow-hidden animate-ios-page ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       >
@@ -353,7 +372,8 @@ export default function History() {
                     {formatGroupHeader(group.date)}
                   </span>
                   <span className="text-xs font-semibold text-[#8e8e93]">
-                    ₫{Math.abs(group.totalDay).toLocaleString("vi-VN")}
+                    {/* Bỏ hiển thị âm dương ở tiêu đề nhóm để giữ gọn gàng */}₫
+                    {Math.abs(group.totalDay).toLocaleString("vi-VN")}
                   </span>
                 </div>
                 <div
@@ -366,6 +386,7 @@ export default function History() {
                       onDelete={() => setItemToDelete(tItem.id)}
                       isLast={index === group.items.length - 1}
                       theme={theme}
+                      txType={tItem.type}
                     >
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-3">
@@ -385,8 +406,8 @@ export default function History() {
                         </div>
                         <div className="text-right flex flex-col items-end">
                           <div className="font-bold text-[16px] leading-tight">
-                            {tItem.type === "income" ? "+" : ""}₫
-                            {tItem.amount.toLocaleString("vi-VN")}
+                            {/* Bỏ dấu + ở thu nhập, giữ định dạng số trần y như chi tiêu */}
+                            ₫{tItem.amount.toLocaleString("vi-VN")}
                           </div>
                           <div className="text-[12px] text-[#8e8e93] mt-0.5 leading-tight uppercase font-medium">
                             {tItem.date
@@ -416,7 +437,6 @@ export default function History() {
         </div>
       </div>
 
-      {/* ĐƯA CÁC MODAL RA BÊN NGOÀI ĐỂ NÓ ĐÈ LÊN ĐƯỢC NAV BAR */}
       {itemToDelete && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"

@@ -1,6 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAppContext } from "../AppContext";
-import { X, Moon, Menu, Trash2 } from "lucide-react";
+import {
+  X,
+  Moon,
+  Menu,
+  Trash2,
+  UserCircle,
+  UploadCloud,
+  DownloadCloud,
+  LogOut,
+} from "lucide-react";
+
+// Import Firebase (Đảm bảo file firebase.js của ông đã export auth và db)
+import { auth, db } from "../firebase";
+import {
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+  onAuthStateChanged,
+} from "firebase/auth";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 
 export default function Settings() {
   const {
@@ -12,11 +31,126 @@ export default function Settings() {
     setCycleStartDay,
     setIsModalOpen,
   } = useAppContext();
+
   const [modalType, setModalType] = useState(null);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [dragState, setDragState] = useState(null);
   const [catForm, setCatForm] = useState(null);
   const [isResetting, setIsResetting] = useState(false);
+
+  // States cho tính năng Sync
+  const [user, setUser] = useState(null);
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
+
+  useEffect(() => {
+    // Theo dõi trạng thái đăng nhập
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Login failed", error);
+      alert("Đăng nhập thất bại, vui lòng thử lại.");
+    }
+  };
+
+  const handleLogout = () => signOut(auth);
+
+  const showTempMessage = (msg) => {
+    setSyncMessage(msg);
+    setTimeout(() => setSyncMessage(""), 3000);
+  };
+
+  const handleBackup = async () => {
+    if (!user) return;
+    setSyncLoading(true);
+    try {
+      const dataToBackup = {
+        transactions: JSON.parse(
+          localStorage.getItem("vys_transactions") || "[]",
+        ),
+        categories: JSON.parse(localStorage.getItem("vys_categories") || "[]"),
+        globalGoals: JSON.parse(
+          localStorage.getItem("vys_global_goals") || "{}",
+        ),
+        monthlyGoals: JSON.parse(
+          localStorage.getItem("vys_monthly_goals") || "{}",
+        ),
+        initialBalance: localStorage.getItem("vys_initial_balance") || "0",
+        cycleStartDay: localStorage.getItem("vys_cycle_start_day") || "1",
+        updatedAt: new Date().toISOString(),
+      };
+
+      await setDoc(doc(db, "users", user.uid), dataToBackup);
+      showTempMessage("Backup successful! ☁️");
+    } catch (e) {
+      console.error(e);
+      showTempMessage("Backup failed!");
+    }
+    setSyncLoading(false);
+  };
+
+  const handleRestore = async () => {
+    if (!user) return;
+    const confirmRestore = window.confirm(
+      "Cảnh báo: Thao tác này sẽ ghi đè toàn bộ dữ liệu trên máy hiện tại bằng dữ liệu trên mây. Bạn có chắc chắn không?",
+    );
+    if (!confirmRestore) return;
+
+    setSyncLoading(true);
+    try {
+      const docRef = doc(db, "users", user.uid);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.transactions)
+          localStorage.setItem(
+            "vys_transactions",
+            JSON.stringify(data.transactions),
+          );
+        if (data.categories) {
+          localStorage.setItem(
+            "vys_categories",
+            JSON.stringify(data.categories),
+          );
+          setCategories(data.categories);
+        }
+        if (data.globalGoals)
+          localStorage.setItem(
+            "vys_global_goals",
+            JSON.stringify(data.globalGoals),
+          );
+        if (data.monthlyGoals)
+          localStorage.setItem(
+            "vys_monthly_goals",
+            JSON.stringify(data.monthlyGoals),
+          );
+        if (data.initialBalance)
+          localStorage.setItem("vys_initial_balance", data.initialBalance);
+        if (data.cycleStartDay) {
+          localStorage.setItem("vys_cycle_start_day", data.cycleStartDay);
+          setCycleStartDay(Number(data.cycleStartDay));
+        }
+        showTempMessage("Restore successful! 📥");
+        // Reload nhẹ để dữ liệu ăn toàn bộ vào context
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        showTempMessage("No backup found on cloud.");
+      }
+    } catch (e) {
+      console.error(e);
+      showTempMessage("Restore failed!");
+    }
+    setSyncLoading(false);
+  };
 
   const EMOJI_LIST = [
     "🍔",
@@ -156,9 +290,7 @@ export default function Settings() {
   const handleResetData = () => {
     setIsResetting(true);
     try {
-      // Chỉ xóa lịch sử giao dịch, giữ nguyên categories, goals và cycle start day
       localStorage.removeItem("vys_transactions");
-
       closeModals();
       window.location.href = "/";
     } catch (e) {
@@ -341,6 +473,96 @@ export default function Settings() {
           className="flex-1 overflow-y-auto px-4 pt-6 pb-32 space-y-5 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
+          {/* SECTION: TÀI KHOẢN & ĐỒNG BỘ */}
+          <div>
+            <div className="flex justify-between items-end mb-2 ml-4 pr-2">
+              <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest">
+                Account & Sync
+              </h3>
+              {syncMessage && (
+                <span className="text-[#32d74b] text-[10px] font-bold animate-pulse">
+                  {syncMessage}
+                </span>
+              )}
+            </div>
+            <div
+              className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+            >
+              {!user ? (
+                <button
+                  onClick={handleLogin}
+                  className="w-full flex items-center gap-3 p-4 text-left active:opacity-70 transition-opacity"
+                >
+                  <UserCircle size={22} className="text-[#32ade6]" />
+                  <div>
+                    <p className="font-semibold text-[15px]">
+                      Sign in with Google
+                    </p>
+                    <p className="text-xs text-[#8e8e93] mt-0.5">
+                      Backup data to cloud
+                    </p>
+                  </div>
+                </button>
+              ) : (
+                <>
+                  <div
+                    className={`p-4 border-b flex justify-between items-center ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
+                  >
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      {user.photoURL ? (
+                        <img
+                          src={user.photoURL}
+                          alt="Avatar"
+                          className="w-10 h-10 rounded-full"
+                        />
+                      ) : (
+                        <UserCircle size={40} className="text-[#8e8e93]" />
+                      )}
+                      <div className="overflow-hidden">
+                        <p className="font-semibold text-[15px] truncate">
+                          {user.displayName || "User"}
+                        </p>
+                        <p className="text-xs text-[#8e8e93] truncate">
+                          {user.email}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="p-2 text-[#ff453a] active:opacity-50"
+                    >
+                      <LogOut size={18} />
+                    </button>
+                  </div>
+                  <div
+                    className={`flex divide-x ${theme === "dark" ? "divide-white/5" : "divide-black/5"}`}
+                  >
+                    <button
+                      onClick={handleBackup}
+                      disabled={syncLoading}
+                      className={`flex-1 p-3 flex flex-col items-center gap-1.5 transition-colors ${syncLoading ? "opacity-50" : "active:bg-black/5 dark:active:bg-white/5"}`}
+                    >
+                      <UploadCloud size={20} className="text-[#32ade6]" />
+                      <span className="text-[11px] font-semibold">
+                        Backup to Cloud
+                      </span>
+                    </button>
+                    <button
+                      onClick={handleRestore}
+                      disabled={syncLoading}
+                      className={`flex-1 p-3 flex flex-col items-center gap-1.5 transition-colors ${syncLoading ? "opacity-50" : "active:bg-black/5 dark:active:bg-white/5"}`}
+                    >
+                      <DownloadCloud size={20} className="text-[#32d74b]" />
+                      <span className="text-[11px] font-semibold">
+                        Restore to Device
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
           <div>
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
               Preferences
