@@ -39,16 +39,10 @@ export default function Settings() {
   const [isResetting, setIsResetting] = useState(false);
 
   const [user, setUser] = useState(null);
-  const [syncLoading, setSyncLoading] = useState(null);
-  const [syncMessage, setSyncMessage] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Auto-backup ngầm khi mở Settings và đã đăng nhập
-  useEffect(() => {
-    if (user) {
-      handleBackup(true);
-    }
-  }, [user]);
+  // Trạng thái Sync: { type: 'backup' | 'restore', status: 'loading' | 'success' | 'error' }
+  const [syncState, setSyncState] = useState({ type: null, status: null });
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -64,9 +58,8 @@ export default function Settings() {
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error("Login error", error);
-      // Chỉ báo lỗi nếu không phải do user tự tắt popup
       if (error.code !== "auth/popup-closed-by-user") {
-        showTempMessage("Sign in failed");
+        alert("Sign in failed");
       }
     } finally {
       setIsLoggingIn(false);
@@ -78,14 +71,9 @@ export default function Settings() {
     closeModals();
   };
 
-  const showTempMessage = (msg) => {
-    setSyncMessage(msg);
-    setTimeout(() => setSyncMessage(""), 3000);
-  };
-
-  const handleBackup = async (isAuto = false) => {
+  const handleBackup = async () => {
     if (!user) return;
-    if (!isAuto) setSyncLoading("backup");
+    setSyncState({ type: "backup", status: "loading" });
 
     try {
       const dataToBackup = {
@@ -106,14 +94,12 @@ export default function Settings() {
 
       await setDoc(doc(db, "users", user.uid), dataToBackup);
 
-      if (!isAuto) {
-        showTempMessage("Backup successful");
-      }
+      setSyncState({ type: "backup", status: "success" });
+      setTimeout(() => setSyncState({ type: null, status: null }), 3000);
     } catch (e) {
       console.error(e);
-      if (!isAuto) showTempMessage("Backup failed");
-    } finally {
-      if (!isAuto) setSyncLoading(null);
+      setSyncState({ type: "backup", status: "error" });
+      setTimeout(() => setSyncState({ type: null, status: null }), 3000);
     }
   };
 
@@ -124,7 +110,7 @@ export default function Settings() {
     );
     if (!confirmRest) return;
 
-    setSyncLoading("restore");
+    setSyncState({ type: "restore", status: "loading" });
     try {
       const docRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(docRef);
@@ -159,16 +145,17 @@ export default function Settings() {
           localStorage.setItem("vys_cycle_start_day", data.cycleStartDay);
           setCycleStartDay(Number(data.cycleStartDay));
         }
-        showTempMessage("Restore successful");
+
+        setSyncState({ type: "restore", status: "success" });
         setTimeout(() => window.location.reload(), 1500);
       } else {
-        showTempMessage("No backup found");
-        setSyncLoading(null);
+        alert("Không tìm thấy bản sao lưu nào");
+        setSyncState({ type: null, status: null });
       }
     } catch (e) {
       console.error(e);
-      showTempMessage("Restore failed");
-      setSyncLoading(null);
+      setSyncState({ type: "restore", status: "error" });
+      setTimeout(() => setSyncState({ type: null, status: null }), 3000);
     }
   };
 
@@ -271,7 +258,7 @@ export default function Settings() {
     "🐾",
     "🐶",
     "🐱",
-    "👨‍‍👩‍👧",
+    "👨‍👩‍👧",
     "🏫",
     "📚",
     "🎓",
@@ -595,16 +582,9 @@ export default function Settings() {
 
           {/* SECTION 4: ACCOUNT & SYNC */}
           <div>
-            <div className="flex justify-between items-end mb-2 ml-4 pr-2">
-              <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest">
-                Account & Sync
-              </h3>
-              {syncMessage && (
-                <span className="text-[#32d74b] text-[10px] font-bold animate-pulse">
-                  {syncMessage}
-                </span>
-              )}
-            </div>
+            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
+              Account & Sync
+            </h3>
             <div
               className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
             >
@@ -663,31 +643,71 @@ export default function Settings() {
                     </button>
                   </div>
 
-                  {/* Hàng nút Backup / Restore */}
-                  <div
-                    className={`flex divide-x ${theme === "dark" ? "divide-white/5" : "divide-black/5"}`}
+                  {/* Nút Backup to Cloud */}
+                  <button
+                    onClick={handleBackup}
+                    disabled={syncState.status === "loading"}
+                    className={`w-full flex justify-between items-center p-4 text-left active:bg-white/5 transition-colors border-b ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
                   >
-                    <button
-                      onClick={() => handleBackup(false)}
-                      disabled={syncLoading !== null}
-                      className={`flex-1 p-3 flex flex-col items-center gap-1.5 transition-colors ${syncLoading ? "opacity-50" : "active:bg-black/5 dark:active:bg-white/5"}`}
-                    >
+                    <div className="flex items-center gap-3">
                       <UploadCloud size={20} className="text-[#8e8e93]" />
-                      <span className="text-[13px] font-semibold">
-                        {syncLoading === "backup" ? "Syncing..." : "Backup"}
+                      <span className="font-semibold text-[15px]">
+                        Backup to Cloud
                       </span>
-                    </button>
-                    <button
-                      onClick={handleRestore}
-                      disabled={syncLoading !== null}
-                      className={`flex-1 p-3 flex flex-col items-center gap-1.5 transition-colors ${syncLoading ? "opacity-50" : "active:bg-black/5 dark:active:bg-white/5"}`}
-                    >
+                    </div>
+                    {/* Trạng thái bên phải */}
+                    {syncState.type === "backup" &&
+                      syncState.status === "loading" && (
+                        <span className="text-[13px] text-[#8e8e93] font-medium animate-pulse">
+                          Syncing...
+                        </span>
+                      )}
+                    {syncState.type === "backup" &&
+                      syncState.status === "success" && (
+                        <span className="text-[13px] text-[#32d74b] font-medium">
+                          Successful
+                        </span>
+                      )}
+                    {syncState.type === "backup" &&
+                      syncState.status === "error" && (
+                        <span className="text-[13px] text-[#ff453a] font-medium">
+                          Failed
+                        </span>
+                      )}
+                  </button>
+
+                  {/* Nút Restore to Device */}
+                  <button
+                    onClick={handleRestore}
+                    disabled={syncState.status === "loading"}
+                    className="w-full flex justify-between items-center p-4 text-left active:bg-white/5 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
                       <DownloadCloud size={20} className="text-[#8e8e93]" />
-                      <span className="text-[13px] font-semibold">
-                        {syncLoading === "restore" ? "Restoring..." : "Restore"}
+                      <span className="font-semibold text-[15px]">
+                        Restore to Device
                       </span>
-                    </button>
-                  </div>
+                    </div>
+                    {/* Trạng thái bên phải */}
+                    {syncState.type === "restore" &&
+                      syncState.status === "loading" && (
+                        <span className="text-[13px] text-[#8e8e93] font-medium animate-pulse">
+                          Syncing...
+                        </span>
+                      )}
+                    {syncState.type === "restore" &&
+                      syncState.status === "success" && (
+                        <span className="text-[13px] text-[#32d74b] font-medium">
+                          Successful
+                        </span>
+                      )}
+                    {syncState.type === "restore" &&
+                      syncState.status === "error" && (
+                        <span className="text-[13px] text-[#ff453a] font-medium">
+                          Failed
+                        </span>
+                      )}
+                  </button>
                 </div>
               )}
             </div>
