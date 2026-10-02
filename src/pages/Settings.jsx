@@ -1,13 +1,24 @@
 import { useState, useEffect } from "react";
 import { useAppContext } from "../AppContext";
-import { 
-  X, Moon, Menu, Trash2, UserCircle, 
-  UploadCloud, DownloadCloud, LogOut, Download
+import {
+  X,
+  Moon,
+  Menu,
+  Trash2,
+  UserCircle,
+  UploadCloud,
+  DownloadCloud,
+  LogOut,
+  Download,
 } from "lucide-react";
 
-// Import Firebase (Đảm bảo file firebase.js của ông đã export auth và db)
 import { auth, db } from "../firebase";
-import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
+import {
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+  onAuthStateChanged,
+} from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 
 export default function Settings() {
@@ -20,20 +31,17 @@ export default function Settings() {
     setCycleStartDay,
     setIsModalOpen,
   } = useAppContext();
-  
+
   const [modalType, setModalType] = useState(null);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [dragState, setDragState] = useState(null);
   const [catForm, setCatForm] = useState(null);
   const [isResetting, setIsResetting] = useState(false);
 
-  // States cho tính năng Sync
   const [user, setUser] = useState(null);
-  const [syncLoading, setSyncLoading] = useState(false);
-  const [syncMessage, setSyncMessage] = useState("");
+  const [syncLoading, setSyncLoading] = useState(null);
 
   useEffect(() => {
-    // Theo dõi trạng thái đăng nhập
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
     });
@@ -52,89 +60,122 @@ export default function Settings() {
 
   const handleLogout = () => signOut(auth);
 
-  const showTempMessage = (msg) => {
-    setSyncMessage(msg);
-    setTimeout(() => setSyncMessage(""), 3000);
-  };
-
   const handleBackup = async () => {
     if (!user) return;
-    setSyncLoading(true);
+    setSyncLoading("backup");
     try {
       const dataToBackup = {
-        transactions: JSON.parse(localStorage.getItem("vys_transactions") || "[]"),
+        transactions: JSON.parse(
+          localStorage.getItem("vys_transactions") || "[]",
+        ),
         categories: JSON.parse(localStorage.getItem("vys_categories") || "[]"),
-        globalGoals: JSON.parse(localStorage.getItem("vys_global_goals") || "{}"),
-        monthlyGoals: JSON.parse(localStorage.getItem("vys_monthly_goals") || "{}"),
+        globalGoals: JSON.parse(
+          localStorage.getItem("vys_global_goals") || "{}",
+        ),
+        monthlyGoals: JSON.parse(
+          localStorage.getItem("vys_monthly_goals") || "{}",
+        ),
         initialBalance: localStorage.getItem("vys_initial_balance") || "0",
         cycleStartDay: localStorage.getItem("vys_cycle_start_day") || "1",
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       };
-      
+
       await setDoc(doc(db, "users", user.uid), dataToBackup);
-      showTempMessage("Backup successful! ☁️");
+      alert(
+        "Backup thành công! Dữ liệu của bạn đã được lưu an toàn trên mây. ☁️",
+      );
     } catch (e) {
       console.error(e);
-      showTempMessage("Backup failed!");
+      alert("Backup thất bại, vui lòng kiểm tra kết nối mạng!");
     }
-    setSyncLoading(false);
+    setSyncLoading(null);
   };
 
   const handleRestore = async () => {
     if (!user) return;
-    const confirmRestore = window.confirm("Cảnh báo: Thao tác này sẽ ghi đè toàn bộ dữ liệu trên máy hiện tại bằng dữ liệu trên mây. Bạn có chắc chắn không?");
+    const confirmRestore = window.confirm(
+      "Cảnh báo: Thao tác này sẽ ghi đè toàn bộ dữ liệu trên máy hiện tại bằng dữ liệu trên mây. Bạn có chắc chắn không?",
+    );
     if (!confirmRestore) return;
 
-    setSyncLoading(true);
+    setSyncLoading("restore");
     try {
       const docRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(docRef);
-      
+
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if (data.transactions) localStorage.setItem("vys_transactions", JSON.stringify(data.transactions));
+        if (data.transactions)
+          localStorage.setItem(
+            "vys_transactions",
+            JSON.stringify(data.transactions),
+          );
         if (data.categories) {
-          localStorage.setItem("vys_categories", JSON.stringify(data.categories));
+          localStorage.setItem(
+            "vys_categories",
+            JSON.stringify(data.categories),
+          );
           setCategories(data.categories);
         }
-        if (data.globalGoals) localStorage.setItem("vys_global_goals", JSON.stringify(data.globalGoals));
-        if (data.monthlyGoals) localStorage.setItem("vys_monthly_goals", JSON.stringify(data.monthlyGoals));
-        if (data.initialBalance) localStorage.setItem("vys_initial_balance", data.initialBalance);
+        if (data.globalGoals)
+          localStorage.setItem(
+            "vys_global_goals",
+            JSON.stringify(data.globalGoals),
+          );
+        if (data.monthlyGoals)
+          localStorage.setItem(
+            "vys_monthly_goals",
+            JSON.stringify(data.monthlyGoals),
+          );
+        if (data.initialBalance)
+          localStorage.setItem("vys_initial_balance", data.initialBalance);
         if (data.cycleStartDay) {
           localStorage.setItem("vys_cycle_start_day", data.cycleStartDay);
           setCycleStartDay(Number(data.cycleStartDay));
         }
-        showTempMessage("Restore successful! 📥");
-        setTimeout(() => window.location.reload(), 1000);
+        alert(
+          "Khôi phục thành công! Ứng dụng sẽ tải lại để cập nhật dữ liệu. 📥",
+        );
+        window.location.reload();
       } else {
-        showTempMessage("No backup found on cloud.");
+        alert("Không tìm thấy bản sao lưu nào trên tài khoản này.");
       }
     } catch (e) {
       console.error(e);
-      showTempMessage("Restore failed!");
+      alert("Khôi phục thất bại, vui lòng thử lại sau!");
     }
-    setSyncLoading(false);
+    setSyncLoading(null);
   };
 
   const handleExportData = () => {
     try {
-      const dataToExport = {
-        transactions: JSON.parse(localStorage.getItem("vys_transactions") || "[]"),
-        categories: JSON.parse(localStorage.getItem("vys_categories") || "[]"),
-        globalGoals: JSON.parse(localStorage.getItem("vys_global_goals") || "{}"),
-        monthlyGoals: JSON.parse(localStorage.getItem("vys_monthly_goals") || "{}"),
-        initialBalance: localStorage.getItem("vys_initial_balance") || "0",
-        cycleStartDay: localStorage.getItem("vys_cycle_start_day") || "1",
-        exportDate: new Date().toISOString()
-      };
-      
-      const dataStr = JSON.stringify(dataToExport, null, 2);
-      const blob = new Blob([dataStr], { type: "application/json" });
+      const txs = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
+
+      // Khởi tạo file CSV (thêm BOM \uFEFF để Excel nhận diện chuẩn phông chữ tiếng Việt)
+      let csvContent = "\uFEFFNgày,Giờ,Loại,Danh mục,Số tiền,Ghi chú\n";
+
+      txs.forEach((t) => {
+        const d = new Date(t.date);
+        const date = d.toLocaleDateString("vi-VN");
+        const time = d.toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        const type = t.type === "income" ? "Thu nhập" : "Chi tiêu";
+        const cat = t.category?.name || "";
+        const amt = t.amount;
+        // Bọc ghi chú trong ngoặc kép để tránh bị lỗi nếu ghi chú có chứa dấu phẩy
+        const note = `"${(t.note || "").replace(/"/g, '""')}"`;
+
+        csvContent += `${date},${time},${type},${cat},${amt},${note}\n`;
+      });
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
-      
+
       const link = document.createElement("a");
       link.href = url;
-      link.download = `Vys_Finance_Backup_${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `Vys_Finance_Data_${new Date().toISOString().split("T")[0]}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -146,18 +187,101 @@ export default function Settings() {
   };
 
   const EMOJI_LIST = [
-    "🍔", "🍜", "☕", "🧋", "🍺", "🍎", "🥦", "🛒", "🚕", "🚌", "🚆", "🛵", 
-    "🚲", "✈️", "⛽", "🅿️", "🛍️", "👕", "👟", "💄", "💇", "💅", "💍", "⌚", 
-    "🏠", "💡", "💧", "📱", "🔌", "🧹", "🛋️", "📦", "💰", "💵", "💳", "🏦", 
-    "📈", "🧾", "🪙", "💸", "🏥", "💊", "🦷", "🏋", "🧘", "⚽", "🏃", "🤕", 
-    "🎬", "🎮", "🎧", "🎸", "🎨", "📸", "🎟", "🏕️", "👶", "🧸", "🍼", "🐾", 
-    "🐶", "🐱", "👨‍👩‍👧", "🏫", "📚", "🎓", "💼", "💻", "✏️", "📎", "📊", "🤝", 
-    "🎁", "🛠️", "🚬", "🪴", "🔥", "🎉", "🛡️", "⚙️",
+    "🍔",
+    "🍜",
+    "☕",
+    "🧋",
+    "🍺",
+    "🍎",
+    "🥦",
+    "🛒",
+    "🚕",
+    "🚌",
+    "🚆",
+    "🛵",
+    "🚲",
+    "✈️",
+    "⛽",
+    "🅿️",
+    "🛍️",
+    "👕",
+    "👟",
+    "💄",
+    "💇",
+    "💅",
+    "💍",
+    "⌚",
+    "🏠",
+    "💡",
+    "💧",
+    "📱",
+    "🔌",
+    "🧹",
+    "🛋️",
+    "📦",
+    "💰",
+    "💵",
+    "💳",
+    "🏦",
+    "📈",
+    "🧾",
+    "🪙",
+    "💸",
+    "🏥",
+    "💊",
+    "🦷",
+    "🏋",
+    "🧘",
+    "⚽",
+    "🏃",
+    "🤕",
+    "🎬",
+    "🎮",
+    "🎧",
+    "🎸",
+    "🎨",
+    "📸",
+    "🎟",
+    "🏕️",
+    "👶",
+    "🧸",
+    "🍼",
+    "🐾",
+    "🐶",
+    "🐱",
+    "👨‍👩‍‍👧",
+    "🏫",
+    "📚",
+    "🎓",
+    "💼",
+    "💻",
+    "✏️",
+    "📎",
+    "📊",
+    "🤝",
+    "🎁",
+    "🛠️",
+    "🚬",
+    "🪴",
+    "🔥",
+    "🎉",
+    "🛡️",
+    "⚙️",
   ];
 
   const COLOR_LIST = [
-    "#ff453a", "#ff9f0a", "#ffd60a", "#32d74b", "#00c7be", "#32ade6",
-    "#007aff", "#5e5ce6", "#bf5af2", "#ff375f", "#a2845e", "#8e8e93",
+    "#ff453a",
+    "#ff9f0a",
+    "#ffd60a",
+    "#32d74b",
+    "#00c7be",
+    "#32ade6",
+    "#007aff",
+    "#5e5ce6",
+    "#bf5af2",
+    "#ff375f",
+    "#a2845e",
+    "#8e8e93",
   ];
 
   const confirmDeleteCategory = () => {
@@ -379,8 +503,9 @@ export default function Settings() {
           </h1>
         </div>
 
+        {/* Khung chứa các block, xài space-y-6 để tạo khoảng cách đều nhau duy nhất */}
         <div
-          className="flex-1 overflow-y-auto px-4 pt-6 pb-32 space-y-5 overscroll-y-auto"
+          className="flex-1 overflow-y-auto px-4 pt-6 pb-32 space-y-6 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           {/* SECTION 1: PREFERENCES */}
@@ -448,17 +573,10 @@ export default function Settings() {
           </div>
 
           {/* SECTION 4: ACCOUNT & SYNC */}
-          <div className="pt-4">
-            <div className="flex justify-between items-end mb-2 ml-4 pr-2">
-              <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest">
-                Account & Sync
-              </h3>
-              {syncMessage && (
-                <span className="text-[#32d74b] text-[10px] font-bold animate-pulse">
-                  {syncMessage}
-                </span>
-              )}
-            </div>
+          <div>
+            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
+              Account & Sync
+            </h3>
             <div
               className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
             >
@@ -469,47 +587,74 @@ export default function Settings() {
                 >
                   <UserCircle size={22} className="text-[#32ade6]" />
                   <div>
-                    <p className="font-semibold text-[15px]">Sign in with Google</p>
-                    <p className="text-xs text-[#8e8e93] mt-0.5">Backup data to cloud</p>
+                    <p className="font-semibold text-[15px]">
+                      Sign in with Google
+                    </p>
+                    <p className="text-xs text-[#8e8e93] mt-0.5">
+                      Backup data to cloud
+                    </p>
                   </div>
                 </button>
               ) : (
-                <>
-                  <div className={`p-4 border-b flex justify-between items-center ${theme === "dark" ? "border-white/5" : "border-black/5"}`}>
+                <div className="flex flex-col">
+                  {/* Block Thông tin tài khoản */}
+                  <div
+                    className={`p-4 border-b flex justify-between items-center ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
+                  >
                     <div className="flex items-center gap-3 overflow-hidden">
                       {user.photoURL ? (
-                        <img src={user.photoURL} alt="Avatar" className="w-10 h-10 rounded-full" />
+                        <img
+                          src={user.photoURL}
+                          alt="Avatar"
+                          className="w-10 h-10 rounded-full flex-shrink-0"
+                        />
                       ) : (
-                        <UserCircle size={40} className="text-[#8e8e93]" />
+                        <UserCircle
+                          size={40}
+                          className="text-[#8e8e93] flex-shrink-0"
+                        />
                       )}
                       <div className="overflow-hidden">
-                        <p className="font-semibold text-[15px] truncate">{user.displayName || "User"}</p>
-                        <p className="text-xs text-[#8e8e93] truncate">{user.email}</p>
+                        <p className="font-semibold text-[15px] truncate">
+                          {user.displayName || "User"}
+                        </p>
+                        <p className="text-xs text-[#8e8e93] truncate">
+                          {user.email}
+                        </p>
                       </div>
                     </div>
-                    <button onClick={handleLogout} className="p-2 text-[#ff453a] active:opacity-50">
+                    <button
+                      onClick={handleLogout}
+                      className="p-2 text-[#ff453a] active:opacity-50 flex-shrink-0"
+                    >
                       <LogOut size={18} />
                     </button>
                   </div>
-                  <div className={`flex divide-x ${theme === "dark" ? "divide-white/5" : "divide-black/5"}`}>
-                    <button
-                      onClick={handleBackup}
-                      disabled={syncLoading}
-                      className={`flex-1 p-3 flex flex-col items-center gap-1.5 transition-colors ${syncLoading ? "opacity-50" : "active:bg-black/5 dark:active:bg-white/5"}`}
-                    >
-                      <UploadCloud size={20} className="text-[#32ade6]" />
-                      <span className="text-[11px] font-semibold">Backup to Cloud</span>
-                    </button>
-                    <button
-                      onClick={handleRestore}
-                      disabled={syncLoading}
-                      className={`flex-1 p-3 flex flex-col items-center gap-1.5 transition-colors ${syncLoading ? "opacity-50" : "active:bg-black/5 dark:active:bg-white/5"}`}
-                    >
-                      <DownloadCloud size={20} className="text-[#32d74b]" />
-                      <span className="text-[11px] font-semibold">Restore to Device</span>
-                    </button>
-                  </div>
-                </>
+
+                  {/* Nút Backup dạng danh sách dọc */}
+                  <button
+                    onClick={handleBackup}
+                    disabled={syncLoading !== null}
+                    className={`w-full flex items-center justify-center gap-2 p-4 text-left font-semibold active:bg-white/5 transition-colors border-b ${theme === "dark" ? "border-white/5 text-[#32ade6]" : "border-black/5 text-[#32ade6]"}`}
+                  >
+                    <UploadCloud size={18} />
+                    {syncLoading === "backup"
+                      ? "Đang tải lên..."
+                      : "Backup to Cloud"}
+                  </button>
+
+                  {/* Nút Restore dạng danh sách dọc */}
+                  <button
+                    onClick={handleRestore}
+                    disabled={syncLoading !== null}
+                    className={`w-full flex items-center justify-center gap-2 p-4 text-left font-semibold active:bg-white/5 transition-colors ${theme === "dark" ? "text-[#32d74b]" : "text-[#32d74b]"}`}
+                  >
+                    <DownloadCloud size={18} />
+                    {syncLoading === "restore"
+                      ? "Đang tải về..."
+                      : "Restore to Device"}
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -526,7 +671,7 @@ export default function Settings() {
                 onClick={handleExportData}
                 className={`w-full flex items-center justify-center gap-2 p-4 text-left font-semibold active:bg-white/5 transition-colors border-b ${theme === "dark" ? "border-white/5 text-[#32ade6]" : "border-black/5 text-[#32ade6]"}`}
               >
-                <Download size={18} /> Export to File
+                <Download size={18} /> Export to Excel (.csv)
               </button>
               <button
                 onClick={() => {
@@ -542,7 +687,7 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* CÁC MODALS GIỮ NGUYÊN (Reset, Xóa Cat, Cycle, Sửa/Thêm Cat) */}
+      {/* CÁC MODALS */}
       {modalType === "reset" && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
