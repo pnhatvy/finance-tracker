@@ -58,7 +58,10 @@ export default function Settings() {
     }
   };
 
-  const handleLogout = () => signOut(auth);
+  const confirmLogout = () => {
+    signOut(auth);
+    closeModals();
+  };
 
   const handleBackup = async () => {
     if (!user) return;
@@ -93,10 +96,10 @@ export default function Settings() {
 
   const handleRestore = async () => {
     if (!user) return;
-    const confirmRestore = window.confirm(
+    const confirmRest = window.confirm(
       "Cảnh báo: Thao tác này sẽ ghi đè toàn bộ dữ liệu trên máy hiện tại bằng dữ liệu trên mây. Bạn có chắc chắn không?",
     );
-    if (!confirmRestore) return;
+    if (!confirmRest) return;
 
     setSyncLoading("restore");
     try {
@@ -151,7 +154,6 @@ export default function Settings() {
     try {
       const txs = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
 
-      // Khởi tạo file CSV (thêm BOM \uFEFF để Excel nhận diện chuẩn phông chữ tiếng Việt)
       let csvContent = "\uFEFFNgày,Giờ,Loại,Danh mục,Số tiền,Ghi chú\n";
 
       txs.forEach((t) => {
@@ -164,7 +166,6 @@ export default function Settings() {
         const type = t.type === "income" ? "Thu nhập" : "Chi tiêu";
         const cat = t.category?.name || "";
         const amt = t.amount;
-        // Bọc ghi chú trong ngoặc kép để tránh bị lỗi nếu ghi chú có chứa dấu phẩy
         const note = `"${(t.note || "").replace(/"/g, '""')}"`;
 
         csvContent += `${date},${time},${type},${cat},${amt},${note}\n`;
@@ -249,7 +250,7 @@ export default function Settings() {
     "🐾",
     "🐶",
     "🐱",
-    "👨‍👩‍‍👧",
+    "👨‍👩‍👧",
     "🏫",
     "📚",
     "🎓",
@@ -503,7 +504,6 @@ export default function Settings() {
           </h1>
         </div>
 
-        {/* Khung chứa các block, xài space-y-6 để tạo khoảng cách đều nhau duy nhất */}
         <div
           className="flex-1 overflow-y-auto px-4 pt-6 pb-32 space-y-6 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
@@ -518,7 +518,7 @@ export default function Settings() {
             >
               <div className="flex items-center justify-between p-4">
                 <div className="flex items-center gap-3">
-                  <Moon size={20} className="text-[#32ade6]" />
+                  <Moon size={20} className="text-[#8e8e93]" />
                   <span className="font-semibold text-[15px]">Dark Mode</span>
                 </div>
                 <button
@@ -585,7 +585,7 @@ export default function Settings() {
                   onClick={handleLogin}
                   className="w-full flex items-center gap-3 p-4 text-left active:opacity-70 transition-opacity"
                 >
-                  <UserCircle size={22} className="text-[#32ade6]" />
+                  <UserCircle size={22} className="text-[#8e8e93]" />
                   <div>
                     <p className="font-semibold text-[15px]">
                       Sign in with Google
@@ -623,36 +623,54 @@ export default function Settings() {
                         </p>
                       </div>
                     </div>
+                    {/* Đổi màu LogOut thành xám, bấm vào sẽ gọi Modal Logout thay vì thoát thẳng */}
                     <button
-                      onClick={handleLogout}
-                      className="p-2 text-[#ff453a] active:opacity-50 flex-shrink-0"
+                      onClick={() => {
+                        setModalType("logout");
+                        setIsModalOpen(true);
+                      }}
+                      className="p-2 text-[#8e8e93] active:opacity-50 flex-shrink-0"
                     >
-                      <LogOut size={18} />
+                      <LogOut size={20} />
                     </button>
                   </div>
 
-                  {/* Nút Backup dạng danh sách dọc */}
+                  {/* Nút Backup dạng danh sách dọc (Trắng/Đen cơ bản) */}
                   <button
                     onClick={handleBackup}
                     disabled={syncLoading !== null}
-                    className={`w-full flex items-center justify-center gap-2 p-4 text-left font-semibold active:bg-white/5 transition-colors border-b ${theme === "dark" ? "border-white/5 text-[#32ade6]" : "border-black/5 text-[#32ade6]"}`}
+                    className={`w-full flex justify-between items-center p-4 text-left active:bg-white/5 transition-colors border-b ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
                   >
-                    <UploadCloud size={18} />
-                    {syncLoading === "backup"
-                      ? "Đang tải lên..."
-                      : "Backup to Cloud"}
+                    <div className="flex items-center gap-3">
+                      <UploadCloud size={20} className="text-[#8e8e93]" />
+                      <span className="font-semibold text-[15px]">
+                        Backup to Cloud
+                      </span>
+                    </div>
+                    {syncLoading === "backup" && (
+                      <span className="text-xs text-[#8e8e93] font-medium animate-pulse">
+                        Syncing...
+                      </span>
+                    )}
                   </button>
 
                   {/* Nút Restore dạng danh sách dọc */}
                   <button
                     onClick={handleRestore}
                     disabled={syncLoading !== null}
-                    className={`w-full flex items-center justify-center gap-2 p-4 text-left font-semibold active:bg-white/5 transition-colors ${theme === "dark" ? "text-[#32d74b]" : "text-[#32d74b]"}`}
+                    className="w-full flex justify-between items-center p-4 text-left active:bg-white/5 transition-colors"
                   >
-                    <DownloadCloud size={18} />
-                    {syncLoading === "restore"
-                      ? "Đang tải về..."
-                      : "Restore to Device"}
+                    <div className="flex items-center gap-3">
+                      <DownloadCloud size={20} className="text-[#8e8e93]" />
+                      <span className="font-semibold text-[15px]">
+                        Restore to Device
+                      </span>
+                    </div>
+                    {syncLoading === "restore" && (
+                      <span className="text-xs text-[#8e8e93] font-medium animate-pulse">
+                        Downloading...
+                      </span>
+                    )}
                   </button>
                 </div>
               )}
@@ -667,27 +685,71 @@ export default function Settings() {
             <div
               className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
             >
+              {/* Nút Export đơn sắc, căn trái chuẩn iOS */}
               <button
                 onClick={handleExportData}
-                className={`w-full flex items-center justify-center gap-2 p-4 text-left font-semibold active:bg-white/5 transition-colors border-b ${theme === "dark" ? "border-white/5 text-[#32ade6]" : "border-black/5 text-[#32ade6]"}`}
+                className={`w-full flex items-center gap-3 p-4 text-left font-semibold active:bg-white/5 transition-colors border-b ${theme === "dark" ? "border-white/5 text-white" : "border-black/5 text-black"}`}
               >
-                <Download size={18} /> Export to Excel (.csv)
+                <Download size={20} className="text-[#8e8e93]" />
+                <span className="text-[15px]">Export to Excel (.csv)</span>
               </button>
+
+              {/* Nút Xóa vẫn giữ màu đỏ cảnh báo (Danger Zone tiêu chuẩn) */}
               <button
                 onClick={() => {
                   setModalType("reset");
                   setIsModalOpen(true);
                 }}
-                className="w-full flex items-center justify-center gap-2 p-4 text-left font-semibold text-[#ff453a] active:bg-white/5 transition-colors"
+                className="w-full flex items-center gap-3 p-4 text-left font-semibold text-[#ff453a] active:bg-white/5 transition-colors"
               >
-                <Trash2 size={18} /> Erase All Data
+                <Trash2 size={20} />
+                <span className="text-[15px]">Erase All Data</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* CÁC MODALS */}
+      {/* MODAL ĐĂNG XUẤT MỚI THÊM */}
+      {modalType === "logout" && (
+        <div
+          className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
+          onClick={closeModals}
+        >
+          <div
+            className={`w-full max-w-[320px] rounded-[32px] p-6 shadow-2xl ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3
+              className={`font-bold text-center text-xl mb-2 ${theme === "dark" ? "text-white" : "text-black"}`}
+            >
+              Sign Out?
+            </h3>
+            <p
+              className={`text-center text-sm mb-6 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}
+            >
+              Are you sure you want to sign out? You will need to sign in again
+              to backup data.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={closeModals}
+                className={`flex-1 py-3.5 rounded-2xl font-bold ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-200 text-black"}`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="flex-1 bg-[#ff453a] text-white py-3.5 rounded-2xl font-bold active:opacity-70"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CÁC MODALS CŨ */}
       {modalType === "reset" && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
