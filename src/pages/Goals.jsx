@@ -16,20 +16,18 @@ export default function Goals() {
   const [monthlyBudget, setMonthlyBudget] = useState(null);
   const [monthlyIncome, setMonthlyIncome] = useState(null);
 
-  // Dữ liệu Tổng (Overall)
-  const [globalIncomeGoal, setGlobalIncomeGoal] = useState(10000000);
-  const [initialBalance, setInitialBalance] = useState(0);
-
-  // Điều hướng tháng
+  // Điều hướng tháng cho khối Monthly
   const [offset, setOffset] = useState(0);
 
   // Dữ liệu chi tiêu thực tế trong tháng
   const [spent, setSpent] = useState(0);
   const [earned, setEarned] = useState(0);
 
-  // Dữ liệu tổng tài sản & cộng dồn toàn thời gian (All-time)
-  const [totalNetWorth, setTotalNetWorth] = useState(0);
-  const [allTimeEarned, setAllTimeEarned] = useState(0);
+  // ---------- MỚI: Điều hướng và dữ liệu cho khối Overall ----------
+  const [overallOffset, setOverallOffset] = useState(0);
+  const [globalIncomeGoal, setGlobalIncomeGoal] = useState(10000000);
+  const [initialBalance, setInitialBalance] = useState(0);
+  const [historicalNetWorth, setHistoricalNetWorth] = useState(0);
 
   // State Modal chỉnh sửa
   const [editState, setEditState] = useState({
@@ -41,7 +39,8 @@ export default function Goals() {
 
   const [isInputFocused, setIsInputFocused] = useState(false);
 
-  const getPeriodBounds = () => {
+  // Hàm tính toán khung thời gian cho Monthly
+  const getPeriodBounds = (customOffset) => {
     const base = new Date();
     let currentStart = new Date(
       base.getFullYear(),
@@ -51,7 +50,7 @@ export default function Goals() {
     if (base.getDate() < cycleStartDay) {
       currentStart.setMonth(currentStart.getMonth() - 1);
     }
-    currentStart.setMonth(currentStart.getMonth() + offset);
+    currentStart.setMonth(currentStart.getMonth() + customOffset);
 
     const start = new Date(currentStart);
     const end = new Date(start);
@@ -84,19 +83,11 @@ export default function Goals() {
     return { start, end, label, key };
   };
 
-  const bounds = getPeriodBounds();
+  const bounds = getPeriodBounds(offset);
+  const overallBounds = getPeriodBounds(overallOffset);
 
+  // EFFECT 1: Xử lý dữ liệu cho khối Monthly Target
   useEffect(() => {
-    // 1. Tải Global Income Goal và Initial Balance
-    const gGoals = JSON.parse(
-      localStorage.getItem("vys_global_goals") || '{"income": 10000000}',
-    );
-    setGlobalIncomeGoal(gGoals.income !== undefined ? gGoals.income : 10000000);
-
-    const initBal = Number(localStorage.getItem("vys_initial_balance") || 0);
-    setInitialBalance(initBal);
-
-    // 2. Tải Monthly Goals của tháng đang chọn
     const mGoals = JSON.parse(
       localStorage.getItem("vys_monthly_goals") || "{}",
     );
@@ -116,23 +107,14 @@ export default function Goals() {
       setMonthlyIncome(null);
     }
 
-    // 3. Tải toàn bộ giao dịch để tính toán
     const transactions = JSON.parse(
       localStorage.getItem("vys_transactions") || "[]",
     );
-
     let totalSpentMonth = 0;
     let totalEarnedMonth = 0;
 
-    let cumulativeEarned = 0;
-    let cumulativeSpent = 0;
-
     transactions.forEach((t) => {
       const amount = Number(t.amount) || 0;
-
-      if (t.type === "expense") cumulativeSpent += amount;
-      if (t.type === "income") cumulativeEarned += amount;
-
       if (t.date) {
         const d = new Date(t.date);
         if (d >= bounds.start && d < bounds.end) {
@@ -144,11 +126,58 @@ export default function Goals() {
 
     setSpent(totalSpentMonth);
     setEarned(totalEarnedMonth);
-
-    // Tổng tài sản = Số dư ban đầu + Tổng Thu - Tổng Chi
-    setTotalNetWorth(initBal + cumulativeEarned - cumulativeSpent);
-    setAllTimeEarned(cumulativeEarned);
   }, [bounds.key, cycleStartDay, editState.isOpen]);
+
+  // EFFECT 2: Xử lý dữ liệu cho khối Overall (Theo tháng lịch sử)
+  useEffect(() => {
+    // Tải thông số Overall dựa theo key của overallBounds
+    const gGoals = JSON.parse(
+      localStorage.getItem("vys_global_goals_history") || "{}",
+    );
+
+    // Nếu có cài đặt riêng cho tháng này thì lấy, không thì lấy mặc định cũ
+    let currentGlobalIncome = 10000000;
+    let currentInitBal = 0;
+
+    if (gGoals[overallBounds.key]) {
+      if (gGoals[overallBounds.key].income !== undefined)
+        currentGlobalIncome = gGoals[overallBounds.key].income;
+      if (gGoals[overallBounds.key].initBal !== undefined)
+        currentInitBal = gGoals[overallBounds.key].initBal;
+    } else {
+      // Fallback lấy cấu hình cũ nếu chưa có lịch sử
+      const oldGlob = JSON.parse(
+        localStorage.getItem("vys_global_goals") || '{"income": 10000000}',
+      );
+      currentGlobalIncome =
+        oldGlob.income !== undefined ? oldGlob.income : 10000000;
+      currentInitBal = Number(localStorage.getItem("vys_initial_balance") || 0);
+    }
+
+    setGlobalIncomeGoal(currentGlobalIncome);
+    setInitialBalance(currentInitBal);
+
+    // Tính Net Worth tích luỹ từ cổ chí kim cho đến NGÀY CUỐI CÙNG CỦA THÁNG ĐANG XEM
+    const transactions = JSON.parse(
+      localStorage.getItem("vys_transactions") || "[]",
+    );
+    let cumulativeEarned = 0;
+    let cumulativeSpent = 0;
+
+    transactions.forEach((t) => {
+      const amount = Number(t.amount) || 0;
+      if (t.date) {
+        const d = new Date(t.date);
+        // Chỉ cộng dồn những giao dịch xảy ra TRƯỚC khi tháng đang xem kết thúc
+        if (d < overallBounds.end) {
+          if (t.type === "expense") cumulativeSpent += amount;
+          if (t.type === "income") cumulativeEarned += amount;
+        }
+      }
+    });
+
+    setHistoricalNetWorth(currentInitBal + cumulativeEarned - cumulativeSpent);
+  }, [overallBounds.key, cycleStartDay, editState.isOpen]);
 
   const activeBudget =
     monthlyBudget !== null && monthlyBudget !== "" ? monthlyBudget : 9500000;
@@ -162,7 +191,7 @@ export default function Goals() {
 
   const overallPercent =
     globalIncomeGoal > 0
-      ? Math.max(0, Math.round((totalNetWorth / globalIncomeGoal) * 100))
+      ? Math.max(0, Math.round((historicalNetWorth / globalIncomeGoal) * 100))
       : 0;
 
   const openEdit = (type, currentVal) => {
@@ -193,18 +222,54 @@ export default function Goals() {
     const numValue =
       editState.value === "" ? 0 : Number(editState.value.replace(/\./g, ""));
 
-    if (editState.type === "g_income") {
+    if (editState.type === "g_income" || editState.type === "g_initial") {
+      // LOGIC MỚI CHO OVERALL LƯU THEO THÁNG
       const gGoals = JSON.parse(
-        localStorage.getItem("vys_global_goals") || "{}",
+        localStorage.getItem("vys_global_goals_history") || "{}",
       );
-      gGoals.income = numValue;
-      localStorage.setItem("vys_global_goals", JSON.stringify(gGoals));
-      setGlobalIncomeGoal(numValue);
-    } else if (editState.type === "g_initial") {
-      localStorage.setItem("vys_initial_balance", numValue);
-      setInitialBalance(numValue);
+
+      if (applyToFuture) {
+        const baseDate = new Date(overallBounds.start);
+        for (let i = 0; i < 120; i++) {
+          const d = new Date(
+            baseDate.getFullYear(),
+            baseDate.getMonth() + i,
+            1,
+          );
+          const key = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}`;
+
+          if (!gGoals[key]) gGoals[key] = { income: null, initBal: null };
+
+          // Giữ lại data cũ nếu đang cập nhật 1 trường, update trường còn lại
+          if (editState.type === "g_income") gGoals[key].income = numValue;
+          if (editState.type === "g_initial") gGoals[key].initBal = numValue;
+        }
+      } else {
+        if (!gGoals[overallBounds.key])
+          gGoals[overallBounds.key] = { income: null, initBal: null };
+        if (editState.type === "g_income")
+          gGoals[overallBounds.key].income = numValue;
+        if (editState.type === "g_initial")
+          gGoals[overallBounds.key].initBal = numValue;
+      }
+
+      localStorage.setItem("vys_global_goals_history", JSON.stringify(gGoals));
+
+      // Đồng bộ vào biến cũ để không vỡ app các chỗ khác
+      if (editState.type === "g_income") {
+        const oldGlob = JSON.parse(
+          localStorage.getItem("vys_global_goals") || "{}",
+        );
+        oldGlob.income = numValue;
+        localStorage.setItem("vys_global_goals", JSON.stringify(oldGlob));
+        setGlobalIncomeGoal(numValue);
+      }
+      if (editState.type === "g_initial") {
+        localStorage.setItem("vys_initial_balance", numValue);
+        setInitialBalance(numValue);
+      }
     } else {
-      // Logic cho Monthly Target (Có tùy chọn lưu cho các tháng sau)
+      // LOGIC CHO MONTHLY TARGET NHƯ CŨ
       const mGoals = JSON.parse(
         localStorage.getItem("vys_monthly_goals") || "{}",
       );
@@ -353,11 +418,30 @@ export default function Goals() {
             </div>
           </div>
 
-          {/* SECTION: OVERALL TARGET */}
-          <div className="pt-5 pb-0">
-            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2 mb-2">
+          {/* SECTION: OVERALL TARGET MỚI */}
+          <div className="flex justify-between items-center pt-5 pb-0">
+            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2">
               Overall Target
             </h3>
+            <div
+              className={`flex items-center rounded-full px-2 py-0.5 shadow-sm mr-1 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+            >
+              <button
+                onClick={() => setOverallOffset((o) => o - 1)}
+                className="p-1 text-[#32d74b] active:opacity-50"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-[11px] font-bold px-2 text-[#32d74b]">
+                {overallBounds.label}
+              </span>
+              <button
+                onClick={() => setOverallOffset((o) => o + 1)}
+                className="p-1 text-[#32d74b] active:opacity-50"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
 
           <div
@@ -365,7 +449,7 @@ export default function Goals() {
           >
             <div className="flex justify-between items-center mb-1">
               <span className="text-[13px] font-semibold text-[#8e8e93]">
-                Wallets
+                Wallets Goal
               </span>
               <button
                 onClick={() => openEdit("g_income", globalIncomeGoal)}
@@ -384,11 +468,13 @@ export default function Goals() {
                 Net Worth:
                 <strong
                   className={
-                    totalNetWorth >= 0 ? "text-[#32d74b]" : "text-[#ff453a]"
+                    historicalNetWorth >= 0
+                      ? "text-[#32d74b]"
+                      : "text-[#ff453a]"
                   }
                 >
-                  {totalNetWorth < 0 ? "-" : ""}₫
-                  {Math.abs(totalNetWorth).toLocaleString("vi-VN")}
+                  {historicalNetWorth < 0 ? "-" : ""}₫
+                  {Math.abs(historicalNetWorth).toLocaleString("vi-VN")}
                 </strong>
               </span>
               <span
@@ -430,7 +516,6 @@ export default function Goals() {
             setIsInputFocused(false);
           }}
         >
-          {/* ĐÃ GIẢM ĐỘ ĐẨY LÊN: Đổi từ -translate-y-28 xuống -translate-y-12 */}
           <div
             className={`w-full max-w-[340px] rounded-[32px] p-6 shadow-2xl transition-transform duration-300 ease-out ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"} ${isInputFocused ? "-translate-y-12" : "translate-y-0"}`}
             onClick={(e) => e.stopPropagation()}
@@ -482,29 +567,21 @@ export default function Goals() {
               )}
             </div>
 
-            {editState.type.startsWith("m_") ? (
-              <div className="flex flex-col gap-2.5">
-                <button
-                  onClick={() => handleSave(false)}
-                  className={`w-full py-3.5 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-200 text-black"}`}
-                >
-                  This Month Only
-                </button>
-                <button
-                  onClick={() => handleSave(true)}
-                  className={`w-full py-3.5 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
-                >
-                  This & Future Months
-                </button>
-              </div>
-            ) : (
+            {/* HIỂN THỊ NÚT CHỌN THÁNG CHO TẤT CẢ CÁC LOẠI GOALS (CẢ MONTHLY LẪN OVERALL) */}
+            <div className="flex flex-col gap-2.5">
               <button
-                onClick={() => handleSave()}
+                onClick={() => handleSave(false)}
+                className={`w-full py-3.5 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-200 text-black"}`}
+              >
+                This Month Only
+              </button>
+              <button
+                onClick={() => handleSave(true)}
                 className={`w-full py-3.5 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
               >
-                Save Value
+                This & Future Months
               </button>
-            )}
+            </div>
           </div>
         </div>
       )}
