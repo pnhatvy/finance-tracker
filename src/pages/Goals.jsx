@@ -136,7 +136,7 @@ export default function Goals() {
     setEarned(totalEarnedMonth);
   }, [bounds.key, cycleStartDay, editState.isOpen]);
 
-  // EFFECT 2: Overall Target & Burn Rate (3 months rolling)
+  // EFFECT 2: Overall Target & Burn Rate (Tính từ lúc mới xài)
   useEffect(() => {
     const gGoals = JSON.parse(
       localStorage.getItem("vys_global_goals_history") || "{}",
@@ -164,28 +164,41 @@ export default function Goals() {
     );
     let cumulativeEarned = 0;
     let cumulativeSpent = 0;
-    let recent90DaysSpent = 0;
-
-    const ninetyDaysAgo = new Date(bounds.end);
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    let totalExpenseAllTime = 0;
+    let firstDate = new Date(); // Khởi tạo ngày hiện tại, sau đó lùi dần về ngày cũ nhất
 
     transactions.forEach((t) => {
       const amount = Number(t.amount) || 0;
       if (t.date) {
         const d = new Date(t.date);
+
+        // Tìm ngày cũ nhất (Lúc mới xài app)
+        if (d < firstDate) firstDate = d;
+
         if (d < bounds.end) {
           if (t.type === "expense") cumulativeSpent += amount;
           if (t.type === "income") cumulativeEarned += amount;
         }
-        // Tính Burn rate cho 3 tháng (90 ngày) gần nhất
-        if (t.type === "expense" && d >= ninetyDaysAgo && d < bounds.end) {
-          recent90DaysSpent += amount;
-        }
+
+        // Cộng tổng chi tiêu toàn thời gian
+        if (t.type === "expense") totalExpenseAllTime += amount;
       }
     });
 
     setHistoricalNetWorth(currentInitBal + cumulativeEarned - cumulativeSpent);
-    setAvgMonthlySpend(recent90DaysSpent / 3);
+
+    // Tính tổng số tháng từ lúc xài app tới giờ
+    const now = new Date();
+    const monthsActive = Math.max(
+      1,
+      (now.getFullYear() - firstDate.getFullYear()) * 12 +
+        now.getMonth() -
+        firstDate.getMonth() +
+        1,
+    );
+
+    // Trung bình chi tiêu mỗi tháng từ lúc xài app
+    setAvgMonthlySpend(totalExpenseAllTime / monthsActive);
   }, [bounds.key, cycleStartDay, editState.isOpen]);
 
   const activeBudget =
@@ -311,9 +324,9 @@ export default function Goals() {
           </h1>
         </div>
 
-        {/* Giảm khoảng cách các khối (space-y-3 thay vì space-y-4) */}
+        {/* Trả lại space-y-4 như cũ để các khối thoải mái */}
         <div
-          className="flex-1 overflow-y-auto px-4 pt-3 pb-32 space-y-3 overscroll-y-auto"
+          className="flex-1 overflow-y-auto px-4 pt-4 pb-32 space-y-4 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <div className="flex justify-between items-center pb-0">
@@ -349,9 +362,9 @@ export default function Goals() {
           </div>
 
           <div
-            className={`p-4 rounded-[24px] shadow-sm relative ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+            className={`p-5 rounded-[24px] shadow-sm relative ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
           >
-            <div className="flex justify-between items-center mb-0.5">
+            <div className="flex justify-between items-center mb-1">
               <span className="text-[13px] font-semibold text-[#8e8e93]">
                 Expense Budget
               </span>
@@ -359,15 +372,15 @@ export default function Goals() {
                 onClick={() => openEdit("m_budget", activeBudget)}
                 className="text-[#8e8e93] active:opacity-50 p-1"
               >
-                <Pencil size={15} />
+                <Pencil size={16} />
               </button>
             </div>
-            <div className="text-[26px] font-bold mb-1 tracking-tight">
+            <div className="text-[28px] font-bold mb-1.5 tracking-tight">
               {showMonthly
                 ? `₫${activeBudget.toLocaleString("vi-VN")}`
                 : "****"}
             </div>
-            <div className="flex justify-between text-[11px] text-[#8e8e93] font-medium mb-1.5">
+            <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
               <span>
                 Spent:{" "}
                 {showMonthly ? `₫${spent.toLocaleString("vi-VN")}` : "****"}
@@ -379,7 +392,7 @@ export default function Goals() {
               </span>
             </div>
             <div
-              className={`h-1.5 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+              className={`h-2 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
               <div
                 className={`h-full rounded-full transition-all duration-700 ease-out ${spentPercent >= 100 ? "bg-[#ff453a]" : "bg-gray-300"}`}
@@ -389,9 +402,9 @@ export default function Goals() {
           </div>
 
           <div
-            className={`p-4 rounded-[24px] shadow-sm relative ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+            className={`p-5 rounded-[24px] shadow-sm relative ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
           >
-            <div className="flex justify-between items-center mb-0.5">
+            <div className="flex justify-between items-center mb-1">
               <span className="text-[13px] font-semibold text-[#8e8e93]">
                 Income Goal
               </span>
@@ -399,15 +412,15 @@ export default function Goals() {
                 onClick={() => openEdit("m_income", activeIncome)}
                 className="text-[#8e8e93] active:opacity-50 p-1"
               >
-                <Pencil size={15} />
+                <Pencil size={16} />
               </button>
             </div>
-            <div className="text-[26px] font-bold mb-1 tracking-tight">
+            <div className="text-[28px] font-bold mb-1.5 tracking-tight">
               {showMonthly
                 ? `₫${activeIncome.toLocaleString("vi-VN")}`
                 : "****"}
             </div>
-            <div className="flex justify-between text-[11px] text-[#8e8e93] font-medium mb-1.5">
+            <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
               <span>
                 Earned:{" "}
                 {showMonthly ? `₫${earned.toLocaleString("vi-VN")}` : "****"}
@@ -421,7 +434,7 @@ export default function Goals() {
               </span>
             </div>
             <div
-              className={`h-1.5 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+              className={`h-2 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
               <div
                 className={`h-full rounded-full transition-all duration-700 ease-out ${earnedPercent >= 100 ? "bg-[#32d74b]" : "bg-gray-300"}`}
@@ -430,8 +443,8 @@ export default function Goals() {
             </div>
           </div>
 
-          {/* OVERALL TARGET - Thu hẹp margin/padding */}
-          <div className="flex items-center gap-2 pt-1 pb-0 ml-2">
+          {/* Dùng -mt-1 để ép khối Overall lại gần khối Monthly hơn mà không ảnh hưởng thẻ khác */}
+          <div className="flex items-center gap-2 pb-0 ml-2 -mt-1">
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest">
               Overall Target
             </h3>
@@ -444,9 +457,9 @@ export default function Goals() {
           </div>
 
           <div
-            className={`p-4 rounded-[24px] shadow-sm relative ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+            className={`p-5 rounded-[24px] shadow-sm relative ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
           >
-            <div className="flex justify-between items-center mb-0.5">
+            <div className="flex justify-between items-center mb-1">
               <span className="text-[13px] font-semibold text-[#8e8e93]">
                 Wallets Goal
               </span>
@@ -454,17 +467,17 @@ export default function Goals() {
                 onClick={() => openEdit("g_income", globalIncomeGoal)}
                 className="text-[#8e8e93] active:opacity-50 p-1"
               >
-                <Pencil size={15} />
+                <Pencil size={16} />
               </button>
             </div>
 
-            <div className="text-[26px] font-bold mb-1 tracking-tight">
+            <div className="text-[28px] font-bold mb-2 tracking-tight">
               {showOverall
                 ? `₫${globalIncomeGoal.toLocaleString("vi-VN")}`
                 : "****"}
             </div>
 
-            <div className="flex justify-between items-center text-[11px] text-[#8e8e93] font-medium mb-1.5">
+            <div className="flex justify-between items-center text-[12px] text-[#8e8e93] font-medium mb-2">
               <span className="flex items-center gap-1.5">
                 Net Worth:
                 <strong
@@ -489,7 +502,7 @@ export default function Goals() {
             </div>
 
             <div
-              className={`h-1.5 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+              className={`h-2 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
               <div
                 className={`h-full rounded-full transition-all duration-700 ease-out ${overallPercent >= 100 ? "bg-[#32d74b]" : "bg-gray-300"}`}
@@ -497,9 +510,9 @@ export default function Goals() {
               ></div>
             </div>
 
-            {/* BURN RATE DẠNG CHÌM (Minimalist & Compact) */}
+            {/* BURN RATE DẠNG CHÌM */}
             {historicalNetWorth > 0 && avgMonthlySpend > 0 && (
-              <div className="flex justify-between items-center text-[11px] text-[#8e8e93] mt-2 font-medium">
+              <div className="flex justify-between items-center text-[12px] text-[#8e8e93] mt-3 font-medium">
                 <span>
                   Burn rate:{" "}
                   {showOverall
@@ -514,12 +527,12 @@ export default function Goals() {
 
             <button
               onClick={() => openEdit("g_initial", initialBalance)}
-              className={`w-full flex justify-between items-center px-4 py-2.5 mt-4 rounded-xl cursor-pointer ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"} active:opacity-70 transition-opacity`}
+              className={`w-full flex justify-between items-center px-4 py-3 mt-4 rounded-xl cursor-pointer ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"} active:opacity-70 transition-opacity`}
             >
-              <span className="text-[12px] font-semibold">
+              <span className="text-[13px] font-semibold">
                 Set Initial Balance
               </span>
-              <ChevronRight size={14} className="text-[#8e8e93]" />
+              <ChevronRight size={16} className="text-[#8e8e93]" />
             </button>
           </div>
         </div>
