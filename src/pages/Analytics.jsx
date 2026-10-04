@@ -59,13 +59,24 @@ export default function Analytics() {
     ];
 
     if (timeFilter === "week") {
-      base.setDate(base.getDate() + offset * 7);
-      const day = base.getDay();
-      const diff = base.getDate() - day + (day === 0 ? -6 : 1);
-      start = new Date(base.setDate(diff));
+      // Logic mới fix lỗi sai tuần: Tính toán an toàn không đè biến gốc
+      const targetDate = new Date(
+        base.getFullYear(),
+        base.getMonth(),
+        base.getDate(),
+      );
+      targetDate.setDate(targetDate.getDate() + offset * 7);
+
+      const dayOfWeek = targetDate.getDay();
+      const distToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Chuyển Chủ nhật(0) thành 6, còn lại -1
+
+      start = new Date(targetDate);
+      start.setDate(targetDate.getDate() - distToMonday);
       start.setHours(0, 0, 0, 0);
+
       end = new Date(start);
-      end.setDate(end.getDate() + 7);
+      end.setDate(start.getDate() + 7);
+
       let endLabel = new Date(end);
       endLabel.setDate(endLabel.getDate() - 1);
       label = `${months[start.getMonth()]} ${start.getDate()} - ${months[endLabel.getMonth()]} ${endLabel.getDate()}`;
@@ -84,9 +95,9 @@ export default function Analytics() {
 
       monthKey = `${start.getMonth() + 1}-${start.getFullYear()}`;
 
-      if (cycleStartDay === 1)
+      if (cycleStartDay === 1) {
         label = `${months[start.getMonth()]} ${start.getFullYear()}`;
-      else {
+      } else {
         let endLabel = new Date(end);
         endLabel.setDate(endLabel.getDate() - 1);
         label = `${months[start.getMonth()]} ${start.getDate()} - ${months[endLabel.getMonth()]} ${endLabel.getDate()}`;
@@ -206,20 +217,32 @@ export default function Analytics() {
       ? currentBudget - totalAmount
       : currentIncomeGoal - totalAmount;
 
+  // LÔ-GIC TÍNH TOÁN ON PACE FOR VÀ AVERAGE CHUẨN KẾ TOÁN 100%
   const isCurrentPeriod = offset === 0;
-
   const now = new Date();
-  const daysInCycle = Math.round(
-    (bounds.end - bounds.start) / (1000 * 60 * 60 * 24),
-  );
+
+  // 1. Tổng số ngày trong kỳ hạn (Tuần = 7, Tháng = 28/31, Năm = 365)
+  const daysInCycle = Math.round((bounds.end - bounds.start) / 86400000);
+
+  // 2. Lọc ra giao dịch từ quá khứ đến hôm nay (Bỏ qua mấy cái lịch hẹn tương lai để không làm lố trung bình)
   const pastData = filteredData.filter((item) => new Date(item.date) <= now);
   const totalAmountPast = pastData.reduce((sum, item) => sum + item.amount, 0);
-  const daysPassed = Math.max(
-    1,
-    Math.floor((now - bounds.start) / (1000 * 60 * 60 * 24)) + 1,
-  );
-  const dailyAverage = totalAmountPast / daysPassed;
   const futureDataTotal = totalAmount - totalAmountPast;
+
+  // 3. Đếm số ngày đã trôi qua kể từ mốc bắt đầu kỳ (Ví dụ từ 1/1 đến hôm nay)
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const periodStart = new Date(
+    bounds.start.getFullYear(),
+    bounds.start.getMonth(),
+    bounds.start.getDate(),
+  );
+
+  let daysPassed = Math.round((todayStart - periodStart) / 86400000) + 1;
+  if (daysPassed > daysInCycle) daysPassed = daysInCycle;
+  if (daysPassed < 1) daysPassed = 1;
+
+  // 4. Áp dụng công thức kinh điển:
+  const dailyAverage = totalAmountPast / daysPassed;
   const onPaceFor = isCurrentPeriod
     ? dailyAverage * daysInCycle + futureDataTotal
     : totalAmount;
@@ -463,7 +486,6 @@ export default function Analytics() {
             </h2>
             <div className="w-20"></div>
           </div>
-
           <div className="flex-1 overflow-y-auto px-6 pt-6 pb-32 overscroll-y-auto">
             <div className="flex items-center gap-5 mb-8">
               <div
@@ -480,7 +502,6 @@ export default function Analytics() {
                 </div>
               </div>
             </div>
-
             <div className="flex flex-col">
               {catTransactions.map((t) => (
                 <div
