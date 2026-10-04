@@ -331,7 +331,8 @@ export default function Analytics() {
                   </div>
                 </div>
               </div>
-              {isCurrentPeriod && (
+              {/* CHỈ SHOW PACE CHO EXPENSE TRONG THÁNG */}
+              {isCurrentPeriod && typeFilter === "expense" && (
                 <div className="px-1">
                   <p className="text-sm font-semibold">
                     <span className="text-[#8e8e93]">On pace for </span>
@@ -347,15 +348,33 @@ export default function Analytics() {
               )}
             </div>
           ) : (
-            <div
-              className={`rounded-xl p-4 mb-5 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
-            >
-              <p className="text-[#8e8e93] text-xs font-semibold mb-1">
-                {typeFilter === "expense" ? `Spent` : `Earned`}
-              </p>
-              <div className="text-[22px] font-bold tracking-tight">
-                ₫{totalAmount.toLocaleString("vi-VN")}
+            <div className="mb-5">
+              <div
+                className={`rounded-xl p-4 mb-3 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+              >
+                <p className="text-[#8e8e93] text-xs font-semibold mb-1">
+                  {typeFilter === "expense" ? `Spent` : `Earned`}
+                </p>
+                <div className="text-[22px] font-bold tracking-tight">
+                  ₫{totalAmount.toLocaleString("vi-VN")}
+                </div>
               </div>
+
+              {/* HIỂN THỊ DỰ KIẾN NĂM & TRUNG BÌNH THÁNG KHI XEM MỤC NĂM (CẢ THU LẪN CHI) */}
+              {isCurrentPeriod && timeFilter === "year" && (
+                <div className="px-1">
+                  <p className="text-sm font-semibold">
+                    <span className="text-[#8e8e93]">Yearly pace </span>
+                    <span className="text-[#32ade6]">
+                      ₫{Math.round(onPaceFor).toLocaleString("vi-VN")}
+                    </span>
+                  </p>
+                  <p className="text-[13px] text-[#5c5c60] font-semibold mt-0.5">
+                    ₫{Math.round(onPaceFor / 12).toLocaleString("vi-VN")}/mo
+                    average
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -476,7 +495,6 @@ export default function Analytics() {
                       }}
                     ></div>
                     <div className="flex flex-col">
-                      {/* HIỂN THỊ NOTE BỰ LÊN TRÊN */}
                       <p
                         className={`font-bold text-[16px] leading-tight mb-1 ${theme === "dark" ? "text-white" : "text-black"}`}
                       >
@@ -487,7 +505,6 @@ export default function Analytics() {
                       </p>
                     </div>
                   </div>
-                  {/* SỐ TIỀN CĂN PHẢI */}
                   <div
                     className={`font-bold text-[16px] flex-shrink-0 ${theme === "dark" ? "text-white" : "text-black"}`}
                   >
