@@ -3,12 +3,10 @@ import { createContext, useContext, useState, useEffect } from "react";
 const AppContext = createContext();
 
 export function AppProvider({ children }) {
-  // 1. Theme (Sáng / Tối) - Đã đổi mặc định thành 'light'
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem("vys_theme") || "light";
   });
 
-  // 2. Danh mục Thu / Chi
   const [categories, setCategories] = useState(() => {
     const saved = localStorage.getItem("vys_categories");
     if (saved) return JSON.parse(saved);
@@ -51,13 +49,11 @@ export function AppProvider({ children }) {
     ];
   });
 
-  // 3. Ngày bắt đầu chu kỳ ngân sách
   const [cycleStartDay, setCycleStartDay] = useState(() => {
     const saved = localStorage.getItem("vys_cycle_day");
     return saved ? Number(saved) : 1;
   });
 
-  // 4. Ngân sách & Mục tiêu thu nhập
   const [monthlyBudget, setMonthlyBudget] = useState(() => {
     const saved = localStorage.getItem("vys_budget");
     return saved ? Number(saved) : 9700000;
@@ -68,10 +64,14 @@ export function AppProvider({ children }) {
     return saved ? Number(saved) : 15000000;
   });
 
-  // Trạng thái Modal chung
+  // TÍNH NĂNG MỚI: Lương theo giờ (Quy đổi giờ công)
+  const [workHourlyRate, setWorkHourlyRate] = useState(() => {
+    const saved = localStorage.getItem("vys_hourly_rate");
+    return saved ? Number(saved) : 0; // Nếu bằng 0 thì sẽ ẩn tính năng này
+  });
+
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Tự động lưu vào localStorage mỗi khi có thay đổi
   useEffect(() => {
     localStorage.setItem("vys_theme", theme);
   }, [theme]);
@@ -87,6 +87,9 @@ export function AppProvider({ children }) {
   useEffect(() => {
     localStorage.setItem("vys_goal", monthlyIncomeGoal);
   }, [monthlyIncomeGoal]);
+  useEffect(() => {
+    localStorage.setItem("vys_hourly_rate", workHourlyRate);
+  }, [workHourlyRate]);
 
   return (
     <AppContext.Provider
@@ -101,6 +104,8 @@ export function AppProvider({ children }) {
         setMonthlyBudget,
         monthlyIncomeGoal,
         setMonthlyIncomeGoal,
+        workHourlyRate,
+        setWorkHourlyRate,
         isModalOpen,
         setIsModalOpen,
       }}

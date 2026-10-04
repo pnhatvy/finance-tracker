@@ -1,28 +1,29 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Delete, Calendar, Repeat, Clock } from "lucide-react";
+import { X, Delete, Calendar, Repeat, Clock, Timer } from "lucide-react";
 import { useAppContext } from "../AppContext";
 
 export default function AddTransaction() {
   const navigate = useNavigate();
-  const { categories, theme } = useAppContext();
+
+  // TÍNH NĂNG MỚI: Kéo thêm biến workHourlyRate vào
+  const { categories, theme, workHourlyRate } = useAppContext();
 
   const [amount, setAmount] = useState("0");
   const [type, setType] = useState("expense");
   const [note, setNote] = useState("");
   const [repeat, setRepeat] = useState("none");
 
-  // Tách riêng state Ngày và Giờ để tạo thành 3 nút nằm ngang
   const getCurrentDate = () => {
     const now = new Date();
     const tzOffset = now.getTimezoneOffset() * 60000;
-    return new Date(now - tzOffset).toISOString().slice(0, 10); // YYYY-MM-DD
+    return new Date(now - tzOffset).toISOString().slice(0, 10);
   };
 
   const getCurrentTime = () => {
     const now = new Date();
     const tzOffset = now.getTimezoneOffset() * 60000;
-    return new Date(now - tzOffset).toISOString().slice(11, 16); // HH:mm
+    return new Date(now - tzOffset).toISOString().slice(11, 16);
   };
 
   const [datePart, setDatePart] = useState(getCurrentDate());
@@ -35,7 +36,6 @@ export default function AddTransaction() {
   const currentCategories = safeCategories.filter((c) => c.type === type);
   const [category, setCategory] = useState(currentCategories[0] || {});
 
-  // BỘ CẢM BIẾN NATIVE SIÊU MƯỢT (KẾT HỢP REQUEST ANIMATION FRAME)
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -150,7 +150,6 @@ export default function AddTransaction() {
     if (amount === "0" || amount === ",") return;
     try {
       const numericAmount = Number(amount.replace(",", "."));
-      // Gộp chuỗi ngày và giờ lại để lưu
       const baseDate = new Date(`${datePart}T${timePart}`);
 
       let count = 1;
@@ -200,6 +199,14 @@ export default function AddTransaction() {
     return parts.length > 1
       ? `${parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${parts[1]}`
       : parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  };
+
+  // Tính số giờ làm việc dựa trên số tiền đang gõ
+  const calculatedHours = () => {
+    if (workHourlyRate <= 0 || amount === "0" || amount === ",") return null;
+    const numericAmount = Number(amount.replace(",", "."));
+    const hours = (numericAmount / workHourlyRate).toFixed(1);
+    return hours > 0 ? hours : null;
   };
 
   return (
@@ -269,7 +276,7 @@ export default function AddTransaction() {
         ))}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center min-h-[100px]">
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[100px] relative">
         <span
           className={`text-xs uppercase tracking-wider mb-1 font-medium ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
         >
@@ -283,17 +290,30 @@ export default function AddTransaction() {
           </span>
           <span>{displayAmount()}</span>
         </div>
+
+        {/* TÍNH NĂNG MỚI: Dòng hiển thị số giờ làm việc quy đổi */}
+        <div className="h-6 mt-1 flex items-center justify-center">
+          {calculatedHours() && (
+            <span
+              className={`text-[13px] font-medium flex items-center gap-1.5 animate-ios-fade ${type === "expense" ? "text-[#ff453a]/80" : "text-[#32d74b]/80"}`}
+            >
+              <Timer size={14} />
+              {type === "expense" ? "Costs" : "Equals"} {calculatedHours()}{" "}
+              {calculatedHours() === "1.0" ? "hour" : "hours"} of work
+            </span>
+          )}
+        </div>
+
         <input
           type="text"
           placeholder="+ Add note..."
           value={note}
           onChange={(e) => setNote(e.target.value)}
           onTouchStart={(e) => e.stopPropagation()}
-          className={`mt-4 bg-transparent text-center focus:outline-none w-3/4 py-1.5 ${theme === "dark" ? "text-[#8e8e93] placeholder:text-[#8e8e93]/50" : "text-gray-600 placeholder:text-gray-400"}`}
+          className={`mt-2 bg-transparent text-center focus:outline-none w-3/4 py-1.5 ${theme === "dark" ? "text-[#8e8e93] placeholder:text-[#8e8e93]/50" : "text-gray-600 placeholder:text-gray-400"}`}
         />
       </div>
 
-      {/* KHỐI 3 NÚT: NGÀY, GIỜ, LẶP LẠI (NẰM NGANG) */}
       <div className="flex gap-2 mb-4 mt-auto">
         <div
           className={`flex-[1.2] relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}

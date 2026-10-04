@@ -7,6 +7,8 @@ import {
   ChevronRight,
   Settings2,
   XCircle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 export default function Goals() {
@@ -27,6 +29,17 @@ export default function Goals() {
   const [globalIncomeGoal, setGlobalIncomeGoal] = useState(10000000);
   const [initialBalance, setInitialBalance] = useState(0);
   const [historicalNetWorth, setHistoricalNetWorth] = useState(0);
+  const [avgMonthlySpend, setAvgMonthlySpend] = useState(0); // Cho tính năng Burn Rate
+
+  // State Chế độ giấu số (Privacy Blur)
+  const [showMonthly, setShowMonthly] = useState(() => {
+    const saved = localStorage.getItem("vys_show_monthly");
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const [showOverall, setShowOverall] = useState(() => {
+    const saved = localStorage.getItem("vys_show_overall");
+    return saved !== null ? JSON.parse(saved) : true;
+  });
 
   // State Modal chỉnh sửa
   const [editState, setEditState] = useState({
@@ -37,6 +50,14 @@ export default function Goals() {
   });
 
   const [isInputFocused, setIsInputFocused] = useState(false);
+
+  // Lưu trạng thái giấu số
+  useEffect(() => {
+    localStorage.setItem("vys_show_monthly", JSON.stringify(showMonthly));
+  }, [showMonthly]);
+  useEffect(() => {
+    localStorage.setItem("vys_show_overall", JSON.stringify(showOverall));
+  }, [showOverall]);
 
   // Hàm tính toán khung thời gian (Dùng chung 1 biến offset)
   const getPeriodBounds = () => {
@@ -126,9 +147,8 @@ export default function Goals() {
     setEarned(totalEarnedMonth);
   }, [bounds.key, cycleStartDay, editState.isOpen]);
 
-  // EFFECT 2: Xử lý dữ liệu cho khối Overall (Lấy theo mốc thời gian chung)
+  // EFFECT 2: Xử lý dữ liệu cho khối Overall & Burn Rate
   useEffect(() => {
-    // 1. Tải Global Income Goal theo tháng (nếu có)
     const gGoals = JSON.parse(
       localStorage.getItem("vys_global_goals_history") || "{}",
     );
@@ -137,7 +157,6 @@ export default function Goals() {
     if (gGoals[bounds.key] && gGoals[bounds.key].income !== undefined) {
       currentGlobalIncome = gGoals[bounds.key].income;
     } else {
-      // Fallback
       const oldGlob = JSON.parse(
         localStorage.getItem("vys_global_goals") || '{"income": 10000000}',
       );
@@ -145,7 +164,6 @@ export default function Goals() {
         oldGlob.income !== undefined ? oldGlob.income : 10000000;
     }
 
-    // 2. Set Initial Balance là cố định (toàn cục)
     const currentInitBal = Number(
       localStorage.getItem("vys_initial_balance") || 0,
     );
@@ -153,25 +171,41 @@ export default function Goals() {
     setGlobalIncomeGoal(currentGlobalIncome);
     setInitialBalance(currentInitBal);
 
-    // 3. Tính Net Worth tích luỹ từ đầu cho đến NGÀY CUỐI CÙNG CỦA THÁNG ĐANG XEM
     const transactions = JSON.parse(
       localStorage.getItem("vys_transactions") || "[]",
     );
     let cumulativeEarned = 0;
     let cumulativeSpent = 0;
+    let totalExpenseAllTime = 0;
+    let firstDate = new Date();
 
     transactions.forEach((t) => {
       const amount = Number(t.amount) || 0;
       if (t.date) {
         const d = new Date(t.date);
+        if (d < firstDate) firstDate = d; // Tìm ngày giao dịch đầu tiên
+
         if (d < bounds.end) {
           if (t.type === "expense") cumulativeSpent += amount;
           if (t.type === "income") cumulativeEarned += amount;
         }
+        // Tính tổng chi tiêu toàn thời gian để chia trung bình
+        if (t.type === "expense") totalExpenseAllTime += amount;
       }
     });
 
     setHistoricalNetWorth(currentInitBal + cumulativeEarned - cumulativeSpent);
+
+    // Tính Burn Rate (Trung bình chi tiêu mỗi tháng)
+    const now = new Date();
+    const monthsActive = Math.max(
+      1,
+      (now.getFullYear() - firstDate.getFullYear()) * 12 +
+        now.getMonth() -
+        firstDate.getMonth() +
+        1,
+    );
+    setAvgMonthlySpend(totalExpenseAllTime / monthsActive);
   }, [bounds.key, cycleStartDay, editState.isOpen]);
 
   const activeBudget =
@@ -183,10 +217,15 @@ export default function Goals() {
     activeBudget > 0 ? Math.round((spent / activeBudget) * 100) : 0;
   const earnedPercent =
     activeIncome > 0 ? Math.round((earned / activeIncome) * 100) : 0;
-
   const overallPercent =
     globalIncomeGoal > 0
       ? Math.max(0, Math.round((historicalNetWorth / globalIncomeGoal) * 100))
+      : 0;
+
+  // Thời gian sinh tồn
+  const runwayMonths =
+    avgMonthlySpend > 0 && historicalNetWorth > 0
+      ? (historicalNetWorth / avgMonthlySpend).toFixed(1)
       : 0;
 
   const openEdit = (type, currentVal) => {
@@ -218,15 +257,12 @@ export default function Goals() {
       editState.value === "" ? 0 : Number(editState.value.replace(/\./g, ""));
 
     if (editState.type === "g_initial") {
-      // Initial Balance là thiết lập toàn cục, chỉ lưu 1 biến duy nhất
       localStorage.setItem("vys_initial_balance", numValue);
       setInitialBalance(numValue);
     } else if (editState.type === "g_income") {
-      // Overall Income Goal: Vẫn có hỏi áp dụng tháng này hay tương lai
       const gGoals = JSON.parse(
         localStorage.getItem("vys_global_goals_history") || "{}",
       );
-
       if (applyToFuture) {
         const baseDate = new Date(bounds.start);
         for (let i = 0; i < 120; i++) {
@@ -236,7 +272,6 @@ export default function Goals() {
             1,
           );
           const key = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}`;
-
           if (!gGoals[key]) gGoals[key] = { income: null };
           gGoals[key].income = numValue;
         }
@@ -244,10 +279,8 @@ export default function Goals() {
         if (!gGoals[bounds.key]) gGoals[bounds.key] = { income: null };
         gGoals[bounds.key].income = numValue;
       }
-
       localStorage.setItem("vys_global_goals_history", JSON.stringify(gGoals));
 
-      // Cập nhật lại fallback
       const oldGlob = JSON.parse(
         localStorage.getItem("vys_global_goals") || "{}",
       );
@@ -255,11 +288,9 @@ export default function Goals() {
       localStorage.setItem("vys_global_goals", JSON.stringify(oldGlob));
       setGlobalIncomeGoal(numValue);
     } else {
-      // MONTHLY TARGET NHƯ CŨ
       const mGoals = JSON.parse(
         localStorage.getItem("vys_monthly_goals") || "{}",
       );
-
       if (applyToFuture) {
         const baseDate = new Date(bounds.start);
         for (let i = 0; i < 120; i++) {
@@ -269,7 +300,6 @@ export default function Goals() {
             1,
           );
           const key = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}`;
-
           if (!mGoals[key]) mGoals[key] = { budget: null, income: null };
           if (editState.type === "m_budget") mGoals[key].budget = numValue;
           if (editState.type === "m_income") mGoals[key].income = numValue;
@@ -280,12 +310,10 @@ export default function Goals() {
         if (editState.type === "m_budget") mGoals[bounds.key].budget = numValue;
         if (editState.type === "m_income") mGoals[bounds.key].income = numValue;
       }
-
       localStorage.setItem("vys_monthly_goals", JSON.stringify(mGoals));
       if (editState.type === "m_budget") setMonthlyBudget(numValue);
       if (editState.type === "m_income") setMonthlyIncome(numValue);
     }
-
     setEditState({ ...editState, isOpen: false });
     setIsInputFocused(false);
   };
@@ -308,11 +336,20 @@ export default function Goals() {
           className="flex-1 overflow-y-auto px-4 pt-4 pb-32 space-y-4 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          {/* ĐIỀU HƯỚNG THÁNG DÙNG CHUNG */}
+          {/* SECTION: MONTHLY TARGET */}
           <div className="flex justify-between items-center pt-2 pb-0">
-            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2">
-              Monthly Target
-            </h3>
+            <div className="flex items-center gap-2 ml-2">
+              <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest">
+                Monthly Target
+              </h3>
+              <button
+                onClick={() => setShowMonthly(!showMonthly)}
+                className="text-[#8e8e93] active:opacity-50 p-1"
+              >
+                {showMonthly ? <Eye size={15} /> : <EyeOff size={15} />}
+              </button>
+            </div>
+
             <div
               className={`flex items-center rounded-full px-2 py-0.5 shadow-sm mr-1 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
             >
@@ -347,14 +384,19 @@ export default function Goals() {
               </button>
             </div>
             <div className="text-[28px] font-bold mb-1.5 tracking-tight">
-              ₫{activeBudget.toLocaleString("vi-VN")}
+              {showMonthly
+                ? `₫${activeBudget.toLocaleString("vi-VN")}`
+                : "****"}
             </div>
             <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
-              <span>Spent: ₫{spent.toLocaleString("vi-VN")}</span>
+              <span>
+                Spent:{" "}
+                {showMonthly ? `₫${spent.toLocaleString("vi-VN")}` : "****"}
+              </span>
               <span
                 className={spentPercent > 100 ? "text-[#ff453a] font-bold" : ""}
               >
-                {spentPercent}%
+                {showMonthly ? `${spentPercent}%` : "**%"}
               </span>
             </div>
             <div
@@ -382,16 +424,21 @@ export default function Goals() {
               </button>
             </div>
             <div className="text-[28px] font-bold mb-1.5 tracking-tight">
-              ₫{activeIncome.toLocaleString("vi-VN")}
+              {showMonthly
+                ? `₫${activeIncome.toLocaleString("vi-VN")}`
+                : "****"}
             </div>
             <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
-              <span>Earned: ₫{earned.toLocaleString("vi-VN")}</span>
+              <span>
+                Earned:{" "}
+                {showMonthly ? `₫${earned.toLocaleString("vi-VN")}` : "****"}
+              </span>
               <span
                 className={
                   earnedPercent >= 100 ? "text-[#32d74b] font-bold" : ""
                 }
               >
-                {earnedPercent}%
+                {showMonthly ? `${earnedPercent}%` : "**%"}
               </span>
             </div>
             <div
@@ -405,10 +452,16 @@ export default function Goals() {
           </div>
 
           {/* SECTION: OVERALL TARGET */}
-          <div className="pt-5 pb-0">
-            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-2 mb-2">
+          <div className="flex items-center gap-2 pt-5 pb-0 ml-2 mb-2">
+            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest">
               Overall Target
             </h3>
+            <button
+              onClick={() => setShowOverall(!showOverall)}
+              className="text-[#8e8e93] active:opacity-50 p-1"
+            >
+              {showOverall ? <Eye size={15} /> : <EyeOff size={15} />}
+            </button>
           </div>
 
           <div
@@ -427,7 +480,9 @@ export default function Goals() {
             </div>
 
             <div className="text-[28px] font-bold mb-2 tracking-tight">
-              ₫{globalIncomeGoal.toLocaleString("vi-VN")}
+              {showOverall
+                ? `₫${globalIncomeGoal.toLocaleString("vi-VN")}`
+                : "****"}
             </div>
 
             <div className="flex justify-between items-center text-[12px] text-[#8e8e93] font-medium mb-2">
@@ -440,8 +495,9 @@ export default function Goals() {
                       : "text-[#ff453a]"
                   }
                 >
-                  {historicalNetWorth < 0 ? "-" : ""}₫
-                  {Math.abs(historicalNetWorth).toLocaleString("vi-VN")}
+                  {showOverall
+                    ? `${historicalNetWorth < 0 ? "-" : ""}₫${Math.abs(historicalNetWorth).toLocaleString("vi-VN")}`
+                    : "****"}
                 </strong>
               </span>
               <span
@@ -449,7 +505,7 @@ export default function Goals() {
                   overallPercent >= 100 ? "text-[#32d74b] font-bold" : ""
                 }
               >
-                {overallPercent}%
+                {showOverall ? `${overallPercent}%` : "**%"}
               </span>
             </div>
 
@@ -461,6 +517,28 @@ export default function Goals() {
                 style={{ width: `${Math.min(overallPercent, 100)}%` }}
               ></div>
             </div>
+
+            {/* TÍNH NĂNG MỚI: BURN RATE & RUNWAY */}
+            {historicalNetWorth > 0 && (
+              <div
+                className={`mt-5 pt-4 flex justify-between items-center text-[12px] font-medium border-t ${theme === "dark" ? "border-white/5 text-[#8e8e93]" : "border-black/5 text-gray-500"}`}
+              >
+                <span>
+                  🔥 Burn Rate:{" "}
+                  <strong>
+                    {showOverall
+                      ? `₫${Math.round(avgMonthlySpend).toLocaleString("vi-VN")}/mo`
+                      : "****"}
+                  </strong>
+                </span>
+                <span>
+                  ⏳ Runway:{" "}
+                  <strong className="text-[#32ade6]">
+                    {showOverall ? `${runwayMonths} mos` : "****"}
+                  </strong>
+                </span>
+              </div>
+            )}
 
             <button
               onClick={() => openEdit("g_initial", initialBalance)}
@@ -475,6 +553,7 @@ export default function Goals() {
         </div>
       </div>
 
+      {/* Phần Modal nhập tiền giữ y như cũ */}
       {editState.isOpen && (
         <div
           className="fixed inset-0 bg-black/70 z-[70] flex items-center justify-center p-4 animate-ios-fade"
@@ -522,7 +601,6 @@ export default function Goals() {
                 onChange={(e) => handleInput(e.target.value)}
                 className={`flex-1 bg-transparent py-3 outline-none font-bold text-[22px] w-full ${theme === "dark" ? "text-white" : "text-black"}`}
               />
-
               {editState.value !== "" && (
                 <button
                   onClick={() => setEditState({ ...editState, value: "" })}
@@ -534,7 +612,6 @@ export default function Goals() {
               )}
             </div>
 
-            {/* CHỈ CÓ "SET INITIAL" MỚI LÀ NÚT ĐƠN, CÒN LẠI ĐỀU CHO CHỌN THÁNG */}
             {editState.type === "g_initial" ? (
               <button
                 onClick={() => handleSave()}

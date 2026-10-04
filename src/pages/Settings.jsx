@@ -9,8 +9,8 @@ import {
   CloudLightning,
   LogOut,
   Download,
+  Clock,
 } from "lucide-react";
-
 import { auth, db } from "../firebase";
 import {
   signInWithPopup,
@@ -28,6 +28,8 @@ export default function Settings() {
     setCategories,
     cycleStartDay,
     setCycleStartDay,
+    workHourlyRate,
+    setWorkHourlyRate,
     setIsModalOpen,
   } = useAppContext();
 
@@ -36,23 +38,18 @@ export default function Settings() {
   const [dragState, setDragState] = useState(null);
   const [catForm, setCatForm] = useState(null);
   const [isResetting, setIsResetting] = useState(false);
-
   const [user, setUser] = useState(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-
   const [syncState, setSyncState] = useState({ type: null, status: null });
+  const [hourlyInput, setHourlyInput] = useState(workHourlyRate.toString()); // Lưu input tạm
 
-  // Auto-Restore Engine: Chạy ngầm 1 lần ngay khi người dùng đăng nhập thành công (hoặc mở app mà đã đăng nhập)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-
-      // Nếu có user, âm thầm kéo data về để đồng bộ máy mới (Chỉ chạy khi auth load xong)
       if (currentUser && !localStorage.getItem("vys_has_auto_restored")) {
         try {
           const docRef = doc(db, "users", currentUser.uid);
           const docSnap = await getDoc(docRef);
-
           if (docSnap.exists()) {
             const data = docSnap.data();
             if (data.transactions)
@@ -90,10 +87,13 @@ export default function Settings() {
                 "vys_monthly_income_goal",
                 data.monthlyIncomeGoal,
               );
+            if (data.workHourlyRate) {
+              localStorage.setItem("vys_hourly_rate", data.workHourlyRate);
+              setWorkHourlyRate(Number(data.workHourlyRate));
+              setHourlyInput(data.workHourlyRate.toString());
+            }
           }
-          // Đánh dấu đã restore tự động xong để không kéo lại liên tục mỗi lần mở app
           localStorage.setItem("vys_has_auto_restored", "true");
-          // Tải lại nhẹ nhàng để nạp số liệu mới vào UI
           window.location.reload();
         } catch (e) {
           console.error("Auto restore failed:", e);
@@ -101,20 +101,16 @@ export default function Settings() {
       }
     });
     return () => unsubscribe();
-  }, [setCategories, setCycleStartDay]);
+  }, [setCategories, setCycleStartDay, setWorkHourlyRate]);
 
   const handleLogin = async () => {
     setIsLoggingIn(true);
     const provider = new GoogleAuthProvider();
     try {
-      // Xoá cờ restore cũ để cho phép nó kéo data về lại sau khi login thành công
       localStorage.removeItem("vys_has_auto_restored");
       await signInWithPopup(auth, provider);
     } catch (error) {
-      console.error("Login error", error);
-      if (error.code !== "auth/popup-closed-by-user") {
-        alert("Sign in failed");
-      }
+      if (error.code !== "auth/popup-closed-by-user") alert("Sign in failed");
     } finally {
       setIsLoggingIn(false);
     }
@@ -122,16 +118,13 @@ export default function Settings() {
 
   const confirmLogout = () => {
     signOut(auth);
-    // Khi logout thì xóa luôn cờ auto restore để login tài khoản khác nó còn kéo lại
     localStorage.removeItem("vys_has_auto_restored");
     closeModals();
   };
 
-  // Nút Sync mới: Đẩy cục dữ liệu xịn nhất trên máy hiện tại lên mây
   const handleSyncToCloud = async () => {
     if (!user) return;
     setSyncState({ type: "sync", status: "loading" });
-
     try {
       const dataToBackup = {
         transactions: JSON.parse(
@@ -149,15 +142,13 @@ export default function Settings() {
         monthlyBudget: localStorage.getItem("vys_monthly_budget") || "0",
         monthlyIncomeGoal:
           localStorage.getItem("vys_monthly_income_goal") || "0",
+        workHourlyRate: localStorage.getItem("vys_hourly_rate") || "0",
         updatedAt: new Date().toISOString(),
       };
-
       await setDoc(doc(db, "users", user.uid), dataToBackup);
-
       setSyncState({ type: "sync", status: "success" });
       setTimeout(() => setSyncState({ type: null, status: null }), 3000);
     } catch (e) {
-      console.error(e);
       setSyncState({ type: "sync", status: "error" });
       setTimeout(() => setSyncState({ type: null, status: null }), 3000);
     }
@@ -167,7 +158,6 @@ export default function Settings() {
     try {
       const txs = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
       let csvContent = "\uFEFFNgày,Giờ,Loại,Danh mục,Số tiền,Ghi chú\n";
-
       txs.forEach((t) => {
         const d = new Date(t.date);
         const date = d.toLocaleDateString("vi-VN");
@@ -179,13 +169,10 @@ export default function Settings() {
         const cat = t.category?.name || "";
         const amt = t.amount;
         const note = `"${(t.note || "").replace(/"/g, '""')}"`;
-
         csvContent += `${date},${time},${type},${cat},${amt},${note}\n`;
       });
-
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
-
       const link = document.createElement("a");
       link.href = url;
       link.download = `Vys_Finance_Data_${new Date().toISOString().split("T")[0]}.csv`;
@@ -194,7 +181,6 @@ export default function Settings() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (e) {
-      console.error("Export failed", e);
       alert("Xuất dữ liệu thất bại.");
     }
   };
@@ -281,7 +267,6 @@ export default function Settings() {
     "🛡️",
     "⚙️",
   ];
-
   const COLOR_LIST = [
     "#ff453a",
     "#ff9f0a",
@@ -297,17 +282,14 @@ export default function Settings() {
     "#8e8e93",
   ];
 
-  const confirmDeleteCategory = () => {
-    if (itemToDelete) {
-      setCategories(categories.filter((c) => c.id !== itemToDelete));
-      setItemToDelete(null);
-    }
-  };
-
   const openCycleModal = () => {
     setModalType("cycle");
     setIsModalOpen(true);
   };
+  const openHourlyModal = () => {
+    setModalType("hourly");
+    setIsModalOpen(true);
+  }; // Modal set lương giờ
   const openAddCategory = () => {
     setCatForm({ name: "", icon: "🍔", color: "#ff453a", type: "expense" });
     setModalType("category");
@@ -326,11 +308,10 @@ export default function Settings() {
 
   const saveCategory = () => {
     if (!catForm.name.trim()) return;
-    if (catForm.id) {
+    if (catForm.id)
       setCategories(categories.map((c) => (c.id === catForm.id ? catForm : c)));
-    } else {
+    else
       setCategories([...categories, { id: Date.now().toString(), ...catForm }]);
-    }
     closeModals();
   };
 
@@ -340,8 +321,6 @@ export default function Settings() {
       localStorage.removeItem("vys_transactions");
       closeModals();
       window.location.href = "/";
-    } catch (e) {
-      console.error(e);
     } finally {
       setIsResetting(false);
     }
@@ -361,7 +340,6 @@ export default function Settings() {
     });
     document.body.style.overflow = "hidden";
   };
-
   const onTouchMove = (e, type) => {
     if (!dragState || dragState.type !== type) return;
     e.preventDefault();
@@ -374,7 +352,6 @@ export default function Settings() {
     newHover = Math.max(0, Math.min(newHover, maxIndex));
     setDragState((prev) => ({ ...prev, currentY, hoverIndex: newHover }));
   };
-
   const onTouchEnd = () => {
     if (dragState && dragState.startIndex !== dragState.hoverIndex) {
       const type = dragState.type;
@@ -407,15 +384,16 @@ export default function Settings() {
         let scale = 1;
         let shadow = "none";
         let radius = "0px";
-
         if (dragState && dragState.type === type) {
           if (isDragging) {
             const rawTranslateY = dragState.currentY - dragState.startY;
-            const maxUp = -dragState.startIndex * dragState.itemHeight;
-            const maxDown =
-              (list.length - 1 - dragState.startIndex) * dragState.itemHeight;
-            translateY = Math.max(maxUp, Math.min(rawTranslateY, maxDown));
-
+            translateY = Math.max(
+              -dragState.startIndex * dragState.itemHeight,
+              Math.min(
+                rawTranslateY,
+                (list.length - 1 - dragState.startIndex) * dragState.itemHeight,
+              ),
+            );
             zIndex = 50;
             scale = 1.02;
             shadow =
@@ -438,7 +416,6 @@ export default function Settings() {
               translateY = dragState.itemHeight;
           }
         }
-
         return (
           <div
             key={c.id}
@@ -520,7 +497,7 @@ export default function Settings() {
           className="flex-1 overflow-y-auto px-4 pt-6 pb-32 space-y-6 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          {/* SECTION 1: PREFERENCES */}
+          {/* PREFERENCES */}
           <div>
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
               Preferences
@@ -528,7 +505,7 @@ export default function Settings() {
             <div
               className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
             >
-              <div className="flex items-center justify-between p-4">
+              <div className="flex items-center justify-between p-4 border-b border-black/5 dark:border-white/5">
                 <div className="flex items-center gap-3">
                   <Moon size={20} className="text-[#8e8e93]" />
                   <span className="font-semibold text-[15px]">Dark Mode</span>
@@ -542,10 +519,32 @@ export default function Settings() {
                   ></div>
                 </button>
               </div>
+
+              {/* CÀI ĐẶT LƯƠNG GIỜ (WORK HOURS CONVERTER) */}
+              <button
+                onClick={openHourlyModal}
+                className="w-full flex justify-between items-center p-4 text-left active:opacity-70 transition-opacity"
+              >
+                <div className="flex items-center gap-3">
+                  <Clock size={20} className="text-[#8e8e93]" />
+                  <div>
+                    <p className="font-semibold text-[15px]">Hourly Rate</p>
+                    <p className="text-xs text-[#8e8e93] mt-0.5">
+                      Convert spending into work hours
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[#8e8e93] text-sm">
+                  {workHourlyRate > 0
+                    ? `₫${workHourlyRate.toLocaleString("vi-VN")}/h`
+                    : "Off"}{" "}
+                  ›
+                </span>
+              </button>
             </div>
           </div>
 
-          {/* SECTION 2: BUDGET CYCLE */}
+          {/* BUDGET CYCLE */}
           <div>
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
               Budget Cycle
@@ -570,7 +569,6 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* SECTION 3: CATEGORIES */}
           <div>
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
               Expense Categories
@@ -584,7 +582,7 @@ export default function Settings() {
             {renderCategoryList(incomeCategories, "income")}
           </div>
 
-          {/* SECTION 4: ACCOUNT & SYNC */}
+          {/* ACCOUNT & SYNC */}
           <div>
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
               Account & Sync
@@ -610,7 +608,6 @@ export default function Settings() {
                 </button>
               ) : (
                 <div className="flex flex-col">
-                  {/* Block Thông tin tài khoản */}
                   <div
                     className={`p-4 border-b flex justify-between items-center ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
                   >
@@ -646,8 +643,6 @@ export default function Settings() {
                       <LogOut size={20} />
                     </button>
                   </div>
-
-                  {/* Nút Sync Duy Nhất */}
                   <button
                     onClick={handleSyncToCloud}
                     disabled={syncState.status === "loading"}
@@ -659,7 +654,6 @@ export default function Settings() {
                         Sync to Cloud
                       </span>
                     </div>
-                    {/* Trạng thái bên phải */}
                     {syncState.type === "sync" &&
                       syncState.status === "loading" && (
                         <span className="text-[13px] text-[#8e8e93] font-medium animate-pulse">
@@ -684,7 +678,7 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* SECTION 5: DATA */}
+          {/* DATA */}
           <div>
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
               Data
@@ -699,7 +693,6 @@ export default function Settings() {
                 <Download size={20} className="text-[#8e8e93]" />
                 <span className="text-[15px]">Export to Excel (.csv)</span>
               </button>
-
               <button
                 onClick={() => {
                   setModalType("reset");
@@ -715,7 +708,76 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* MODAL ĐĂNG XUẤT */}
+      {/* MODAL NHẬP LƯƠNG THEO GIỜ MỚI */}
+      {modalType === "hourly" && (
+        <div
+          className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
+          onClick={closeModals}
+        >
+          <div
+            className={`w-full max-w-[320px] rounded-[32px] p-6 shadow-2xl ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3
+              className={`font-bold text-center text-xl mb-1 ${theme === "dark" ? "text-white" : "text-black"}`}
+            >
+              Hourly Rate
+            </h3>
+            <p
+              className={`text-center text-xs mb-6 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}
+            >
+              Enter 0 to disable this feature.
+            </p>
+
+            <div
+              className={`flex items-center rounded-2xl px-4 py-2 mb-6 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+            >
+              <span
+                className={`text-xl font-bold mr-2 ${theme === "dark" ? "text-white" : "text-black"}`}
+              >
+                ₫
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={
+                  hourlyInput === "0"
+                    ? ""
+                    : hourlyInput.replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+                }
+                onChange={(e) => {
+                  const raw = e.target.value
+                    .replace(/\./g, "")
+                    .replace(/\D/g, "");
+                  setHourlyInput(raw);
+                }}
+                placeholder="0"
+                className={`flex-1 bg-transparent py-3 outline-none font-bold text-xl w-full ${theme === "dark" ? "text-white" : "text-black"}`}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={closeModals}
+                className={`flex-1 py-3.5 rounded-2xl font-bold ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-200 text-black"}`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setWorkHourlyRate(Number(hourlyInput || 0));
+                  closeModals();
+                }}
+                className={`flex-1 py-3.5 rounded-2xl font-bold active:opacity-70 ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CÁC MODAL CŨ GIỮ NGUYÊN BÊN DƯỚI */}
       {modalType === "logout" && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
@@ -754,7 +816,6 @@ export default function Settings() {
         </div>
       )}
 
-      {/* CÁC MODALS CŨ */}
       {modalType === "reset" && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
@@ -899,7 +960,6 @@ export default function Settings() {
                 <X size={20} />
               </button>
             </div>
-
             <div
               className={`flex rounded-xl p-1 mb-4 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
@@ -923,7 +983,6 @@ export default function Settings() {
               onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
               className={`w-full text-center rounded-xl px-4 py-3 outline-none mb-4 font-bold text-lg ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
             />
-
             <div
               className={`grid grid-cols-6 gap-2 mb-4 h-[160px] overflow-y-auto p-2 rounded-xl scrollbar-hide ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
@@ -937,7 +996,6 @@ export default function Settings() {
                 </button>
               ))}
             </div>
-
             <div
               className={`grid grid-cols-6 gap-y-3 mb-6 p-3 rounded-xl ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
@@ -961,7 +1019,6 @@ export default function Settings() {
                 </div>
               ))}
             </div>
-
             <button
               onClick={saveCategory}
               className={`w-full py-3.5 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
