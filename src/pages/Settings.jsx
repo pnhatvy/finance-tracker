@@ -6,8 +6,7 @@ import {
   Menu,
   Trash2,
   UserCircle,
-  UploadCloud,
-  DownloadCloud,
+  CloudLightning,
   LogOut,
   Download,
 } from "lucide-react";
@@ -43,17 +42,73 @@ export default function Settings() {
 
   const [syncState, setSyncState] = useState({ type: null, status: null });
 
+  // Auto-Restore Engine: Chạy ngầm 1 lần ngay khi người dùng đăng nhập thành công (hoặc mở app mà đã đăng nhập)
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+
+      // Nếu có user, âm thầm kéo data về để đồng bộ máy mới (Chỉ chạy khi auth load xong)
+      if (currentUser && !localStorage.getItem("vys_has_auto_restored")) {
+        try {
+          const docRef = doc(db, "users", currentUser.uid);
+          const docSnap = await getDoc(docRef);
+
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.transactions)
+              localStorage.setItem(
+                "vys_transactions",
+                JSON.stringify(data.transactions),
+              );
+            if (data.categories) {
+              localStorage.setItem(
+                "vys_categories",
+                JSON.stringify(data.categories),
+              );
+              setCategories(data.categories);
+            }
+            if (data.globalGoals)
+              localStorage.setItem(
+                "vys_global_goals",
+                JSON.stringify(data.globalGoals),
+              );
+            if (data.monthlyGoals)
+              localStorage.setItem(
+                "vys_monthly_goals",
+                JSON.stringify(data.monthlyGoals),
+              );
+            if (data.initialBalance)
+              localStorage.setItem("vys_initial_balance", data.initialBalance);
+            if (data.cycleStartDay) {
+              localStorage.setItem("vys_cycle_start_day", data.cycleStartDay);
+              setCycleStartDay(Number(data.cycleStartDay));
+            }
+            if (data.monthlyBudget)
+              localStorage.setItem("vys_monthly_budget", data.monthlyBudget);
+            if (data.monthlyIncomeGoal)
+              localStorage.setItem(
+                "vys_monthly_income_goal",
+                data.monthlyIncomeGoal,
+              );
+          }
+          // Đánh dấu đã restore tự động xong để không kéo lại liên tục mỗi lần mở app
+          localStorage.setItem("vys_has_auto_restored", "true");
+          // Tải lại nhẹ nhàng để nạp số liệu mới vào UI
+          window.location.reload();
+        } catch (e) {
+          console.error("Auto restore failed:", e);
+        }
+      }
     });
     return () => unsubscribe();
-  }, []);
+  }, [setCategories, setCycleStartDay]);
 
   const handleLogin = async () => {
     setIsLoggingIn(true);
     const provider = new GoogleAuthProvider();
     try {
+      // Xoá cờ restore cũ để cho phép nó kéo data về lại sau khi login thành công
+      localStorage.removeItem("vys_has_auto_restored");
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error("Login error", error);
@@ -67,12 +122,15 @@ export default function Settings() {
 
   const confirmLogout = () => {
     signOut(auth);
+    // Khi logout thì xóa luôn cờ auto restore để login tài khoản khác nó còn kéo lại
+    localStorage.removeItem("vys_has_auto_restored");
     closeModals();
   };
 
-  const handleBackup = async () => {
+  // Nút Sync mới: Đẩy cục dữ liệu xịn nhất trên máy hiện tại lên mây
+  const handleSyncToCloud = async () => {
     if (!user) return;
-    setSyncState({ type: "backup", status: "loading" });
+    setSyncState({ type: "sync", status: "loading" });
 
     try {
       const dataToBackup = {
@@ -88,7 +146,6 @@ export default function Settings() {
         ),
         initialBalance: localStorage.getItem("vys_initial_balance") || "0",
         cycleStartDay: localStorage.getItem("vys_cycle_start_day") || "1",
-        // Bổ sung ngân sách và mục tiêu thu nhập vào mây
         monthlyBudget: localStorage.getItem("vys_monthly_budget") || "0",
         monthlyIncomeGoal:
           localStorage.getItem("vys_monthly_income_goal") || "0",
@@ -97,75 +154,11 @@ export default function Settings() {
 
       await setDoc(doc(db, "users", user.uid), dataToBackup);
 
-      setSyncState({ type: "backup", status: "success" });
+      setSyncState({ type: "sync", status: "success" });
       setTimeout(() => setSyncState({ type: null, status: null }), 3000);
     } catch (e) {
       console.error(e);
-      setSyncState({ type: "backup", status: "error" });
-      setTimeout(() => setSyncState({ type: null, status: null }), 3000);
-    }
-  };
-
-  const handleRestore = async () => {
-    if (!user) return;
-    const confirmRest = window.confirm(
-      "Ghi đè toàn bộ dữ liệu trên máy bằng dữ liệu đám mây?",
-    );
-    if (!confirmRest) return;
-
-    setSyncState({ type: "restore", status: "loading" });
-    try {
-      const docRef = doc(db, "users", user.uid);
-      const docSnap = await getDoc(docRef);
-
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.transactions)
-          localStorage.setItem(
-            "vys_transactions",
-            JSON.stringify(data.transactions),
-          );
-        if (data.categories) {
-          localStorage.setItem(
-            "vys_categories",
-            JSON.stringify(data.categories),
-          );
-          setCategories(data.categories);
-        }
-        if (data.globalGoals)
-          localStorage.setItem(
-            "vys_global_goals",
-            JSON.stringify(data.globalGoals),
-          );
-        if (data.monthlyGoals)
-          localStorage.setItem(
-            "vys_monthly_goals",
-            JSON.stringify(data.monthlyGoals),
-          );
-        if (data.initialBalance)
-          localStorage.setItem("vys_initial_balance", data.initialBalance);
-        if (data.cycleStartDay) {
-          localStorage.setItem("vys_cycle_start_day", data.cycleStartDay);
-          setCycleStartDay(Number(data.cycleStartDay));
-        }
-        // Kéo ngân sách và mục tiêu thu nhập về lại máy
-        if (data.monthlyBudget)
-          localStorage.setItem("vys_monthly_budget", data.monthlyBudget);
-        if (data.monthlyIncomeGoal)
-          localStorage.setItem(
-            "vys_monthly_income_goal",
-            data.monthlyIncomeGoal,
-          );
-
-        setSyncState({ type: "restore", status: "success" });
-        setTimeout(() => window.location.reload(), 1500);
-      } else {
-        alert("Không tìm thấy bản sao lưu nào");
-        setSyncState({ type: null, status: null });
-      }
-    } catch (e) {
-      console.error(e);
-      setSyncState({ type: "restore", status: "error" });
+      setSyncState({ type: "sync", status: "error" });
       setTimeout(() => setSyncState({ type: null, status: null }), 3000);
     }
   };
@@ -611,7 +604,7 @@ export default function Settings() {
                       {isLoggingIn ? "Signing in..." : "Sign in with Google"}
                     </p>
                     <p className="text-xs text-[#8e8e93] mt-0.5">
-                      Backup data to cloud
+                      Auto-sync data to cloud
                     </p>
                   </div>
                 </button>
@@ -654,65 +647,32 @@ export default function Settings() {
                     </button>
                   </div>
 
-                  {/* Nút Backup to Cloud */}
+                  {/* Nút Sync Duy Nhất */}
                   <button
-                    onClick={handleBackup}
-                    disabled={syncState.status === "loading"}
-                    className={`w-full flex justify-between items-center p-4 text-left active:bg-white/5 transition-colors border-b ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <UploadCloud size={20} className="text-[#8e8e93]" />
-                      <span className="font-semibold text-[15px]">
-                        Backup to Cloud
-                      </span>
-                    </div>
-                    {/* Trạng thái bên phải */}
-                    {syncState.type === "backup" &&
-                      syncState.status === "loading" && (
-                        <span className="text-[13px] text-[#8e8e93] font-medium animate-pulse">
-                          Syncing...
-                        </span>
-                      )}
-                    {syncState.type === "backup" &&
-                      syncState.status === "success" && (
-                        <span className="text-[13px] text-[#32d74b] font-medium">
-                          Successful
-                        </span>
-                      )}
-                    {syncState.type === "backup" &&
-                      syncState.status === "error" && (
-                        <span className="text-[13px] text-[#ff453a] font-medium">
-                          Failed
-                        </span>
-                      )}
-                  </button>
-
-                  {/* Nút Restore to Device */}
-                  <button
-                    onClick={handleRestore}
+                    onClick={handleSyncToCloud}
                     disabled={syncState.status === "loading"}
                     className="w-full flex justify-between items-center p-4 text-left active:bg-white/5 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <DownloadCloud size={20} className="text-[#8e8e93]" />
+                      <CloudLightning size={20} className="text-[#8e8e93]" />
                       <span className="font-semibold text-[15px]">
-                        Restore to Device
+                        Sync to Cloud
                       </span>
                     </div>
                     {/* Trạng thái bên phải */}
-                    {syncState.type === "restore" &&
+                    {syncState.type === "sync" &&
                       syncState.status === "loading" && (
                         <span className="text-[13px] text-[#8e8e93] font-medium animate-pulse">
                           Syncing...
                         </span>
                       )}
-                    {syncState.type === "restore" &&
+                    {syncState.type === "sync" &&
                       syncState.status === "success" && (
                         <span className="text-[13px] text-[#32d74b] font-medium">
-                          Successful
+                          Synced
                         </span>
                       )}
-                    {syncState.type === "restore" &&
+                    {syncState.type === "sync" &&
                       syncState.status === "error" && (
                         <span className="text-[13px] text-[#ff453a] font-medium">
                           Failed
