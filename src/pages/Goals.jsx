@@ -94,7 +94,6 @@ export default function Goals() {
 
   const bounds = getPeriodBounds();
 
-  // EFFECT 1: Monthly Target
   useEffect(() => {
     const mGoals = JSON.parse(
       localStorage.getItem("vys_monthly_goals") || "{}",
@@ -136,7 +135,6 @@ export default function Goals() {
     setEarned(totalEarnedMonth);
   }, [bounds.key, cycleStartDay, editState.isOpen]);
 
-  // EFFECT 2: Overall Target & Burn Rate (Tính từ lúc mới xài)
   useEffect(() => {
     const gGoals = JSON.parse(
       localStorage.getItem("vys_global_goals_history") || "{}",
@@ -165,29 +163,23 @@ export default function Goals() {
     let cumulativeEarned = 0;
     let cumulativeSpent = 0;
     let totalExpenseAllTime = 0;
-    let firstDate = new Date(); // Khởi tạo ngày hiện tại, sau đó lùi dần về ngày cũ nhất
+    let firstDate = new Date();
 
     transactions.forEach((t) => {
       const amount = Number(t.amount) || 0;
       if (t.date) {
         const d = new Date(t.date);
-
-        // Tìm ngày cũ nhất (Lúc mới xài app)
         if (d < firstDate) firstDate = d;
-
         if (d < bounds.end) {
           if (t.type === "expense") cumulativeSpent += amount;
           if (t.type === "income") cumulativeEarned += amount;
         }
-
-        // Cộng tổng chi tiêu toàn thời gian
         if (t.type === "expense") totalExpenseAllTime += amount;
       }
     });
 
     setHistoricalNetWorth(currentInitBal + cumulativeEarned - cumulativeSpent);
 
-    // Tính tổng số tháng từ lúc xài app tới giờ
     const now = new Date();
     const monthsActive = Math.max(
       1,
@@ -196,8 +188,6 @@ export default function Goals() {
         firstDate.getMonth() +
         1,
     );
-
-    // Trung bình chi tiêu mỗi tháng từ lúc xài app
     setAvgMonthlySpend(totalExpenseAllTime / monthsActive);
   }, [bounds.key, cycleStartDay, editState.isOpen]);
 
@@ -214,11 +204,22 @@ export default function Goals() {
     globalIncomeGoal > 0
       ? Math.max(0, Math.round((historicalNetWorth / globalIncomeGoal) * 100))
       : 0;
-
   const runwayMonths =
     avgMonthlySpend > 0 && historicalNetWorth > 0
       ? (historicalNetWorth / avgMonthlySpend).toFixed(1)
       : 0;
+
+  // TÍNH TOÁN VỊ TRÍ THANH PACING (TIẾN ĐỘ THÁNG NÀY)
+  const now = new Date();
+  let expectedPacePercent = 0;
+  let isCurrentCycle = false;
+
+  if (now >= bounds.start && now < bounds.end) {
+    isCurrentCycle = true;
+    const totalDays = Math.round((bounds.end - bounds.start) / 86400000);
+    const daysPassed = Math.floor((now - bounds.start) / 86400000) + 1;
+    expectedPacePercent = (daysPassed / totalDays) * 100;
+  }
 
   const openEdit = (type, currentVal) => {
     let title = "";
@@ -324,7 +325,6 @@ export default function Goals() {
           </h1>
         </div>
 
-        {/* Trả lại space-y-4 như cũ để các khối thoải mái */}
         <div
           className="flex-1 overflow-y-auto px-4 pt-4 pb-32 space-y-4 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
@@ -391,13 +391,27 @@ export default function Goals() {
                 {showMonthly ? `${spentPercent}%` : "**%"}
               </span>
             </div>
+
             <div
-              className={`h-2 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+              className={`h-2 rounded-full relative ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
+              {/* THANH THỰC TẾ CHI TIÊU */}
               <div
-                className={`h-full rounded-full transition-all duration-700 ease-out ${spentPercent >= 100 ? "bg-[#ff453a]" : "bg-gray-300"}`}
+                className={`absolute top-0 left-0 h-full rounded-full transition-all duration-700 ease-out ${spentPercent >= 100 ? "bg-[#ff453a]" : "bg-gray-300"}`}
                 style={{ width: `${Math.min(spentPercent, 100)}%` }}
               ></div>
+
+              {/* THANH ĐỊNH VỊ (PACING MARKER) */}
+              {isCurrentCycle && (
+                <div
+                  className={`absolute top-[-3px] bottom-[-3px] w-[2px] rounded-full z-10 shadow-sm ${theme === "dark" ? "bg-white" : "bg-black"}`}
+                  style={{
+                    left: `${Math.min(expectedPacePercent, 100)}%`,
+                    transform: "translateX(-50%)",
+                  }}
+                  title="Ideal pacing for today"
+                ></div>
+              )}
             </div>
           </div>
 
@@ -443,7 +457,6 @@ export default function Goals() {
             </div>
           </div>
 
-          {/* Dùng -mt-1 để ép khối Overall lại gần khối Monthly hơn mà không ảnh hưởng thẻ khác */}
           <div className="flex items-center gap-2 pb-0 ml-2 -mt-1">
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest">
               Overall Target
@@ -510,7 +523,6 @@ export default function Goals() {
               ></div>
             </div>
 
-            {/* BURN RATE DẠNG CHÌM */}
             {historicalNetWorth > 0 && avgMonthlySpend > 0 && (
               <div className="flex justify-between items-center text-[12px] text-[#8e8e93] mt-3 font-medium">
                 <span>
