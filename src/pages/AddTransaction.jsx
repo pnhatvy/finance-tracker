@@ -5,7 +5,6 @@ import { useAppContext } from "../AppContext";
 
 export default function AddTransaction() {
   const navigate = useNavigate();
-
   const { categories, theme, workHourlyRate } = useAppContext();
 
   const [amount, setAmount] = useState("0");
@@ -13,8 +12,16 @@ export default function AddTransaction() {
   const [note, setNote] = useState("");
   const [repeat, setRepeat] = useState("none");
 
-  // STATE MỚI: Bắt sự kiện đang gõ phím
-  const [isNoteFocused, setIsNoteFocused] = useState(false);
+  // STATE MỚI: Khóa cứng chiều cao thực tế của màn hình
+  const [appHeight, setAppHeight] = useState("100dvh");
+
+  useEffect(() => {
+    // Khi vừa mở trang, lấy chiều cao cố định của màn hình và khóa lại
+    // Điều này ngăn chặn trình duyệt bóp layout khi bàn phím bật lên
+    if (typeof window !== "undefined") {
+      setAppHeight(`${window.innerHeight}px`);
+    }
+  }, []);
 
   const getCurrentDate = () => {
     const now = new Date();
@@ -58,6 +65,7 @@ export default function AddTransaction() {
       startY = e.touches[0].clientY;
       isDragging = true;
       dragDirection = null;
+
       container.style.transition = "none";
       container.style.animation = "none";
     };
@@ -78,6 +86,7 @@ export default function AddTransaction() {
       if (dragDirection === "vertical" && diffY > 0) {
         e.preventDefault();
         currentY = diffY;
+
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
           container.style.transform = `translate3d(0, ${currentY}px, 0)`;
@@ -92,6 +101,7 @@ export default function AddTransaction() {
 
       container.style.transition =
         "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
+
       if (currentY > 150) {
         isClosing = true;
         container.style.transform = `translate3d(0, 100dvh, 0)`;
@@ -210,16 +220,20 @@ export default function AddTransaction() {
   return (
     <div
       ref={containerRef}
-      className={`flex flex-col h-[100dvh] p-5 overflow-hidden animate-ios-slide will-change-transform ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
-      style={{ paddingTop: "max(env(safe-area-inset-top), 20px)" }}
+      // Dùng appHeight để khóa cứng layout, loại bỏ hoàn toàn dãn nở
+      className={`flex flex-col p-5 overflow-hidden animate-ios-slide will-change-transform fixed inset-0 w-full ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
+      style={{
+        height: appHeight,
+        paddingTop: "max(env(safe-area-inset-top), 20px)",
+      }}
     >
-      <div className="w-full flex justify-center py-2 mb-2 pointer-events-none">
+      <div className="w-full flex justify-center py-2 mb-2 pointer-events-none flex-shrink-0">
         <div
           className={`w-14 h-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-300"}`}
         ></div>
       </div>
 
-      <div className="flex justify-between items-center mb-5">
+      <div className="flex justify-between items-center mb-5 flex-shrink-0">
         <button
           onClick={handleCloseButton}
           className={`p-1 active:opacity-50 flex-shrink-0 w-[42px] ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
@@ -248,7 +262,7 @@ export default function AddTransaction() {
         <div className="w-[42px] flex-shrink-0"></div>
       </div>
 
-      <div className="flex overflow-x-auto flex-nowrap gap-2.5 py-1 mb-3 scrollbar-hide items-center min-h-[50px]">
+      <div className="flex overflow-x-auto flex-nowrap gap-2.5 py-1 mb-3 scrollbar-hide items-center min-h-[50px] flex-shrink-0">
         {currentCategories.map((cat) => (
           <button
             key={cat.id}
@@ -306,132 +320,124 @@ export default function AddTransaction() {
           placeholder="+ Add note..."
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          // Bắt sự kiện đóng/mở bàn phím
-          onFocus={() => setIsNoteFocused(true)}
-          onBlur={() => setIsNoteFocused(false)}
           onTouchStart={(e) => e.stopPropagation()}
           className={`mt-2 bg-transparent text-center focus:outline-none w-3/4 py-1.5 ${theme === "dark" ? "text-[#8e8e93] placeholder:text-[#8e8e93]/50" : "text-gray-600 placeholder:text-gray-400"}`}
         />
       </div>
 
-      {/* ẨN CÁC KHỐI BÊN DƯỚI KHI BÀN PHÍM CHỮ HIỆN LÊN ĐỂ CHỐNG LỖI UI */}
-      <div
-        className={`transition-opacity duration-200 flex flex-col ${isNoteFocused ? "opacity-0 pointer-events-none absolute bottom-[-1000px]" : "opacity-100 relative mt-auto"}`}
-      >
-        <div className="flex gap-2 mb-4">
-          <div
-            className={`flex-[1.2] relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+      <div className="flex gap-2 mb-4 mt-auto flex-shrink-0">
+        <div
+          className={`flex-[1.2] relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+        >
+          <span
+            className={`font-semibold text-[12px] flex items-center gap-1.5 pointer-events-none ${theme === "dark" ? "text-white" : "text-black"}`}
           >
-            <span
-              className={`font-semibold text-[12px] flex items-center gap-1.5 pointer-events-none ${theme === "dark" ? "text-white" : "text-black"}`}
-            >
-              <Calendar size={14} className="text-[#32ade6]" />
-              {new Date(datePart).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              })}
-            </span>
-            <input
-              type="date"
-              value={datePart}
-              onChange={(e) => setDatePart(e.target.value)}
-              onTouchStart={(e) => e.stopPropagation()}
-              className="absolute inset-0 opacity-0 z-20 w-full h-full"
-            />
-          </div>
-          <div
-            className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
-          >
-            <span
-              className={`font-semibold text-[12px] flex items-center gap-1.5 pointer-events-none ${theme === "dark" ? "text-white" : "text-black"}`}
-            >
-              <Clock size={14} className="text-[#32ade6]" />
-              {timePart}
-            </span>
-            <input
-              type="time"
-              value={timePart}
-              onChange={(e) => setTimePart(e.target.value)}
-              onTouchStart={(e) => e.stopPropagation()}
-              className="absolute inset-0 opacity-0 z-20 w-full h-full"
-            />
-          </div>
-          <div
-            className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
-          >
-            <span
-              className={`font-semibold text-[12px] flex items-center gap-1.5 pointer-events-none capitalize ${theme === "dark" ? "text-white" : "text-black"}`}
-            >
-              <Repeat size={14} className="text-[#32ade6]" />
-              {repeat === "none" ? "None" : repeat}
-            </span>
-            <select
-              value={repeat}
-              onChange={(e) => setRepeat(e.target.value)}
-              onTouchStart={(e) => e.stopPropagation()}
-              className="absolute inset-0 opacity-0 z-20 w-full h-full"
-            >
-              <option value="none">None</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-              <option value="yearly">Yearly</option>
-            </select>
-          </div>
+            <Calendar size={14} className="text-[#32ade6]" />
+            {new Date(datePart).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+          <input
+            type="date"
+            value={datePart}
+            onChange={(e) => setDatePart(e.target.value)}
+            onTouchStart={(e) => e.stopPropagation()}
+            className="absolute inset-0 opacity-0 z-20 w-full h-full"
+          />
         </div>
+        <div
+          className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+        >
+          <span
+            className={`font-semibold text-[12px] flex items-center gap-1.5 pointer-events-none ${theme === "dark" ? "text-white" : "text-black"}`}
+          >
+            <Clock size={14} className="text-[#32ade6]" />
+            {timePart}
+          </span>
+          <input
+            type="time"
+            value={timePart}
+            onChange={(e) => setTimePart(e.target.value)}
+            onTouchStart={(e) => e.stopPropagation()}
+            className="absolute inset-0 opacity-0 z-20 w-full h-full"
+          />
+        </div>
+        <div
+          className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+        >
+          <span
+            className={`font-semibold text-[12px] flex items-center gap-1.5 pointer-events-none capitalize ${theme === "dark" ? "text-white" : "text-black"}`}
+          >
+            <Repeat size={14} className="text-[#32ade6]" />
+            {repeat === "none" ? "None" : repeat}
+          </span>
+          <select
+            value={repeat}
+            onChange={(e) => setRepeat(e.target.value)}
+            onTouchStart={(e) => e.stopPropagation()}
+            className="absolute inset-0 opacity-0 z-20 w-full h-full"
+          >
+            <option value="none">None</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+        </div>
+      </div>
 
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-            <button
-              key={num}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleKeyPress(num.toString());
-              }}
-              className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
-            >
-              {num}
-            </button>
-          ))}
+      <div className="grid grid-cols-3 gap-2 mb-4 flex-shrink-0">
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
           <button
+            key={num}
             onClick={(e) => {
               e.stopPropagation();
-              handleKeyPress(",");
+              handleKeyPress(num.toString());
             }}
             className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
           >
-            ,
+            {num}
           </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleKeyPress("0");
-            }}
-            className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
-          >
-            0
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDelete();
-            }}
-            className={`py-3 rounded-2xl flex items-center justify-center active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500 shadow-sm"}`}
-          >
-            <Delete size={26} />
-          </button>
-        </div>
-
+        ))}
         <button
           onClick={(e) => {
             e.stopPropagation();
-            handleSave();
+            handleKeyPress(",");
           }}
-          className={`w-full py-3.5 rounded-full font-bold text-[17px] active:scale-[0.98] transition-transform flex-shrink-0 ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
+          className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
         >
-          Save
+          ,
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleKeyPress("0");
+          }}
+          className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
+        >
+          0
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDelete();
+          }}
+          className={`py-3 rounded-2xl flex items-center justify-center active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500 shadow-sm"}`}
+        >
+          <Delete size={26} />
         </button>
       </div>
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          handleSave();
+        }}
+        className={`w-full py-3.5 rounded-full font-bold text-[17px] active:scale-[0.98] transition-transform flex-shrink-0 ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
+      >
+        Save
+      </button>
     </div>
   );
 }
