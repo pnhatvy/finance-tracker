@@ -12,20 +12,42 @@ export default function AddTransaction() {
   const [note, setNote] = useState("");
   const [repeat, setRepeat] = useState("none");
 
-  // Trạng thái theo dõi lúc ông bấm vào ô Note
   const [isNoteFocused, setIsNoteFocused] = useState(false);
-
-  // KHÓA CHIỀU CAO ĐỂ CHỐNG BÓP MÉO LAYOUT
   const [appHeight, setAppHeight] = useState("100dvh");
-  const containerRef = useRef(null);
 
+  const containerRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // 1. Chốt chiều cao thực tế khi mở app
   useEffect(() => {
-    // Chốt cứng chiều cao bằng pixel ngay khi mở app
-    // Cách này ngăn trình duyệt tự bóp xẹp trang khi bàn phím ảo hiện lên
     if (typeof window !== "undefined") {
       setAppHeight(`${window.innerHeight}px`);
     }
   }, []);
+
+  // 2. Tuyệt chiêu khóa cứng Body chống iOS tự động cuộn đẩy layout
+  useEffect(() => {
+    if (isNoteFocused) {
+      document.body.style.position = "fixed";
+      document.body.style.top = "0";
+      document.body.style.left = "0";
+      document.body.style.width = "100%";
+      window.scrollTo(0, 0);
+    } else {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.width = "";
+    }
+
+    // Cleanup khi component bị hủy
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.width = "";
+    };
+  }, [isNoteFocused]);
 
   const getCurrentDate = () => {
     const now = new Date();
@@ -130,7 +152,8 @@ export default function AddTransaction() {
     };
   }, [navigate]);
 
-  const handleCloseButton = () => {
+  const handleCloseButton = (e) => {
+    e.stopPropagation();
     if (containerRef.current) {
       containerRef.current.style.transition =
         "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
@@ -222,6 +245,12 @@ export default function AddTransaction() {
   return (
     <div
       ref={containerRef}
+      // Bắt sự kiện click ra ngoài để đóng bàn phím ảo
+      onClick={() => {
+        if (isNoteFocused) {
+          inputRef.current?.blur();
+        }
+      }}
       className={`flex flex-col p-5 overflow-hidden fixed top-0 left-0 w-full animate-ios-slide will-change-transform ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       style={{
         height: appHeight,
@@ -248,13 +277,19 @@ export default function AddTransaction() {
             className={`absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-full transition-all duration-300 ease-out ${type === "expense" ? "translate-x-0 bg-[#ff453a]" : "translate-x-[100%] bg-[#32d74b]"}`}
           ></div>
           <button
-            onClick={() => setType("expense")}
+            onClick={(e) => {
+              e.stopPropagation();
+              setType("expense");
+            }}
             className={`relative z-10 flex-1 py-1.5 text-sm font-semibold transition-colors duration-300 ${type === "expense" ? "text-white" : "text-[#8e8e93]"}`}
           >
             Expense
           </button>
           <button
-            onClick={() => setType("income")}
+            onClick={(e) => {
+              e.stopPropagation();
+              setType("income");
+            }}
             className={`relative z-10 flex-1 py-1.5 text-sm font-semibold transition-colors duration-300 ${type === "income" ? "text-white" : "text-[#8e8e93]"}`}
           >
             Income
@@ -317,23 +352,29 @@ export default function AddTransaction() {
         </div>
 
         <input
+          ref={inputRef}
           type="text"
           placeholder="+ Add note..."
           value={note}
           onChange={(e) => setNote(e.target.value)}
+          // Bắt sự kiện sớm nhất để ẩn phím số ngay lập tức
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            setIsNoteFocused(true);
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsNoteFocused(true);
+          }}
           onFocus={() => setIsNoteFocused(true)}
           onBlur={() => setIsNoteFocused(false)}
-          onTouchStart={(e) => e.stopPropagation()}
           className={`mt-2 bg-transparent text-center focus:outline-none w-3/4 py-1.5 ${theme === "dark" ? "text-[#8e8e93] placeholder:text-[#8e8e93]/50" : "text-gray-600 placeholder:text-gray-400"}`}
         />
       </div>
 
-      {/* 
-        SỬ DỤNG OPACITY ĐỂ ẨN ĐI (TÀNG HÌNH) MÀ KHÔNG LÀM MẤT KHÔNG GIAN BỐ CỤC 
-        Giúp Layout không bị đùn lên, không giật lag.
-      */}
+      {/* Dùng 'invisible' (visibility: hidden) để ẩn đi mà KHÔNG làm sụp form */}
       <div
-        className={`mt-auto flex flex-col flex-shrink-0 transition-opacity duration-300 ${isNoteFocused ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+        className={`mt-auto flex flex-col flex-shrink-0 transition-opacity duration-200 ${isNoteFocused ? "opacity-0 invisible" : "opacity-100 visible"}`}
       >
         <div className="flex gap-2 mb-4">
           <div
