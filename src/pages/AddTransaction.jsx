@@ -12,39 +12,16 @@ export default function AddTransaction() {
   const [note, setNote] = useState("");
   const [repeat, setRepeat] = useState("none");
 
-  // KHÓA CHIỀU CAO THỰC TẾ
+  // KHÓA CHIỀU CAO ĐỂ CHỐNG BÓP MÉO LAYOUT
   const [appHeight, setAppHeight] = useState("100dvh");
   const containerRef = useRef(null);
 
   useEffect(() => {
-    // 1. Chốt cứng chiều cao ngay khi mở app
+    // Chốt cứng chiều cao ngay khi mở app để Safari không bóp xẹp nút bấm.
+    // Loại bỏ hoàn toàn code giằng co với scroll để hệ điều hành trượt mượt mà.
     if (typeof window !== "undefined") {
       setAppHeight(`${window.innerHeight}px`);
     }
-
-    // 2. Khóa không cho trình duyệt tự động scroll khi focus vào ô Input
-    const preventScroll = () => window.scrollTo(0, 0);
-    window.addEventListener("scroll", preventScroll);
-
-    // 3. API VisualViewport: Bù trừ khoảng cách khi Safari cố đẩy trang lên
-    const vv = window.visualViewport;
-    if (!vv) return () => window.removeEventListener("scroll", preventScroll);
-
-    const handleVV = () => {
-      if (containerRef.current) {
-        // Safari đẩy lên bao nhiêu -> Kéo container xuống bấy nhiêu
-        containerRef.current.style.top = `${vv.offsetTop}px`;
-      }
-    };
-
-    vv.addEventListener("scroll", handleVV);
-    vv.addEventListener("resize", handleVV);
-
-    return () => {
-      window.removeEventListener("scroll", preventScroll);
-      vv.removeEventListener("scroll", handleVV);
-      vv.removeEventListener("resize", handleVV);
-    };
   }, []);
 
   const getCurrentDate = () => {
@@ -69,7 +46,7 @@ export default function AddTransaction() {
   const currentCategories = safeCategories.filter((c) => c.type === type);
   const [category, setCategory] = useState(currentCategories[0] || {});
 
-  // Logic vuốt để tắt Modal (Không xung đột với khóa layout ở trên)
+  // Logic vuốt để tắt Modal
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -242,7 +219,6 @@ export default function AddTransaction() {
   return (
     <div
       ref={containerRef}
-      // Dùng fixed top-0 left-0 và height chốt cứng để vô hiệu hóa sự kiện bóp layout của iOS
       className={`flex flex-col p-5 overflow-hidden animate-ios-slide will-change-transform fixed top-0 left-0 w-full ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       style={{
         height: appHeight,
