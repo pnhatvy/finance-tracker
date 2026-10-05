@@ -13,26 +13,32 @@ export default function AddTransaction() {
   const [repeat, setRepeat] = useState("none");
 
   const containerRef = useRef(null);
-  const numpadRef = useRef(null);
   const inputRef = useRef(null);
 
-  // 1. TIÊM CSS "KHÓA CHẾT" HỆ ĐIỀU HÀNH
+  // TUYỆT CHIÊU CANCEL LỰC ĐẨY CỦA IOS SAFARI
   useEffect(() => {
-    const style = document.createElement("style");
-    style.innerHTML = `
-      html, body, #root {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        overflow: hidden !important;
-        overscroll-behavior: none !important;
-        touch-action: none !important;
-      }
-    `;
-    document.head.appendChild(style);
-    return () => document.head.removeChild(style);
+    const vv = window.visualViewport;
+    const container = containerRef.current;
+    if (!vv || !container) return;
+
+    const handleVisualViewport = () => {
+      // Khi bàn phím hiện, iOS đẩy màn hình lên làm offsetTop > 0
+      // Ta kéo ngược container xuống một đoạn y hệt để nó đứng im
+      container.style.transform = `translateY(${vv.offsetTop}px)`;
+    };
+
+    vv.addEventListener("scroll", handleVisualViewport);
+    vv.addEventListener("resize", handleVisualViewport);
+
+    // Chặn cuộn trang ngoài ý muốn
+    const preventScroll = () => window.scrollTo(0, 0);
+    window.addEventListener("scroll", preventScroll);
+
+    return () => {
+      vv.removeEventListener("scroll", handleVisualViewport);
+      vv.removeEventListener("resize", handleVisualViewport);
+      window.removeEventListener("scroll", preventScroll);
+    };
   }, []);
 
   const getCurrentDate = () => {
@@ -77,7 +83,6 @@ export default function AddTransaction() {
       isDragging = true;
       dragDirection = null;
       container.style.transition = "none";
-      container.style.animation = "none";
     };
 
     const handleTouchMove = (e) => {
@@ -99,7 +104,11 @@ export default function AddTransaction() {
 
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
-          container.style.transform = `translate3d(0, ${currentY}px, 0)`;
+          // Cộng dồn offsetTop để không bị lệch nếu vuốt khi bàn phím đang hiện
+          const offset = window.visualViewport
+            ? window.visualViewport.offsetTop
+            : 0;
+          container.style.transform = `translateY(${currentY + offset}px)`;
         });
       }
     };
@@ -111,14 +120,17 @@ export default function AddTransaction() {
 
       container.style.transition =
         "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
+      const offset = window.visualViewport
+        ? window.visualViewport.offsetTop
+        : 0;
 
       if (currentY > 150) {
         isClosing = true;
-        container.style.transform = `translate3d(0, 100dvh, 0)`;
+        container.style.transform = `translateY(100dvh)`;
         setTimeout(() => navigate("/"), 300);
       } else {
         currentY = 0;
-        container.style.transform = `translate3d(0, 0px, 0)`;
+        container.style.transform = `translateY(${offset}px)`;
       }
     };
 
@@ -143,7 +155,7 @@ export default function AddTransaction() {
     if (containerRef.current) {
       containerRef.current.style.transition =
         "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
-      containerRef.current.style.transform = `translate3d(0, 100dvh, 0)`;
+      containerRef.current.style.transform = `translateY(100dvh)`;
     }
     setTimeout(() => navigate("/"), 300);
   };
@@ -228,32 +240,16 @@ export default function AddTransaction() {
     return hours > 0 ? hours : null;
   };
 
-  // 2. BYPASS REACT: Thao tác DOM trực tiếp ẩn phím số siêu tốc
-  const handleFocus = () => {
-    if (numpadRef.current) {
-      numpadRef.current.style.opacity = "0";
-      numpadRef.current.style.pointerEvents = "none";
-    }
-    // Quất thêm lệnh ép Safari cuộn về 0 chống trượt
-    window.scrollTo(0, 0);
-    setTimeout(() => window.scrollTo(0, 0), 10);
-  };
-
-  const handleBlur = () => {
-    if (numpadRef.current) {
-      numpadRef.current.style.opacity = "1";
-      numpadRef.current.style.pointerEvents = "auto";
-    }
-  };
-
   return (
     <div
       ref={containerRef}
-      // Khung bao ngoài cùng khóa chết tại chỗ
-      className={`flex flex-col p-5 overflow-hidden fixed inset-0 w-full h-[100vh] animate-ios-slide will-change-transform ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
-      style={{ paddingTop: "max(env(safe-area-inset-top), 20px)" }}
-      // Bấm ra ngoài là tự động thu bàn phím
-      onClick={() => inputRef.current?.blur()}
+      // Dùng h-[100dvh] chuẩn, loại bỏ các lệnh khoá chiều cao gây mất nút Save
+      className={`flex flex-col p-5 overflow-hidden fixed top-0 left-0 w-full h-[100dvh] animate-ios-slide will-change-transform ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
+      style={{
+        paddingTop: "max(env(safe-area-inset-top), 20px)",
+        paddingBottom: "max(env(safe-area-inset-bottom), 20px)",
+      }}
+      onClick={() => inputRef.current?.blur()} // Bấm ra ngoài để thu bàn phím
     >
       <div className="w-full flex justify-center py-2 mb-2 pointer-events-none flex-shrink-0">
         <div
@@ -322,7 +318,7 @@ export default function AddTransaction() {
         ))}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center min-h-[100px] relative flex-shrink-0">
+      <div className="flex-1 flex flex-col items-center justify-center min-h-0 relative flex-shrink">
         <span
           className={`text-xs uppercase tracking-wider mb-1 font-medium ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
         >
@@ -355,25 +351,13 @@ export default function AddTransaction() {
           placeholder="+ Add note..."
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleFocus();
-          }}
-          onTouchStart={(e) => {
-            e.stopPropagation();
-            handleFocus();
-          }}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
+          onClick={(e) => e.stopPropagation()}
           className={`mt-2 bg-transparent text-center focus:outline-none w-3/4 py-1.5 ${theme === "dark" ? "text-[#8e8e93] placeholder:text-[#8e8e93]/50" : "text-gray-600 placeholder:text-gray-400"}`}
         />
       </div>
 
-      {/* Khối bàn phím số bọc trong ref để JS thuần xử lý siêu tốc */}
-      <div
-        ref={numpadRef}
-        className="mt-auto flex flex-col flex-shrink-0 transition-opacity duration-200"
-      >
+      {/* KHÔNG ẨN, KHÔNG TÀNG HÌNH NỮA - Mọi thứ nằm yên tại chỗ */}
+      <div className="mt-auto flex flex-col flex-shrink-0 pt-2">
         <div className="flex gap-2 mb-4">
           <div
             className={`flex-[1.2] relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
