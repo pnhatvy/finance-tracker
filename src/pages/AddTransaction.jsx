@@ -12,6 +12,10 @@ export default function AddTransaction() {
   const [note, setNote] = useState("");
   const [repeat, setRepeat] = useState("none");
 
+  // STATE MỚI CHO TÍNH NĂNG GỢI Ý
+  const [pastNotes, setPastNotes] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+
   const containerRef = useRef(null);
 
   const getCurrentDate = () => {
@@ -36,7 +40,44 @@ export default function AddTransaction() {
   const currentCategories = safeCategories.filter((c) => c.type === type);
   const [category, setCategory] = useState(currentCategories[0] || {});
 
-  // KHÔI PHỤC HIỆU ỨNG TRƯỢT LÊN/XUỐNG ĐỂ TẮT (SWIPE TO CLOSE)
+  // 1. Quét lịch sử giao dịch để tạo "Từ điển" gợi ý
+  useEffect(() => {
+    const txs = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
+    const allNotes = txs
+      .map((t) => t.note)
+      .filter((n) => n && n.trim() !== "" && n !== "Expense" && n !== "Income");
+
+    // Lọc trùng lặp để mảng gợi ý luôn sạch sẽ
+    const uniqueNotes = [...new Set(allNotes)];
+    setPastNotes(uniqueNotes);
+  }, []);
+
+  // 2. Logic xử lý khi ông gõ chữ vào ô Note
+  const handleNoteChange = (e) => {
+    const val = e.target.value;
+    setNote(val);
+
+    if (val.trim()) {
+      // Tìm các note cũ có chứa từ đang gõ (không phân biệt hoa thường)
+      const matches = pastNotes.filter(
+        (n) =>
+          n.toLowerCase().includes(val.toLowerCase()) &&
+          n.toLowerCase() !== val.toLowerCase(),
+      );
+      // Chỉ hiện tối đa 3 gợi ý gần nhất cho gọn màn hình
+      setSuggestions(matches.slice(0, 3));
+    } else {
+      setSuggestions([]);
+    }
+  };
+
+  // 3. Logic chọn gợi ý
+  const acceptSuggestion = (s) => {
+    setNote(s);
+    setSuggestions([]);
+  };
+
+  // Khôi phục hiệu ứng trượt vuốt đóng trang
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -50,8 +91,6 @@ export default function AddTransaction() {
     let rafId = null;
 
     const handleTouchStart = (e) => {
-      // Chỉ cho phép trượt đóng khi màn hình đang ở tuốt trên cùng (scrollTop = 0)
-      // Nếu bàn phím hiện và người dùng đang cuộn xuống thì không kích hoạt đóng app
       if (container.scrollTop > 0) return;
       if (isClosing) return;
 
@@ -218,7 +257,6 @@ export default function AddTransaction() {
   return (
     <div
       ref={containerRef}
-      // Dùng h-[100dvh] chuẩn, bật overflow-y-auto để khi bàn phím hiện thì có thể cuộn xem nút Save
       className={`flex flex-col h-[100dvh] p-5 overflow-y-auto scrollbar-hide animate-ios-slide will-change-transform ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       style={{
         paddingTop: "max(env(safe-area-inset-top), 20px)",
@@ -286,7 +324,6 @@ export default function AddTransaction() {
         ))}
       </div>
 
-      {/* Cố định min-h để không bị bóp méo khi bàn phím đẩy lên */}
       <div className="flex-1 flex flex-col items-center justify-center min-h-[160px] relative flex-shrink-0">
         <span
           className={`text-xs uppercase tracking-wider mb-1 font-medium ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
@@ -314,14 +351,42 @@ export default function AddTransaction() {
           )}
         </div>
 
-        <input
-          type="text"
-          placeholder="+ Add note..."
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          onTouchStart={(e) => e.stopPropagation()}
-          className={`mt-2 bg-transparent text-center focus:outline-none w-3/4 py-1.5 ${theme === "dark" ? "text-[#8e8e93] placeholder:text-[#8e8e93]/50" : "text-gray-600 placeholder:text-gray-400"}`}
-        />
+        {/* CONTAINER CỦA Ô NHẬP VÀ DANH SÁCH GỢI Ý */}
+        <div className="relative w-full flex flex-col items-center">
+          <input
+            type="text"
+            placeholder="+ Add note..."
+            value={note}
+            onChange={handleNoteChange}
+            onTouchStart={(e) => e.stopPropagation()}
+            className={`mt-2 bg-transparent text-center focus:outline-none w-3/4 py-1.5 ${theme === "dark" ? "text-[#8e8e93] placeholder:text-[#8e8e93]/50" : "text-gray-600 placeholder:text-gray-400"}`}
+          />
+
+          {/* HIỂN THỊ GỢI Ý (AUTOCOMPLETE PILLS) */}
+          {suggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 flex justify-center flex-wrap gap-2 px-2 z-50">
+              {suggestions.map((s, idx) => (
+                <button
+                  key={idx}
+                  // Dùng onTouchStart kết hợp preventDefault để ấn vào gợi ý mà không bị mất focus bàn phím
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    acceptSuggestion(s);
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    acceptSuggestion(s);
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-[13px] font-medium truncate max-w-[150px] shadow-sm active:scale-95 transition-transform ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-white text-black border border-gray-200"}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2 mb-4 mt-auto flex-shrink-0 pt-4">
