@@ -12,15 +12,16 @@ export default function AddTransaction() {
   const [note, setNote] = useState("");
   const [repeat, setRepeat] = useState("none");
 
-  // Trạng thái theo dõi ô chữ
+  // Trạng thái theo dõi ô nhập chữ để tàng hình phím số
   const [isNoteFocused, setIsNoteFocused] = useState(false);
 
   // Khóa cứng chiều cao hiển thị để chống bóp layout
   const [appHeight, setAppHeight] = useState("100dvh");
   const containerRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
-    // Chốt chiều cao thực tế lúc vừa mở trang
+    // Chốt chiều cao thực tế lúc vừa mở trang để iOS không ép màn hình
     if (typeof window !== "undefined") {
       setAppHeight(`${window.innerHeight}px`);
     }
@@ -48,7 +49,7 @@ export default function AddTransaction() {
   const currentCategories = safeCategories.filter((c) => c.type === type);
   const [category, setCategory] = useState(currentCategories[0] || {});
 
-  // Logic vuốt để tắt Modal (Giữ nguyên vì vuốt rất êm)
+  // Logic vuốt để tắt Modal
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -227,6 +228,7 @@ export default function AddTransaction() {
         paddingTop: "max(env(safe-area-inset-top), 20px)",
         paddingBottom: "max(env(safe-area-inset-bottom), 20px)",
       }}
+      onClick={() => inputRef.current?.blur()} // Bấm ra ngoài là tự thu bàn phím
     >
       <div className="w-full flex justify-center py-2 mb-2 pointer-events-none flex-shrink-0">
         <div
@@ -323,18 +325,19 @@ export default function AddTransaction() {
         </div>
 
         <input
+          ref={inputRef}
           type="text"
           placeholder="+ Add note..."
           value={note}
           onChange={(e) => setNote(e.target.value)}
           onFocus={() => setIsNoteFocused(true)}
           onBlur={() => setIsNoteFocused(false)}
-          onTouchStart={(e) => e.stopPropagation()} // Chống chạm nhầm vuốt đóng trang
+          onClick={(e) => e.stopPropagation()} // Chống bấm nhầm để tắt bàn phím
           className={`mt-2 bg-transparent text-center focus:outline-none w-3/4 py-1.5 ${theme === "dark" ? "text-[#8e8e93] placeholder:text-[#8e8e93]/50" : "text-gray-600 placeholder:text-gray-400"}`}
         />
       </div>
 
-      {/* THANH NGÀY GIỜ: Không bao giờ bị ẩn, luôn hoạt động mượt mà */}
+      {/* THANH NGÀY GIỜ: Luôn hiển thị cứng tại chỗ */}
       <div className="flex gap-2 mb-4 mt-auto flex-shrink-0 pt-2">
         <div
           className={`flex-[1.2] relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
@@ -397,61 +400,62 @@ export default function AddTransaction() {
         </div>
       </div>
 
-      {/* BÀN PHÍM SỐ: Chỉ làm "tàng hình" giữ nguyên không gian khi gõ Note */}
+      {/* CỤM PHÍM SỐ & NÚT SAVE: Ẩn bằng opacity để giữ nguyên bộ khung Flexbox, triệt tiêu lỗi đẩy layout */}
       <div
-        className={`grid grid-cols-3 gap-2 mb-4 flex-shrink-0 transition-opacity duration-150 ${isNoteFocused ? "opacity-0 invisible pointer-events-none" : "opacity-100 visible"}`}
+        className={`flex flex-col flex-shrink-0 transition-opacity duration-200 ${isNoteFocused ? "opacity-0 pointer-events-none" : "opacity-100"}`}
       >
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+            <button
+              key={num}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleKeyPress(num.toString());
+              }}
+              className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
+            >
+              {num}
+            </button>
+          ))}
           <button
-            key={num}
             onClick={(e) => {
               e.stopPropagation();
-              handleKeyPress(num.toString());
+              handleKeyPress(",");
             }}
             className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
           >
-            {num}
+            ,
           </button>
-        ))}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleKeyPress("0");
+            }}
+            className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
+          >
+            0
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete();
+            }}
+            className={`py-3 rounded-2xl flex items-center justify-center active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500 shadow-sm"}`}
+          >
+            <Delete size={26} />
+          </button>
+        </div>
+
         <button
           onClick={(e) => {
             e.stopPropagation();
-            handleKeyPress(",");
+            handleSave();
           }}
-          className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
+          className={`w-full py-3.5 rounded-full font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
         >
-          ,
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleKeyPress("0");
-          }}
-          className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
-        >
-          0
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDelete();
-          }}
-          className={`py-3 rounded-2xl flex items-center justify-center active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500 shadow-sm"}`}
-        >
-          <Delete size={26} />
+          Save
         </button>
       </div>
-
-      {/* NÚT SAVE: Luôn nằm vững tại chỗ */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          handleSave();
-        }}
-        className={`w-full py-3.5 rounded-full font-bold text-[17px] active:scale-[0.98] transition-transform flex-shrink-0 ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
-      >
-        Save
-      </button>
     </div>
   );
 }
