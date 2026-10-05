@@ -12,15 +12,39 @@ export default function AddTransaction() {
   const [note, setNote] = useState("");
   const [repeat, setRepeat] = useState("none");
 
-  // STATE MỚI: Khóa cứng chiều cao thực tế của màn hình
+  // KHÓA CHIỀU CAO THỰC TẾ
   const [appHeight, setAppHeight] = useState("100dvh");
+  const containerRef = useRef(null);
 
   useEffect(() => {
-    // Khi vừa mở trang, lấy chiều cao cố định của màn hình và khóa lại
-    // Điều này ngăn chặn trình duyệt bóp layout khi bàn phím bật lên
+    // 1. Chốt cứng chiều cao ngay khi mở app
     if (typeof window !== "undefined") {
       setAppHeight(`${window.innerHeight}px`);
     }
+
+    // 2. Khóa không cho trình duyệt tự động scroll khi focus vào ô Input
+    const preventScroll = () => window.scrollTo(0, 0);
+    window.addEventListener("scroll", preventScroll);
+
+    // 3. API VisualViewport: Bù trừ khoảng cách khi Safari cố đẩy trang lên
+    const vv = window.visualViewport;
+    if (!vv) return () => window.removeEventListener("scroll", preventScroll);
+
+    const handleVV = () => {
+      if (containerRef.current) {
+        // Safari đẩy lên bao nhiêu -> Kéo container xuống bấy nhiêu
+        containerRef.current.style.top = `${vv.offsetTop}px`;
+      }
+    };
+
+    vv.addEventListener("scroll", handleVV);
+    vv.addEventListener("resize", handleVV);
+
+    return () => {
+      window.removeEventListener("scroll", preventScroll);
+      vv.removeEventListener("scroll", handleVV);
+      vv.removeEventListener("resize", handleVV);
+    };
   }, []);
 
   const getCurrentDate = () => {
@@ -45,8 +69,7 @@ export default function AddTransaction() {
   const currentCategories = safeCategories.filter((c) => c.type === type);
   const [category, setCategory] = useState(currentCategories[0] || {});
 
-  const containerRef = useRef(null);
-
+  // Logic vuốt để tắt Modal (Không xung đột với khóa layout ở trên)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -65,7 +88,6 @@ export default function AddTransaction() {
       startY = e.touches[0].clientY;
       isDragging = true;
       dragDirection = null;
-
       container.style.transition = "none";
       container.style.animation = "none";
     };
@@ -220,8 +242,8 @@ export default function AddTransaction() {
   return (
     <div
       ref={containerRef}
-      // Dùng appHeight để khóa cứng layout, loại bỏ hoàn toàn dãn nở
-      className={`flex flex-col p-5 overflow-hidden animate-ios-slide will-change-transform fixed inset-0 w-full ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
+      // Dùng fixed top-0 left-0 và height chốt cứng để vô hiệu hóa sự kiện bóp layout của iOS
+      className={`flex flex-col p-5 overflow-hidden animate-ios-slide will-change-transform fixed top-0 left-0 w-full ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       style={{
         height: appHeight,
         paddingTop: "max(env(safe-area-inset-top), 20px)",
@@ -288,7 +310,7 @@ export default function AddTransaction() {
         ))}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center min-h-[100px] relative">
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[100px] relative flex-shrink-0">
         <span
           className={`text-xs uppercase tracking-wider mb-1 font-medium ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
         >
