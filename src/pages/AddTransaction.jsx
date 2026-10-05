@@ -15,32 +15,6 @@ export default function AddTransaction() {
   const containerRef = useRef(null);
   const inputRef = useRef(null);
 
-  // TUYỆT CHIÊU CANCEL LỰC ĐẨY CỦA IOS SAFARI
-  useEffect(() => {
-    const vv = window.visualViewport;
-    const container = containerRef.current;
-    if (!vv || !container) return;
-
-    const handleVisualViewport = () => {
-      // Khi bàn phím hiện, iOS đẩy màn hình lên làm offsetTop > 0
-      // Ta kéo ngược container xuống một đoạn y hệt để nó đứng im
-      container.style.transform = `translateY(${vv.offsetTop}px)`;
-    };
-
-    vv.addEventListener("scroll", handleVisualViewport);
-    vv.addEventListener("resize", handleVisualViewport);
-
-    // Chặn cuộn trang ngoài ý muốn
-    const preventScroll = () => window.scrollTo(0, 0);
-    window.addEventListener("scroll", preventScroll);
-
-    return () => {
-      vv.removeEventListener("scroll", handleVisualViewport);
-      vv.removeEventListener("resize", handleVisualViewport);
-      window.removeEventListener("scroll", preventScroll);
-    };
-  }, []);
-
   const getCurrentDate = () => {
     const now = new Date();
     const tzOffset = now.getTimezoneOffset() * 60000;
@@ -63,7 +37,7 @@ export default function AddTransaction() {
   const currentCategories = safeCategories.filter((c) => c.type === type);
   const [category, setCategory] = useState(currentCategories[0] || {});
 
-  // Logic vuốt để tắt Modal
+  // Logic vuốt để tắt Modal (Giữ nguyên vì chạy rất mượt)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -104,11 +78,7 @@ export default function AddTransaction() {
 
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
-          // Cộng dồn offsetTop để không bị lệch nếu vuốt khi bàn phím đang hiện
-          const offset = window.visualViewport
-            ? window.visualViewport.offsetTop
-            : 0;
-          container.style.transform = `translateY(${currentY + offset}px)`;
+          container.style.transform = `translate3d(0, ${currentY}px, 0)`;
         });
       }
     };
@@ -120,17 +90,14 @@ export default function AddTransaction() {
 
       container.style.transition =
         "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
-      const offset = window.visualViewport
-        ? window.visualViewport.offsetTop
-        : 0;
 
       if (currentY > 150) {
         isClosing = true;
-        container.style.transform = `translateY(100dvh)`;
+        container.style.transform = `translate3d(0, 100dvh, 0)`;
         setTimeout(() => navigate("/"), 300);
       } else {
         currentY = 0;
-        container.style.transform = `translateY(${offset}px)`;
+        container.style.transform = `translate3d(0, 0px, 0)`;
       }
     };
 
@@ -155,7 +122,7 @@ export default function AddTransaction() {
     if (containerRef.current) {
       containerRef.current.style.transition =
         "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
-      containerRef.current.style.transform = `translateY(100dvh)`;
+      containerRef.current.style.transform = `translate3d(0, 100dvh, 0)`;
     }
     setTimeout(() => navigate("/"), 300);
   };
@@ -243,13 +210,14 @@ export default function AddTransaction() {
   return (
     <div
       ref={containerRef}
-      // Dùng h-[100dvh] chuẩn, loại bỏ các lệnh khoá chiều cao gây mất nút Save
-      className={`flex flex-col p-5 overflow-hidden fixed top-0 left-0 w-full h-[100dvh] animate-ios-slide will-change-transform ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
+      // Khai báo class 'group' để bắt sự kiện focus bằng CSS thuần, bỏ hết JS hack
+      className={`group flex flex-col p-5 overflow-hidden w-full h-[100dvh] animate-ios-slide will-change-transform ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
       style={{
         paddingTop: "max(env(safe-area-inset-top), 20px)",
         paddingBottom: "max(env(safe-area-inset-bottom), 20px)",
       }}
-      onClick={() => inputRef.current?.blur()} // Bấm ra ngoài để thu bàn phím
+      // Bấm ra ngoài là tự thu bàn phím
+      onClick={() => inputRef.current?.blur()}
     >
       <div className="w-full flex justify-center py-2 mb-2 pointer-events-none flex-shrink-0">
         <div
@@ -356,8 +324,10 @@ export default function AddTransaction() {
         />
       </div>
 
-      {/* KHÔNG ẨN, KHÔNG TÀNG HÌNH NỮA - Mọi thứ nằm yên tại chỗ */}
-      <div className="mt-auto flex flex-col flex-shrink-0 pt-2">
+      {/* TUYỆT CHIÊU group-focus-within: 
+          Khi ô Input bên trên có Focus, cụm Numpad này lập tức TÀNG HÌNH siêu tốc bằng CSS,
+          giúp giải phóng không gian cho bàn phím iOS mở lên mà không bị đẩy hay giật. */}
+      <div className="mt-auto flex-col flex-shrink-0 pt-2 flex group-focus-within:hidden">
         <div className="flex gap-2 mb-4">
           <div
             className={`flex-[1.2] relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
