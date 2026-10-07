@@ -13,16 +13,18 @@ export default function Analytics() {
 
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // MẶC ĐỊNH MỞ RA LÀ XEM LIMIT (Theo đúng ý ông)
+  // STATE MỚI CHO LIMITS
   const [catViewMode, setCatViewMode] = useState("limit");
-  const [catLimits, setCatLimits] = useState({});
+  const [catLimits, setCatLimits] = useState({}); // Limit áp dụng cho tất cả các tháng
+  const [monthlyCatLimits, setMonthlyCatLimits] = useState({}); // Limit chèn (override) riêng cho từng tháng cụ thể
+
   const [showLimitModal, setShowLimitModal] = useState(false);
+  const [limitScope, setLimitScope] = useState("all"); // "all" | "month"
   const [limitForm, setLimitForm] = useState({ categoryId: null, amount: "0" });
 
   const [, setGoalsTrigger] = useState(0);
-  const rawDataRef = useRef({ tx: "", goals: "", limits: "" });
+  const rawDataRef = useRef({ tx: "", goals: "", limits: "", mLimits: "" });
 
   useEffect(() => {
     const loadData = () => {
@@ -35,7 +37,6 @@ export default function Analytics() {
       const gRaw1 = localStorage.getItem("vys_monthly_goals") || "{}";
       const gRaw2 = localStorage.getItem("vys_global_goals") || "{}";
       const combinedGoals = gRaw1 + gRaw2;
-
       if (combinedGoals !== rawDataRef.current.goals) {
         rawDataRef.current.goals = combinedGoals;
         setGoalsTrigger((prev) => prev + 1);
@@ -45,6 +46,13 @@ export default function Analytics() {
       if (limitsRaw !== rawDataRef.current.limits) {
         rawDataRef.current.limits = limitsRaw;
         setCatLimits(JSON.parse(limitsRaw));
+      }
+
+      const mLimitsRaw =
+        localStorage.getItem("vys_monthly_category_limits") || "{}";
+      if (mLimitsRaw !== rawDataRef.current.mLimits) {
+        rawDataRef.current.mLimits = mLimitsRaw;
+        setMonthlyCatLimits(JSON.parse(mLimitsRaw));
       }
     };
 
@@ -105,6 +113,7 @@ export default function Analytics() {
       end = new Date(start);
       end.setMonth(end.getMonth() + 1);
 
+      // Tạo key chuẩn để lưu override limit (Vd: 10-2026)
       monthKey = `${start.getMonth() + 1}-${start.getFullYear()}`;
 
       if (cycleStartDay === 1) {
@@ -133,9 +142,8 @@ export default function Analytics() {
     if (glob.expense !== undefined) currentBudget = Number(glob.expense);
     else if (glob.budget !== undefined) currentBudget = Number(glob.budget);
 
-    if (glob.income !== undefined) currentIncomeGoal = Number(glob.income);
-    else if (glob.incomeGoal !== undefined)
-      currentIncomeGoal = Number(glob.incomeGoal);
+    if (glob.income !== undefined)
+      currentIncomeGoal = Number(glob.incomeGoal || glob.income);
 
     if (timeFilter === "month" && bounds.start) {
       const monthObj = JSON.parse(
@@ -254,32 +262,106 @@ export default function Analytics() {
     : [];
   const catTotal = catTransactions.reduce((sum, t) => sum + t.amount, 0);
 
-  // ĐIỀU KIỆN CHỈ HIỂN THỊ LIMIT KHI: Cột Expense + Tab Month
+  // LOGIC: Chỉ hiển thị Limit khi xem Expense + Month
   const isLimitApplicable = typeFilter === "expense" && timeFilter === "month";
   const currentViewMode = isLimitApplicable ? catViewMode : "percent";
 
+  const loadFormForCat = (catId) => {
+    const currentMonthKey = bounds.monthKey;
+    const localLimit = monthlyCatLimits[currentMonthKey]?.[catId];
+    const globalLimit = catLimits[catId];
+
+    if (localLimit !== undefined) {
+      setLimitForm({
+        categoryId: catId,
+        amount: localLimit.toString().replace(".", ","),
+      });
+      setLimitScope("month");
+    } else if (globalLimit !== undefined) {
+      setLimitForm({
+        categoryId: catId,
+        amount: globalLimit.toString().replace(".", ","),
+      });
+      setLimitScope("all");
+    } else {
+      setLimitForm({ categoryId: catId, amount: "0" });
+      setLimitScope("all");
+    }
+  };
+
   const openLimitModal = () => {
     const activeCats = categories.filter((c) => c.type === typeFilter);
-    if (activeCats.length > 0) {
-      const amt = catLimits[activeCats[0].id]
-        ? catLimits[activeCats[0].id].toString().replace(".", ",")
-        : "0";
-      setLimitForm({ categoryId: activeCats[0].id, amount: amt });
-    }
+    if (activeCats.length > 0) loadFormForCat(activeCats[0].id);
     setShowLimitModal(true);
   };
 
   const handleSaveLimit = () => {
     if (!limitForm.categoryId) return;
     const numericAmount = Number(limitForm.amount.toString().replace(",", "."));
-    const newLimits = { ...catLimits };
-    if (numericAmount > 0) {
-      newLimits[limitForm.categoryId] = numericAmount;
-    } else {
-      delete newLimits[limitForm.categoryId];
+    const currentMonthKey = bounds.monthKey;
+
+    // NẾU NHẬP 0 => Xóa sạch cả limit chung lẫn limit riêng của tháng đó để đỡ dính rác
+    if (numericAmount === 0) {
+      const newGlobalLimits = { ...catLimits };
+      delete newGlobalLimits[limitForm.categoryId];
+      setCatLimits(newGlobalLimits);
+      localStorage.setItem(
+        "vys_category_limits",
+        JSON.stringify(newGlobalLimits),
+      );
+
+      const newMonthlyLimits = { ...monthlyCatLimits };
+      if (newMonthlyLimits[currentMonthKey]) {
+        delete newMonthlyLimits[currentMonthKey][limitForm.categoryId];
+        if (Object.keys(newMonthlyLimits[currentMonthKey]).length === 0)
+          delete newMonthlyLimits[currentMonthKey];
+        setMonthlyCatLimits(newMonthlyLimits);
+        localStorage.setItem(
+          "vys_monthly_category_limits",
+          JSON.stringify(newMonthlyLimits),
+        );
+      }
     }
-    setCatLimits(newLimits);
-    localStorage.setItem("vys_category_limits", JSON.stringify(newLimits));
+    // CHỌN LƯU CHO THÁNG NÀY
+    else if (limitScope === "month") {
+      const newMonthlyLimits = { ...monthlyCatLimits };
+      if (!newMonthlyLimits[currentMonthKey])
+        newMonthlyLimits[currentMonthKey] = {};
+      newMonthlyLimits[currentMonthKey][limitForm.categoryId] = numericAmount;
+
+      setMonthlyCatLimits(newMonthlyLimits);
+      localStorage.setItem(
+        "vys_monthly_category_limits",
+        JSON.stringify(newMonthlyLimits),
+      );
+    }
+    // CHỌN LƯU CHO TẤT CẢ CÁC THÁNG
+    else {
+      const newGlobalLimits = { ...catLimits };
+      newGlobalLimits[limitForm.categoryId] = numericAmount;
+      setCatLimits(newGlobalLimits);
+      localStorage.setItem(
+        "vys_category_limits",
+        JSON.stringify(newGlobalLimits),
+      );
+
+      // Xóa cái override riêng của tháng này (nếu có) để nó ăn theo cái chung vừa sửa
+      const newMonthlyLimits = { ...monthlyCatLimits };
+      if (
+        newMonthlyLimits[currentMonthKey] &&
+        newMonthlyLimits[currentMonthKey][limitForm.categoryId] !== undefined
+      ) {
+        delete newMonthlyLimits[currentMonthKey][limitForm.categoryId];
+        if (Object.keys(newMonthlyLimits[currentMonthKey]).length === 0)
+          delete newMonthlyLimits[currentMonthKey];
+        setMonthlyCatLimits(newMonthlyLimits);
+        localStorage.setItem(
+          "vys_monthly_category_limits",
+          JSON.stringify(newMonthlyLimits),
+        );
+      }
+    }
+
     setShowLimitModal(false);
   };
 
@@ -526,9 +608,17 @@ export default function Analytics() {
                 let isOver = false;
 
                 if (currentViewMode === "limit") {
-                  const rawLimit = catLimits[cat.id];
-                  if (rawLimit) {
-                    limitAmt = rawLimit;
+                  const currentMonthKey = bounds.monthKey;
+                  // Ưu tiên check Override của tháng này trước, nếu không có mới lấy Limit dùng chung
+                  const localLimit =
+                    monthlyCatLimits[currentMonthKey]?.[cat.id];
+                  const globalLimit = catLimits[cat.id];
+
+                  const activeLimit =
+                    localLimit !== undefined ? localLimit : globalLimit;
+
+                  if (activeLimit) {
+                    limitAmt = activeLimit;
                     displayPercent = (cat.spent / limitAmt) * 100;
                     isOver = displayPercent > 100;
                   } else {
@@ -563,9 +653,7 @@ export default function Analytics() {
                       </div>
 
                       <div className="flex items-center justify-between gap-4">
-                        {/* WRAPPER THANH TIẾN TRÌNH */}
                         <div className="flex-1 h-1.5 relative flex items-center">
-                          {/* Lớp nền và màu hiển thị % bị overflow-hidden */}
                           <div
                             className={`absolute inset-0 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-200"}`}
                           >
@@ -582,20 +670,17 @@ export default function Analytics() {
                               ></div>
                             )}
                           </div>
-
-                          {/* THANH MẢNH CHẠY THEO NGÀY (THÒ RA NGOÀI VÌ KHÔNG BỊ OVERFLOW-HIDDEN) */}
                           {currentViewMode === "limit" &&
                             limitAmt &&
                             isCurrentPeriod && (
                               <div
-                                className={`absolute h-[14px] w-[2.5px] rounded-full z-10 shadow-sm ${theme === "dark" ? "bg-white" : "bg-black"}`}
+                                className={`absolute -top-1.5 -bottom-1.5 w-[3px] rounded-full z-10 shadow-sm ${theme === "dark" ? "bg-white" : "bg-black"}`}
                                 style={{
-                                  left: `calc(${Math.min(pacePercent, 100)}% - 1.25px)`,
+                                  left: `calc(${Math.min(pacePercent, 100)}% - 1.5px)`,
                                 }}
                               ></div>
                             )}
                         </div>
-
                         <span
                           className={`text-[12px] font-bold min-w-[32px] text-right ${isOver ? "text-[#ff453a]" : "text-[#8e8e93]"}`}
                         >
@@ -634,8 +719,8 @@ export default function Analytics() {
             className={`w-full max-w-md mx-auto rounded-t-3xl p-5 pb-10 shadow-2xl animate-ios-slide ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black"}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="font-bold text-lg">Category Limit (Monthly)</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-bold text-lg">Category Limit</h2>
               <button
                 onClick={() => setShowLimitModal(false)}
                 className={`p-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
@@ -644,9 +729,23 @@ export default function Analytics() {
               </button>
             </div>
 
-            <p className="text-[#8e8e93] text-sm mb-3">
-              Select a category to set its monthly limit (Set to 0 to remove).
-            </p>
+            {/* THANH GẠT ĐIỀU KIỂN: APPLY ALL MONTHS vs THIS MONTH ONLY */}
+            <div
+              className={`flex rounded-xl p-1 mb-5 w-full ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-200"}`}
+            >
+              <button
+                onClick={() => setLimitScope("all")}
+                className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-colors duration-200 ${limitScope === "all" ? (theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-white text-black shadow-sm") : theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
+              >
+                All Months
+              </button>
+              <button
+                onClick={() => setLimitScope("month")}
+                className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-colors duration-200 ${limitScope === "month" ? (theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-white text-black shadow-sm") : theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
+              >
+                This Month Only
+              </button>
+            </div>
 
             <div className="flex overflow-x-auto flex-nowrap gap-3 mb-6 pb-2 scrollbar-hide">
               {categories
@@ -654,12 +753,7 @@ export default function Analytics() {
                 .map((cat) => (
                   <button
                     key={cat.id}
-                    onClick={() => {
-                      const amt = catLimits[cat.id]
-                        ? catLimits[cat.id].toString().replace(".", ",")
-                        : "0";
-                      setLimitForm({ categoryId: cat.id, amount: amt });
-                    }}
+                    onClick={() => loadFormForCat(cat.id)}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap transition-all border flex-shrink-0 ${limitForm.categoryId === cat.id ? (theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-200") : theme === "dark" ? "bg-[#2c2c2e]/40 border-transparent text-[#8e8e93]" : "bg-gray-50 border-transparent text-gray-400"}`}
                     style={{
                       borderColor:
@@ -678,19 +772,22 @@ export default function Analytics() {
                 ))}
             </div>
 
-            {/* KHUNG NHẬP TIỀN AUTO XOÁ SỐ 0 VÀ CÓ NÚT DELETE GÓC PHẢI */}
             <div className="relative w-full mb-6">
               <input
                 type="text"
                 inputMode="decimal"
                 placeholder="0"
-                value={formatDisplayAmount(limitForm.amount)}
+                value={
+                  limitForm.amount === "0"
+                    ? ""
+                    : formatDisplayAmount(limitForm.amount)
+                }
                 onChange={(e) => {
                   let val = e.target.value
                     .replace(/\./g, "")
                     .replace(/[^0-9,]/g, "");
                   if (val.split(",").length > 2) val = val.slice(0, -1);
-                  if (val === "") val = "0"; // Lưu biến 0 ngầm để save sẽ remove limit
+                  if (val === "") val = "0";
                   setLimitForm({ ...limitForm, amount: val });
                 }}
                 className={`w-full rounded-2xl px-12 py-4 outline-none font-bold text-[24px] text-center ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}

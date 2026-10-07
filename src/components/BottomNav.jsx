@@ -8,8 +8,9 @@ export default function BottomNav() {
   const { theme } = useAppContext();
 
   const navItems = [
-    { id: "/", icon: List, label: "History" },
-    { id: "/analytics", icon: PieChart, label: "Analytics" },
+    // Đã fix: Đổi id thành đường dẫn chuẩn và dùng đúng icon List
+    { id: "/history", icon: List, label: "History" },
+    { id: "/", icon: PieChart, label: "Analytics" },
     { id: "add", icon: Plus, label: "Add", isAdd: true },
     { id: "/goals", icon: Target, label: "Goals" },
     { id: "/settings", icon: Settings, label: "Settings" },
