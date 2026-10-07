@@ -95,6 +95,7 @@ export default function Goals() {
   const bounds = getPeriodBounds();
 
   useEffect(() => {
+    // FIX: TÍNH TOÁN CHUẨN XÁC AUTO SUM TỪ LIMITS (TRỘN ALL + MONTHLY)
     const calcAutoBudgetFromLimits = () => {
       const gLimits = JSON.parse(
         localStorage.getItem("vys_category_limits") || "{}",
@@ -105,9 +106,18 @@ export default function Goals() {
       const currentLocalLimits = mLimitsData[bounds.key] || {};
 
       let sum = 0;
-      const mergedLimits = { ...gLimits, ...currentLocalLimits };
-      Object.values(mergedLimits).forEach((val) => {
-        sum += Number(val) || 0;
+      const allCategoryIds = new Set([
+        ...Object.keys(gLimits),
+        ...Object.keys(currentLocalLimits),
+      ]);
+
+      allCategoryIds.forEach((catId) => {
+        // Ưu tiên lấy limit của tháng này, nếu không có mới lấy limit chung
+        const activeVal =
+          currentLocalLimits[catId] !== undefined
+            ? currentLocalLimits[catId]
+            : gLimits[catId];
+        sum += Number(activeVal) || 0;
       });
       return sum;
     };
@@ -116,10 +126,11 @@ export default function Goals() {
       localStorage.getItem("vys_monthly_goals") || "{}",
     );
 
-    // Ưu tiên đọc budget ghi đè riêng của tháng này. Nếu không có mới xài Auto Sum
+    // Nếu người dùng có set Budget riêng cho tháng này (Bằng bút chì) thì xài
     if (mGoals[bounds.key] && mGoals[bounds.key].budget !== undefined) {
       setMonthlyBudget(mGoals[bounds.key].budget);
     } else {
+      // Nếu không, tự động tính tổng từ các Category Limits
       setMonthlyBudget(calcAutoBudgetFromLimits());
     }
 
@@ -396,7 +407,6 @@ export default function Goals() {
               <span className="text-[13px] font-semibold text-[#8e8e93]">
                 Expense Budget
               </span>
-              {/* KHÔI PHỤC LẠI NÚT BÚT CHÌ VÀ BỎ DÒNG TEXT AUTO-SUM */}
               <button
                 onClick={() => openEdit("m_budget", activeBudget)}
                 className="text-[#8e8e93] active:opacity-50 p-1"
