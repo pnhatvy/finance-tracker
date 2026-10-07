@@ -14,17 +14,18 @@ export default function Analytics() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
 
-  // STATE MỚI CHO LIMITS
   const [catViewMode, setCatViewMode] = useState("limit");
-  const [catLimits, setCatLimits] = useState({}); // Limit áp dụng cho tất cả các tháng
-  const [monthlyCatLimits, setMonthlyCatLimits] = useState({}); // Limit chèn (override) riêng cho từng tháng cụ thể
+  const [catLimits, setCatLimits] = useState({});
+  const [monthlyCatLimits, setMonthlyCatLimits] = useState({});
 
   const [showLimitModal, setShowLimitModal] = useState(false);
-  const [limitScope, setLimitScope] = useState("all"); // "all" | "month"
+  const [limitScope, setLimitScope] = useState("all");
   const [limitForm, setLimitForm] = useState({ categoryId: null, amount: "0" });
 
   const [, setGoalsTrigger] = useState(0);
   const rawDataRef = useRef({ tx: "", goals: "", limits: "", mLimits: "" });
+
+  const detailContainerRef = useRef(null);
 
   useEffect(() => {
     const loadData = () => {
@@ -86,17 +87,13 @@ export default function Analytics() {
         base.getDate(),
       );
       targetDate.setDate(targetDate.getDate() + offset * 7);
-
       const dayOfWeek = targetDate.getDay();
       const distToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-
       start = new Date(targetDate);
       start.setDate(targetDate.getDate() - distToMonday);
       start.setHours(0, 0, 0, 0);
-
       end = new Date(start);
       end.setDate(start.getDate() + 7);
-
       let endLabel = new Date(end);
       endLabel.setDate(endLabel.getDate() - 1);
       label = `${months[start.getMonth()]} ${start.getDate()} - ${months[endLabel.getMonth()]} ${endLabel.getDate()}`;
@@ -112,10 +109,7 @@ export default function Analytics() {
       start = new Date(currentStart);
       end = new Date(start);
       end.setMonth(end.getMonth() + 1);
-
-      // Tạo key chuẩn để lưu override limit (Vd: 10-2026)
       monthKey = `${start.getMonth() + 1}-${start.getFullYear()}`;
-
       if (cycleStartDay === 1) {
         label = `${months[start.getMonth()]} ${start.getFullYear()}`;
       } else {
@@ -141,7 +135,6 @@ export default function Analytics() {
     const glob = JSON.parse(localStorage.getItem("vys_global_goals") || "{}");
     if (glob.expense !== undefined) currentBudget = Number(glob.expense);
     else if (glob.budget !== undefined) currentBudget = Number(glob.budget);
-
     if (glob.income !== undefined)
       currentIncomeGoal = Number(glob.incomeGoal || glob.income);
 
@@ -163,7 +156,6 @@ export default function Analytics() {
             currentBudget = Number(monthObj[k].expense);
           else if (monthObj[k].budget !== undefined)
             currentBudget = Number(monthObj[k].budget);
-
           if (monthObj[k].income !== undefined)
             currentIncomeGoal = Number(monthObj[k].income);
           else if (monthObj[k].incomeGoal !== undefined)
@@ -209,6 +201,95 @@ export default function Analytics() {
     setShowDetail(false);
     setTimeout(() => setSelectedCategory(null), 300);
   };
+
+  // LOGIC VUỐT ĐỂ ĐÓNG TRANG DETAIL
+  useEffect(() => {
+    const container = detailContainerRef.current;
+    if (!container || !showDetail) return;
+
+    let startY = 0,
+      startX = 0,
+      currentY = 0;
+    let isDragging = false,
+      isClosing = false,
+      dragDirection = null;
+    let rafId = null;
+
+    const handleTouchStart = (e) => {
+      // Chỉ kích hoạt khi cuộn lên kịch trần (scrollTop = 0)
+      if (container.scrollTop > 0 || isClosing) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      isDragging = true;
+      dragDirection = null;
+      container.style.transition = "none";
+    };
+
+    const handleTouchMove = (e) => {
+      if (!isDragging || isClosing) return;
+
+      const diffX = e.touches[0].clientX - startX;
+      const diffY = e.touches[0].clientY - startY;
+
+      // Phân tích hướng vuốt, nếu vuốt ngang nhiều hơn thì bỏ qua không kéo trang xuống
+      if (!dragDirection) {
+        if (Math.abs(diffX) > Math.abs(diffY)) dragDirection = "horizontal";
+        else dragDirection = "vertical";
+      }
+
+      if (dragDirection === "horizontal") return;
+
+      if (
+        dragDirection === "vertical" &&
+        diffY > 0 &&
+        container.scrollTop <= 0
+      ) {
+        e.preventDefault();
+        currentY = diffY;
+
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          container.style.transform = `translate3d(0, ${currentY}px, 0)`;
+        });
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (!isDragging || isClosing) return;
+      isDragging = false;
+      if (rafId) cancelAnimationFrame(rafId);
+
+      container.style.transition =
+        "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
+
+      if (currentY > 150) {
+        isClosing = true;
+        container.style.transform = `translate3d(0, 100dvh, 0)`;
+        closeDetail(); // Kích hoạt tắt state
+        setTimeout(() => {
+          container.style.transform = "";
+        }, 300);
+      } else {
+        currentY = 0;
+        container.style.transform = `translate3d(0, 0px, 0)`;
+      }
+    };
+
+    container.addEventListener("touchstart", handleTouchStart, {
+      passive: false,
+    });
+    container.addEventListener("touchmove", handleTouchMove, {
+      passive: false,
+    });
+    container.addEventListener("touchend", handleTouchEnd);
+
+    return () => {
+      container.removeEventListener("touchstart", handleTouchStart);
+      container.removeEventListener("touchmove", handleTouchMove);
+      container.removeEventListener("touchend", handleTouchEnd);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [showDetail]);
 
   let totalAmount = 0;
   let catMap = {};
@@ -262,7 +343,6 @@ export default function Analytics() {
     : [];
   const catTotal = catTransactions.reduce((sum, t) => sum + t.amount, 0);
 
-  // LOGIC: Chỉ hiển thị Limit khi xem Expense + Month
   const isLimitApplicable = typeFilter === "expense" && timeFilter === "month";
   const currentViewMode = isLimitApplicable ? catViewMode : "percent";
 
@@ -300,7 +380,6 @@ export default function Analytics() {
     const numericAmount = Number(limitForm.amount.toString().replace(",", "."));
     const currentMonthKey = bounds.monthKey;
 
-    // NẾU NHẬP 0 => Xóa sạch cả limit chung lẫn limit riêng của tháng đó để đỡ dính rác
     if (numericAmount === 0) {
       const newGlobalLimits = { ...catLimits };
       delete newGlobalLimits[limitForm.categoryId];
@@ -321,9 +400,7 @@ export default function Analytics() {
           JSON.stringify(newMonthlyLimits),
         );
       }
-    }
-    // CHỌN LƯU CHO THÁNG NÀY
-    else if (limitScope === "month") {
+    } else if (limitScope === "month") {
       const newMonthlyLimits = { ...monthlyCatLimits };
       if (!newMonthlyLimits[currentMonthKey])
         newMonthlyLimits[currentMonthKey] = {};
@@ -334,9 +411,7 @@ export default function Analytics() {
         "vys_monthly_category_limits",
         JSON.stringify(newMonthlyLimits),
       );
-    }
-    // CHỌN LƯU CHO TẤT CẢ CÁC THÁNG
-    else {
+    } else {
       const newGlobalLimits = { ...catLimits };
       newGlobalLimits[limitForm.categoryId] = numericAmount;
       setCatLimits(newGlobalLimits);
@@ -345,7 +420,6 @@ export default function Analytics() {
         JSON.stringify(newGlobalLimits),
       );
 
-      // Xóa cái override riêng của tháng này (nếu có) để nó ăn theo cái chung vừa sửa
       const newMonthlyLimits = { ...monthlyCatLimits };
       if (
         newMonthlyLimits[currentMonthKey] &&
@@ -609,11 +683,9 @@ export default function Analytics() {
 
                 if (currentViewMode === "limit") {
                   const currentMonthKey = bounds.monthKey;
-                  // Ưu tiên check Override của tháng này trước, nếu không có mới lấy Limit dùng chung
                   const localLimit =
                     monthlyCatLimits[currentMonthKey]?.[cat.id];
                   const globalLimit = catLimits[cat.id];
-
                   const activeLimit =
                     localLimit !== undefined ? localLimit : globalLimit;
 
@@ -729,7 +801,6 @@ export default function Analytics() {
               </button>
             </div>
 
-            {/* THANH GẠT ĐIỀU KIỂN: APPLY ALL MONTHS vs THIS MONTH ONLY */}
             <div
               className={`flex rounded-xl p-1 mb-5 w-full ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-200"}`}
             >
@@ -814,7 +885,16 @@ export default function Analytics() {
 
       {selectedCategory && (
         <div
-          className={`fixed inset-0 z-50 flex flex-col overflow-hidden transition-transform duration-300 ease-out ${showDetail ? "translate-y-0" : "translate-y-full"} ${theme === "dark" ? "bg-black" : "bg-[#f2f2f7]"}`}
+          ref={detailContainerRef}
+          className={`fixed inset-0 z-50 flex flex-col overflow-y-auto will-change-transform ${theme === "dark" ? "bg-black" : "bg-[#f2f2f7]"}`}
+          style={{
+            transition: showDetail
+              ? "transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)"
+              : "none",
+            transform: showDetail
+              ? "translate3d(0, 0, 0)"
+              : "translate3d(0, 100dvh, 0)",
+          }}
         >
           <div
             className={`flex-shrink-0 z-40 pb-3 px-4 flex justify-between items-center shadow-[0_1px_0_0_rgba(0,0,0,0.05)] ${theme === "dark" ? "bg-black/90 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]" : "bg-[#f2f2f7]/90"}`}
@@ -831,7 +911,7 @@ export default function Analytics() {
             </h2>
             <div className="w-20"></div>
           </div>
-          <div className="flex-1 overflow-y-auto px-6 pt-6 pb-32 overscroll-y-auto">
+          <div className="flex-1 px-6 pt-6 pb-32">
             <div className="flex items-center gap-5 mb-8">
               <div
                 className={`w-[72px] h-[72px] rounded-full flex items-center justify-center text-[36px] flex-shrink-0 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
@@ -839,7 +919,10 @@ export default function Analytics() {
                 {selectedCategory.icon}
               </div>
               <div>
-                <div className="text-[36px] font-bold tracking-tight leading-none mb-2">
+                {/* Đã Fix lỗi text tàng hình ở Dark Theme: Ép cứng text-white/text-black */}
+                <div
+                  className={`text-[36px] font-bold tracking-tight leading-none mb-2 ${theme === "dark" ? "text-white" : "text-black"}`}
+                >
                   ₫{catTotal.toLocaleString("vi-VN")}
                 </div>
                 <div className="text-[13px] font-medium text-[#8e8e93]">
