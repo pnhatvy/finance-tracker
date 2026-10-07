@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useAppContext } from "../AppContext";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 export default function Analytics() {
   const { monthlyBudget, monthlyIncomeGoal, cycleStartDay, theme } =
@@ -13,6 +13,7 @@ export default function Analytics() {
 
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [, setGoalsTrigger] = useState(0);
   const rawDataRef = useRef({ tx: "", goals: "" });
@@ -59,7 +60,6 @@ export default function Analytics() {
     ];
 
     if (timeFilter === "week") {
-      // Logic mới fix lỗi sai tuần: Tính toán an toàn không đè biến gốc
       const targetDate = new Date(
         base.getFullYear(),
         base.getMonth(),
@@ -68,7 +68,7 @@ export default function Analytics() {
       targetDate.setDate(targetDate.getDate() + offset * 7);
 
       const dayOfWeek = targetDate.getDay();
-      const distToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Chuyển Chủ nhật(0) thành 6, còn lại -1
+      const distToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
 
       start = new Date(targetDate);
       start.setDate(targetDate.getDate() - distToMonday);
@@ -131,7 +131,6 @@ export default function Analytics() {
       );
       const m = bounds.start.getMonth() + 1;
       const y = bounds.start.getFullYear();
-
       const keys = [
         `${y}-${String(m).padStart(2, "0")}`,
         `${m}-${y}`,
@@ -188,7 +187,6 @@ export default function Analytics() {
     setSelectedCategory(cat);
     setTimeout(() => setShowDetail(true), 10);
   };
-
   const closeDetail = () => {
     setShowDetail(false);
     setTimeout(() => setSelectedCategory(null), 300);
@@ -217,19 +215,13 @@ export default function Analytics() {
       ? currentBudget - totalAmount
       : currentIncomeGoal - totalAmount;
 
-  // LÔ-GIC TÍNH TOÁN ON PACE FOR VÀ AVERAGE CHUẨN KẾ TOÁN 100%
   const isCurrentPeriod = offset === 0;
   const now = new Date();
-
-  // 1. Tổng số ngày trong kỳ hạn (Tuần = 7, Tháng = 28/31, Năm = 365)
   const daysInCycle = Math.round((bounds.end - bounds.start) / 86400000);
-
-  // 2. Lọc ra giao dịch từ quá khứ đến hôm nay (Bỏ qua mấy cái lịch hẹn tương lai để không làm lố trung bình)
   const pastData = filteredData.filter((item) => new Date(item.date) <= now);
   const totalAmountPast = pastData.reduce((sum, item) => sum + item.amount, 0);
   const futureDataTotal = totalAmount - totalAmountPast;
 
-  // 3. Đếm số ngày đã trôi qua kể từ mốc bắt đầu kỳ (Ví dụ từ 1/1 đến hôm nay)
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const periodStart = new Date(
     bounds.start.getFullYear(),
@@ -241,7 +233,6 @@ export default function Analytics() {
   if (daysPassed > daysInCycle) daysPassed = daysInCycle;
   if (daysPassed < 1) daysPassed = 1;
 
-  // 4. Áp dụng công thức kinh điển:
   const dailyAverage = totalAmountPast / daysPassed;
   const onPaceFor = isCurrentPeriod
     ? dailyAverage * daysInCycle + futureDataTotal
@@ -311,9 +302,15 @@ export default function Analytics() {
             >
               <ChevronLeft size={20} />
             </button>
-            <span className="text-[13px] font-bold tracking-wide">
+
+            {/* Nút bấm mở lịch chọn nhanh */}
+            <button
+              onClick={() => setShowDatePicker(true)}
+              className="text-[13px] font-bold tracking-wide active:opacity-50 transition-opacity flex-1 mx-2"
+            >
               {bounds.label}
-            </span>
+            </button>
+
             <button
               onClick={() => setOffset((o) => o + 1)}
               className="p-1 text-[#32ade6] active:opacity-50"
@@ -354,7 +351,6 @@ export default function Analytics() {
                   </div>
                 </div>
               </div>
-              {/* CHỈ SHOW PACE CHO EXPENSE TRONG THÁNG */}
               {isCurrentPeriod && typeFilter === "expense" && (
                 <div className="px-1">
                   <p className="text-sm font-semibold">
@@ -382,8 +378,6 @@ export default function Analytics() {
                   ₫{totalAmount.toLocaleString("vi-VN")}
                 </div>
               </div>
-
-              {/* HIỂN THỊ DỰ KIẾN NĂM & TRUNG BÌNH THÁNG KHI XEM MỤC NĂM (CẢ THU LẪN CHI) */}
               {isCurrentPeriod && timeFilter === "year" && (
                 <div className="px-1">
                   <p className="text-sm font-semibold">
@@ -466,6 +460,65 @@ export default function Analytics() {
           </div>
         </div>
       </div>
+
+      {/* MODAL LỊCH CHỌN NHANH */}
+      {showDatePicker && (
+        <div
+          className="fixed inset-0 bg-black/70 z-[60] flex flex-col justify-end animate-ios-fade"
+          onClick={() => setShowDatePicker(false)}
+        >
+          <div
+            className={`w-full max-w-md mx-auto rounded-t-3xl p-5 pb-10 shadow-2xl animate-ios-slide ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black"}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="font-bold text-lg">Select Date</h2>
+              <button
+                onClick={() => setShowDatePicker(false)}
+                className={`p-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <input
+              // Đổi type input dựa theo thời gian đang chọn (Yearly thì chọn năm, còn lại chọn tháng)
+              type={timeFilter === "year" ? "number" : "month"}
+              placeholder={timeFilter === "year" ? "YYYY" : ""}
+              className={`w-full rounded-2xl px-4 py-4 outline-none font-bold text-lg mb-6 flex items-center justify-center ${theme === "dark" ? "bg-[#2c2c2e] text-white color-scheme-dark" : "bg-gray-100 text-black"}`}
+              style={{ colorScheme: theme === "dark" ? "dark" : "light" }}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (!val) return;
+
+                const today = new Date();
+                if (timeFilter === "year") {
+                  // Chỉ nhận năm 4 chữ số
+                  if (val.length === 4) {
+                    const diff = parseInt(val) - today.getFullYear();
+                    setOffset(diff);
+                    setShowDatePicker(false);
+                  }
+                } else {
+                  const selectedDate = new Date(val);
+                  if (timeFilter === "month") {
+                    const mDiff =
+                      (selectedDate.getFullYear() - today.getFullYear()) * 12 +
+                      (selectedDate.getMonth() - today.getMonth());
+                    setOffset(mDiff);
+                  } else if (timeFilter === "week") {
+                    const dayDiff = Math.round(
+                      (selectedDate - today) / (1000 * 60 * 60 * 24),
+                    );
+                    setOffset(Math.floor(dayDiff / 7));
+                  }
+                  setShowDatePicker(false);
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {selectedCategory && (
         <div
