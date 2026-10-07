@@ -47,19 +47,20 @@ export default function App() {
     <AppProvider>
       <Router>
         <Routes>
+          {/* Đổi trang chủ thành Analytics */}
           <Route
             path="/"
             element={
               <MainLayout>
-                <History />
+                <Analytics />
               </MainLayout>
             }
           />
           <Route
-            path="/analytics"
+            path="/history"
             element={
               <MainLayout>
-                <Analytics />
+                <History />
               </MainLayout>
             }
           />

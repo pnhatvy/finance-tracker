@@ -15,8 +15,8 @@ export default function Analytics() {
   const [showDetail, setShowDetail] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // STATE MỚI CHO TÍNH NĂNG LIMIT
-  const [catViewMode, setCatViewMode] = useState("percent"); // "percent" | "limit"
+  // MẶC ĐỊNH MỞ RA LÀ XEM LIMIT (Theo đúng ý ông)
+  const [catViewMode, setCatViewMode] = useState("limit");
   const [catLimits, setCatLimits] = useState({});
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [limitForm, setLimitForm] = useState({ categoryId: null, amount: "0" });
@@ -41,7 +41,6 @@ export default function Analytics() {
         setGoalsTrigger((prev) => prev + 1);
       }
 
-      // Load dữ liệu Category Limits
       const limitsRaw = localStorage.getItem("vys_category_limits") || "{}";
       if (limitsRaw !== rawDataRef.current.limits) {
         rawDataRef.current.limits = limitsRaw;
@@ -255,7 +254,10 @@ export default function Analytics() {
     : [];
   const catTotal = catTransactions.reduce((sum, t) => sum + t.amount, 0);
 
-  // LOGIC LƯU BUDGET CHO CATEGORY
+  // ĐIỀU KIỆN CHỈ HIỂN THỊ LIMIT KHI: Cột Expense + Tab Month
+  const isLimitApplicable = typeFilter === "expense" && timeFilter === "month";
+  const currentViewMode = isLimitApplicable ? catViewMode : "percent";
+
   const openLimitModal = () => {
     const activeCats = categories.filter((c) => c.type === typeFilter);
     if (activeCats.length > 0) {
@@ -282,7 +284,7 @@ export default function Analytics() {
   };
 
   const formatDisplayAmount = (val) => {
-    if (!val) return "";
+    if (!val || val === "0") return "";
     const parts = val.toString().split(",");
     return parts.length > 1
       ? `${parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${parts[1]}`
@@ -481,32 +483,40 @@ export default function Analytics() {
             </div>
           )}
 
-          {/* DANH SÁCH CATEGORY - TÍCH HỢP VIEW LIMITS */}
           <div
             className={`rounded-2xl px-5 pt-3 pb-2 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
           >
             <div className="flex justify-between items-center mb-3">
-              <button
-                onClick={() =>
-                  setCatViewMode((m) => (m === "percent" ? "limit" : "percent"))
-                }
-                className="flex items-center gap-1 text-[#8e8e93] text-[13px] font-semibold active:opacity-60 transition-opacity"
-              >
-                By category:{" "}
-                <span
-                  className={theme === "dark" ? "text-white" : "text-black"}
-                >
-                  {catViewMode === "percent" ? "% of total" : "Limits"}
-                </span>
-                <ChevronDown size={14} className="opacity-70 mt-[1px]" />
-              </button>
-
-              <button
-                onClick={openLimitModal}
-                className="text-[#32ade6] text-[13px] font-semibold active:opacity-60 transition-opacity"
-              >
-                + Add limit
-              </button>
+              {isLimitApplicable ? (
+                <>
+                  <button
+                    onClick={() =>
+                      setCatViewMode((m) =>
+                        m === "percent" ? "limit" : "percent",
+                      )
+                    }
+                    className="flex items-center gap-1 text-[#8e8e93] text-[13px] font-semibold active:opacity-60 transition-opacity"
+                  >
+                    By category:{" "}
+                    <span
+                      className={theme === "dark" ? "text-white" : "text-black"}
+                    >
+                      {catViewMode === "percent" ? "% of total" : "Limits"}
+                    </span>
+                    <ChevronDown size={14} className="opacity-70 mt-[1px]" />
+                  </button>
+                  <button
+                    onClick={openLimitModal}
+                    className="text-[#32ade6] text-[13px] font-semibold active:opacity-60 transition-opacity"
+                  >
+                    + Add limit
+                  </button>
+                </>
+              ) : (
+                <p className="text-[#8e8e93] text-[13px] font-semibold ml-1">
+                  By category
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col">
@@ -515,14 +525,10 @@ export default function Analytics() {
                 let limitAmt = null;
                 let isOver = false;
 
-                // Tự động scale budget theo thời gian đang xem (Tuần / Tháng / Năm)
-                if (catViewMode === "limit") {
+                if (currentViewMode === "limit") {
                   const rawLimit = catLimits[cat.id];
                   if (rawLimit) {
-                    let timeMultiplier = 1;
-                    if (timeFilter === "week") timeMultiplier = 12 / 52;
-                    if (timeFilter === "year") timeMultiplier = 12;
-                    limitAmt = rawLimit * timeMultiplier;
+                    limitAmt = rawLimit;
                     displayPercent = (cat.spent / limitAmt) * 100;
                     isOver = displayPercent > 100;
                   } else {
@@ -557,42 +563,43 @@ export default function Analytics() {
                       </div>
 
                       <div className="flex items-center justify-between gap-4">
-                        {/* KHUNG THANH TIẾN TRÌNH */}
-                        <div
-                          className={`flex-1 h-1.5 rounded-full overflow-hidden relative ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-200"}`}
-                        >
-                          {/* Thanh mầu hiển thị % */}
-                          {(catViewMode === "percent" ||
-                            displayPercent !== null) && (
-                            <div
-                              className="h-full rounded-full transition-all duration-300"
-                              style={{
-                                width: `${Math.min(displayPercent || 0, 100)}%`,
-                                backgroundColor: isOver
-                                  ? "#ff453a"
-                                  : cat.color || "#32ade6",
-                              }}
-                            ></div>
-                          )}
+                        {/* WRAPPER THANH TIẾN TRÌNH */}
+                        <div className="flex-1 h-1.5 relative flex items-center">
+                          {/* Lớp nền và màu hiển thị % bị overflow-hidden */}
+                          <div
+                            className={`absolute inset-0 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-200"}`}
+                          >
+                            {(currentViewMode === "percent" ||
+                              displayPercent !== null) && (
+                              <div
+                                className="h-full rounded-full transition-all duration-300"
+                                style={{
+                                  width: `${Math.min(displayPercent || 0, 100)}%`,
+                                  backgroundColor: isOver
+                                    ? "#ff453a"
+                                    : cat.color || "#32ade6",
+                                }}
+                              ></div>
+                            )}
+                          </div>
 
-                          {/* THANH MẢNH CHẠY THEO NGÀY (CHỈ HIỆN KHI SET LIMIT & ĐANG XEM KỲ HIỆN TẠI) */}
-                          {catViewMode === "limit" &&
+                          {/* THANH MẢNH CHẠY THEO NGÀY (THÒ RA NGOÀI VÌ KHÔNG BỊ OVERFLOW-HIDDEN) */}
+                          {currentViewMode === "limit" &&
                             limitAmt &&
                             isCurrentPeriod && (
                               <div
-                                className={`absolute top-0 bottom-0 w-[2px] z-10 ${theme === "dark" ? "bg-white/80" : "bg-black/50"}`}
+                                className={`absolute h-[14px] w-[2.5px] rounded-full z-10 shadow-sm ${theme === "dark" ? "bg-white" : "bg-black"}`}
                                 style={{
-                                  left: `${Math.min(pacePercent, 100)}%`,
+                                  left: `calc(${Math.min(pacePercent, 100)}% - 1.25px)`,
                                 }}
                               ></div>
                             )}
                         </div>
 
-                        {/* SỐ PHẦN TRĂM CẢNH BÁO ĐỎ NẾU VƯỢT */}
                         <span
                           className={`text-[12px] font-bold min-w-[32px] text-right ${isOver ? "text-[#ff453a]" : "text-[#8e8e93]"}`}
                         >
-                          {catViewMode === "percent"
+                          {currentViewMode === "percent"
                             ? `${Math.round(displayPercent)}%`
                             : displayPercent !== null
                               ? `${Math.round(displayPercent)}%`
@@ -618,7 +625,6 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* POPUP THÊM LIMIT CHO CATEGORY */}
       {showLimitModal && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex flex-col justify-end animate-ios-fade"
@@ -672,23 +678,36 @@ export default function Analytics() {
                 ))}
             </div>
 
-            <input
-              type="text"
-              inputMode="decimal"
-              value={formatDisplayAmount(limitForm.amount)}
-              onChange={(e) => {
-                let val = e.target.value
-                  .replace(/\./g, "")
-                  .replace(/[^0-9,]/g, "");
-                if (val.split(",").length > 2) val = val.slice(0, -1);
-                setLimitForm({ ...limitForm, amount: val });
-              }}
-              className={`w-full rounded-2xl px-4 py-4 outline-none font-bold text-[24px] text-center mb-6 ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
-            />
+            {/* KHUNG NHẬP TIỀN AUTO XOÁ SỐ 0 VÀ CÓ NÚT DELETE GÓC PHẢI */}
+            <div className="relative w-full mb-6">
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="0"
+                value={formatDisplayAmount(limitForm.amount)}
+                onChange={(e) => {
+                  let val = e.target.value
+                    .replace(/\./g, "")
+                    .replace(/[^0-9,]/g, "");
+                  if (val.split(",").length > 2) val = val.slice(0, -1);
+                  if (val === "") val = "0"; // Lưu biến 0 ngầm để save sẽ remove limit
+                  setLimitForm({ ...limitForm, amount: val });
+                }}
+                className={`w-full rounded-2xl px-12 py-4 outline-none font-bold text-[24px] text-center ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
+              />
+              {limitForm.amount !== "0" && (
+                <button
+                  onClick={() => setLimitForm({ ...limitForm, amount: "0" })}
+                  className={`absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-full active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#3a3a3c] text-[#8e8e93]" : "bg-gray-300 text-gray-600"}`}
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
 
             <button
               onClick={handleSaveLimit}
-              className={`w-full py-4 rounded-2xl font-bold text-[17px] ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
+              className={`w-full py-4 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
             >
               Save Limit
             </button>
@@ -696,7 +715,6 @@ export default function Analytics() {
         </div>
       )}
 
-      {/* CHI TIẾT CATEGORY (Giữ nguyên) */}
       {selectedCategory && (
         <div
           className={`fixed inset-0 z-50 flex flex-col overflow-hidden transition-transform duration-300 ease-out ${showDetail ? "translate-y-0" : "translate-y-full"} ${theme === "dark" ? "bg-black" : "bg-[#f2f2f7]"}`}
