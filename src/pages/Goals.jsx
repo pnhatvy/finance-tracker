@@ -14,6 +14,7 @@ export default function Goals() {
   const { theme, cycleStartDay } = useAppContext();
 
   const [monthlyBudget, setMonthlyBudget] = useState(null);
+  const [manualBudgetOverride, setManualBudgetOverride] = useState(null); // Lưu trạng thái có đang ghi đè tay không
   const [monthlyIncome, setMonthlyIncome] = useState(null);
   const [offset, setOffset] = useState(0);
   const [spent, setSpent] = useState(0);
@@ -81,6 +82,7 @@ export default function Goals() {
     ];
     let label = "";
 
+    // Key chuẩn format YYYY-MM để so sánh thời gian (vd: "2026-10")
     const key = `${start.getFullYear()}-${(start.getMonth() + 1).toString().padStart(2, "0")}`;
 
     if (cycleStartDay === 1) {
@@ -129,12 +131,16 @@ export default function Goals() {
 
     let autoSum = calcAutoBudgetFromLimits();
 
+    // Tách bạch: Số nhập tay đè VS số Auto-sum
     if (mGoals[bounds.key] && mGoals[bounds.key].budget !== undefined) {
       setMonthlyBudget(Number(mGoals[bounds.key].budget));
+      setManualBudgetOverride(Number(mGoals[bounds.key].budget));
     } else if (autoSum > 0) {
       setMonthlyBudget(autoSum);
+      setManualBudgetOverride(null); // Không có đè tay
     } else {
       setMonthlyBudget(Number(glob.expense || glob.budget || 0));
+      setManualBudgetOverride(null);
     }
 
     if (mGoals[bounds.key] && mGoals[bounds.key].income !== undefined) {
@@ -336,12 +342,15 @@ export default function Goals() {
         localStorage.getItem("vys_monthly_goals") || "{}",
       );
       if (numValue === 0) {
-        // TÍNH NĂNG "HÚT BỤI": Xoá sạch mọi ghi đè Budget ở 120 tháng tương lai
+        // MÁY HÚT BỤI: Xóa ghi đè tay của THÁNG NÀY và TOÀN BỘ CÁC THÁNG TƯƠNG LAI
         Object.keys(mGoals).forEach((key) => {
-          delete mGoals[key].budget;
-          if (Object.keys(mGoals[key]).length === 0) delete mGoals[key];
+          if (key >= bounds.key) {
+            delete mGoals[key].budget;
+            if (Object.keys(mGoals[key]).length === 0) delete mGoals[key];
+          }
         });
-        // Dọn luôn global default cũ cho chắc ăn
+
+        // Dọn rác global cũ cho sạch hoàn toàn
         const glob = JSON.parse(
           localStorage.getItem("vys_global_goals") || "{}",
         );
@@ -349,7 +358,6 @@ export default function Goals() {
         delete glob.expense;
         localStorage.setItem("vys_global_goals", JSON.stringify(glob));
       } else {
-        // Chỉ lưu ghi đè cho ĐÚNG tháng này
         if (!mGoals[bounds.key])
           mGoals[bounds.key] = { budget: null, income: null };
         mGoals[bounds.key].budget = numValue;
@@ -418,7 +426,7 @@ export default function Goals() {
                 Expense Budget
               </span>
               <button
-                onClick={() => openEdit("m_budget", activeBudget)}
+                onClick={() => openEdit("m_budget", manualBudgetOverride)}
                 className="text-[#8e8e93] active:opacity-50 p-1"
               >
                 <Pencil size={16} />
@@ -641,7 +649,7 @@ export default function Goals() {
                 </div>
               )}
 
-            <div className="relative w-full mb-6">
+            <div className="relative w-full mb-4">
               <span
                 className={`absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold ${theme === "dark" ? "text-white" : "text-black"}`}
               >
@@ -666,6 +674,17 @@ export default function Goals() {
                 </button>
               )}
             </div>
+
+            {/* Chú thích thông minh cho người dùng dễ hiểu */}
+            {editState.type === "m_budget" &&
+              (!editState.value || editState.value === "0") && (
+                <p
+                  className={`text-center text-[11px] mb-5 -mt-2 px-2 leading-tight ${theme === "dark" ? "text-[#ff453a]/80" : "text-[#ff453a]/90"}`}
+                >
+                  Saving 0 clears the manual budget for this & future months,
+                  restoring Auto-sum.
+                </p>
+              )}
 
             <button
               onClick={handleSave}
