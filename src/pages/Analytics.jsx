@@ -202,7 +202,6 @@ export default function Analytics() {
     setTimeout(() => setSelectedCategory(null), 300);
   };
 
-  // LOGIC VUỐT ĐỂ ĐÓNG TRANG DETAIL
   useEffect(() => {
     const container = detailContainerRef.current;
     if (!container || !showDetail) return;
@@ -216,7 +215,6 @@ export default function Analytics() {
     let rafId = null;
 
     const handleTouchStart = (e) => {
-      // Chỉ kích hoạt khi cuộn lên kịch trần (scrollTop = 0)
       if (container.scrollTop > 0 || isClosing) return;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
@@ -231,7 +229,6 @@ export default function Analytics() {
       const diffX = e.touches[0].clientX - startX;
       const diffY = e.touches[0].clientY - startY;
 
-      // Phân tích hướng vuốt, nếu vuốt ngang nhiều hơn thì bỏ qua không kéo trang xuống
       if (!dragDirection) {
         if (Math.abs(diffX) > Math.abs(diffY)) dragDirection = "horizontal";
         else dragDirection = "vertical";
@@ -265,7 +262,7 @@ export default function Analytics() {
       if (currentY > 150) {
         isClosing = true;
         container.style.transform = `translate3d(0, 100dvh, 0)`;
-        closeDetail(); // Kích hoạt tắt state
+        closeDetail();
         setTimeout(() => {
           container.style.transform = "";
         }, 300);
@@ -725,7 +722,8 @@ export default function Analytics() {
                       </div>
 
                       <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1 h-1.5 relative flex items-center">
+                        {/* THU GỌN CHIỀU CAO THANH NỀN: Đổi từ h-1.5 thành h-1 (cực kỳ thanh mảnh) */}
+                        <div className="flex-1 h-1 relative flex items-center">
                           <div
                             className={`absolute inset-0 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-200"}`}
                           >
@@ -742,17 +740,20 @@ export default function Analytics() {
                               ></div>
                             )}
                           </div>
+
+                          {/* THU NHỎ THANH PACING: Chỉ nhô ra 1 chút xíu (-top-1 -bottom-1) và mỏng w-[2px] */}
                           {currentViewMode === "limit" &&
                             limitAmt &&
                             isCurrentPeriod && (
                               <div
-                                className={`absolute -top-1.5 -bottom-1.5 w-[3px] rounded-full z-10 shadow-sm ${theme === "dark" ? "bg-white" : "bg-black"}`}
+                                className={`absolute -top-1 -bottom-1 w-[2px] rounded-full z-10 shadow-sm ${theme === "dark" ? "bg-white" : "bg-black"}`}
                                 style={{
-                                  left: `calc(${Math.min(pacePercent, 100)}% - 1.5px)`,
+                                  left: `calc(${Math.min(pacePercent, 100)}% - 1px)`,
                                 }}
                               ></div>
                             )}
                         </div>
+
                         <span
                           className={`text-[12px] font-bold min-w-[32px] text-right ${isOver ? "text-[#ff453a]" : "text-[#8e8e93]"}`}
                         >
@@ -919,7 +920,6 @@ export default function Analytics() {
                 {selectedCategory.icon}
               </div>
               <div>
-                {/* Đã Fix lỗi text tàng hình ở Dark Theme: Ép cứng text-white/text-black */}
                 <div
                   className={`text-[36px] font-bold tracking-tight leading-none mb-2 ${theme === "dark" ? "text-white" : "text-black"}`}
                 >
