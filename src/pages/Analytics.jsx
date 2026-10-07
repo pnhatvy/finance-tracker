@@ -13,7 +13,6 @@ export default function Analytics() {
 
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [, setGoalsTrigger] = useState(0);
   const rawDataRef = useRef({ tx: "", goals: "" });
@@ -298,22 +297,67 @@ export default function Analytics() {
           >
             <button
               onClick={() => setOffset((o) => o - 1)}
-              className="p-1 text-[#32ade6] active:opacity-50"
+              className="p-1 text-[#32ade6] active:opacity-50 flex-shrink-0"
             >
               <ChevronLeft size={20} />
             </button>
 
-            {/* Nút bấm mở lịch chọn nhanh */}
-            <button
-              onClick={() => setShowDatePicker(true)}
-              className="text-[13px] font-bold tracking-wide active:opacity-50 transition-opacity flex-1 mx-2"
-            >
-              {bounds.label}
-            </button>
+            {/* NATIVE PICKER CHO ANALYTICS */}
+            <div className="relative flex-1 mx-2 flex items-center justify-center">
+              <span className="text-[13px] font-bold tracking-wide pointer-events-none text-center">
+                {bounds.label}
+              </span>
+
+              {/* Nếu đang xem Năm thì dùng select native để ra vòng cuộn số */}
+              {timeFilter === "year" ? (
+                <select
+                  className="absolute inset-0 w-full h-full opacity-0 z-10"
+                  onChange={(e) => {
+                    const diff =
+                      parseInt(e.target.value) - new Date().getFullYear();
+                    setOffset(diff);
+                    e.target.value = "";
+                  }}
+                >
+                  <option value="">Select Year</option>
+                  {[...Array(15)].map((_, i) => {
+                    const y = new Date().getFullYear() - 7 + i;
+                    return (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    );
+                  })}
+                </select>
+              ) : (
+                <input
+                  type={timeFilter === "month" ? "month" : "date"}
+                  className="absolute inset-0 w-full h-full opacity-0 z-10"
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    const selectedDate = new Date(e.target.value);
+                    const today = new Date();
+                    if (timeFilter === "month") {
+                      const mDiff =
+                        (selectedDate.getFullYear() - today.getFullYear()) *
+                          12 +
+                        (selectedDate.getMonth() - today.getMonth());
+                      setOffset(mDiff);
+                    } else {
+                      const dayDiff = Math.round(
+                        (selectedDate - today) / (1000 * 60 * 60 * 24),
+                      );
+                      setOffset(Math.floor(dayDiff / 7));
+                    }
+                    e.target.value = "";
+                  }}
+                />
+              )}
+            </div>
 
             <button
               onClick={() => setOffset((o) => o + 1)}
-              className="p-1 text-[#32ade6] active:opacity-50"
+              className="p-1 text-[#32ade6] active:opacity-50 flex-shrink-0"
             >
               <ChevronRight size={20} />
             </button>
@@ -460,65 +504,6 @@ export default function Analytics() {
           </div>
         </div>
       </div>
-
-      {/* MODAL LỊCH CHỌN NHANH */}
-      {showDatePicker && (
-        <div
-          className="fixed inset-0 bg-black/70 z-[60] flex flex-col justify-end animate-ios-fade"
-          onClick={() => setShowDatePicker(false)}
-        >
-          <div
-            className={`w-full max-w-md mx-auto rounded-t-3xl p-5 pb-10 shadow-2xl animate-ios-slide ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black"}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="font-bold text-lg">Select Date</h2>
-              <button
-                onClick={() => setShowDatePicker(false)}
-                className={`p-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <input
-              // Đổi type input dựa theo thời gian đang chọn (Yearly thì chọn năm, còn lại chọn tháng)
-              type={timeFilter === "year" ? "number" : "month"}
-              placeholder={timeFilter === "year" ? "YYYY" : ""}
-              className={`w-full rounded-2xl px-4 py-4 outline-none font-bold text-lg mb-6 flex items-center justify-center ${theme === "dark" ? "bg-[#2c2c2e] text-white color-scheme-dark" : "bg-gray-100 text-black"}`}
-              style={{ colorScheme: theme === "dark" ? "dark" : "light" }}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (!val) return;
-
-                const today = new Date();
-                if (timeFilter === "year") {
-                  // Chỉ nhận năm 4 chữ số
-                  if (val.length === 4) {
-                    const diff = parseInt(val) - today.getFullYear();
-                    setOffset(diff);
-                    setShowDatePicker(false);
-                  }
-                } else {
-                  const selectedDate = new Date(val);
-                  if (timeFilter === "month") {
-                    const mDiff =
-                      (selectedDate.getFullYear() - today.getFullYear()) * 12 +
-                      (selectedDate.getMonth() - today.getMonth());
-                    setOffset(mDiff);
-                  } else if (timeFilter === "week") {
-                    const dayDiff = Math.round(
-                      (selectedDate - today) / (1000 * 60 * 60 * 24),
-                    );
-                    setOffset(Math.floor(dayDiff / 7));
-                  }
-                  setShowDatePicker(false);
-                }
-              }}
-            />
-          </div>
-        </div>
-      )}
 
       {selectedCategory && (
         <div
