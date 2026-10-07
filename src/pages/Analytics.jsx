@@ -109,7 +109,10 @@ export default function Analytics() {
       start = new Date(currentStart);
       end = new Date(start);
       end.setMonth(end.getMonth() + 1);
-      monthKey = `${start.getMonth() + 1}-${start.getFullYear()}`;
+
+      // ĐÃ FIX: Chìa khóa đồng bộ hoàn hảo chuẩn YYYY-MM
+      monthKey = `${start.getFullYear()}-${(start.getMonth() + 1).toString().padStart(2, "0")}`;
+
       if (cycleStartDay === 1) {
         label = `${months[start.getMonth()]} ${start.getFullYear()}`;
       } else {
@@ -128,41 +131,68 @@ export default function Analytics() {
 
   const bounds = getPeriodBounds();
 
-  let currentBudget = Number(monthlyBudget) || 0;
-  let currentIncomeGoal = Number(monthlyIncomeGoal) || 0;
+  // TÍNH TOÁN BUDGET TỰ ĐỘNG THÔNG MINH
+  let currentBudget = 0;
+  let currentIncomeGoal = 0;
 
   try {
     const glob = JSON.parse(localStorage.getItem("vys_global_goals") || "{}");
-    if (glob.expense !== undefined) currentBudget = Number(glob.expense);
-    else if (glob.budget !== undefined) currentBudget = Number(glob.budget);
-    if (glob.income !== undefined)
-      currentIncomeGoal = Number(glob.incomeGoal || glob.income);
+    const mGoals = JSON.parse(
+      localStorage.getItem("vys_monthly_goals") || "{}",
+    );
 
-    if (timeFilter === "month" && bounds.start) {
-      const monthObj = JSON.parse(
-        localStorage.getItem("vys_monthly_goals") || "{}",
-      );
-      const m = bounds.start.getMonth() + 1;
-      const y = bounds.start.getFullYear();
-      const keys = [
-        `${y}-${String(m).padStart(2, "0")}`,
-        `${m}-${y}`,
-        `${String(m).padStart(2, "0")}-${y}`,
-      ];
+    // Auto-sum Limits logic
+    let autoSum = 0;
+    if (timeFilter === "month" && bounds.monthKey) {
+      const currentLocalLimits = monthlyCatLimits[bounds.monthKey] || {};
+      const allCategoryIds = new Set([
+        ...Object.keys(catLimits),
+        ...Object.keys(currentLocalLimits),
+      ]);
+      allCategoryIds.forEach((catId) => {
+        const activeVal =
+          currentLocalLimits[catId] !== undefined
+            ? currentLocalLimits[catId]
+            : catLimits[catId];
+        autoSum += Number(activeVal) || 0;
+      });
+    }
 
-      for (let k of keys) {
-        if (monthObj[k]) {
-          if (monthObj[k].expense !== undefined)
-            currentBudget = Number(monthObj[k].expense);
-          else if (monthObj[k].budget !== undefined)
-            currentBudget = Number(monthObj[k].budget);
-          if (monthObj[k].income !== undefined)
-            currentIncomeGoal = Number(monthObj[k].income);
-          else if (monthObj[k].incomeGoal !== undefined)
-            currentIncomeGoal = Number(monthObj[k].incomeGoal);
-          break;
-        }
+    if (timeFilter === "month") {
+      // 1. Nếu có nhập tay đè thì xài nhập tay
+      if (
+        mGoals[bounds.monthKey] &&
+        mGoals[bounds.monthKey].budget !== undefined
+      ) {
+        currentBudget = Number(mGoals[bounds.monthKey].budget);
       }
+      // 2. Không nhập tay thì Auto-sum Limits
+      else if (autoSum > 0) {
+        currentBudget = autoSum;
+      }
+      // 3. Fallback mốc dùng chung
+      else {
+        currentBudget = Number(
+          glob.expense || glob.budget || monthlyBudget || 0,
+        );
+      }
+
+      // Xử lý Income
+      if (
+        mGoals[bounds.monthKey] &&
+        mGoals[bounds.monthKey].income !== undefined
+      ) {
+        currentIncomeGoal = Number(mGoals[bounds.monthKey].income);
+      } else {
+        currentIncomeGoal = Number(
+          glob.incomeGoal || glob.income || monthlyIncomeGoal || 0,
+        );
+      }
+    } else {
+      currentBudget = Number(glob.expense || glob.budget || monthlyBudget || 0);
+      currentIncomeGoal = Number(
+        glob.incomeGoal || glob.income || monthlyIncomeGoal || 0,
+      );
     }
   } catch (e) {}
 
@@ -722,7 +752,6 @@ export default function Analytics() {
                       </div>
 
                       <div className="flex items-center justify-between gap-4">
-                        {/* THU GỌN CHIỀU CAO THANH NỀN: Đổi từ h-1.5 thành h-1 (cực kỳ thanh mảnh) */}
                         <div className="flex-1 h-1 relative flex items-center">
                           <div
                             className={`absolute inset-0 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-200"}`}
@@ -740,8 +769,6 @@ export default function Analytics() {
                               ></div>
                             )}
                           </div>
-
-                          {/* THU NHỎ THANH PACING: Chỉ nhô ra 1 chút xíu (-top-1 -bottom-1) và mỏng w-[2px] */}
                           {currentViewMode === "limit" &&
                             limitAmt &&
                             isCurrentPeriod && (
@@ -753,7 +780,6 @@ export default function Analytics() {
                               ></div>
                             )}
                         </div>
-
                         <span
                           className={`text-[12px] font-bold min-w-[32px] text-right ${isOver ? "text-[#ff453a]" : "text-[#8e8e93]"}`}
                         >
