@@ -80,22 +80,23 @@ export default function Goals() {
       "Dec",
     ];
     let label = "";
-    if (cycleStartDay === 1)
+
+    const key = `${start.getFullYear()}-${(start.getMonth() + 1).toString().padStart(2, "0")}`;
+
+    if (cycleStartDay === 1) {
       label = `${months[start.getMonth()]} ${start.getFullYear()}`;
-    else {
+    } else {
       let endLabel = new Date(end);
       endLabel.setDate(endLabel.getDate() - 1);
       label = `${months[start.getMonth()]} ${start.getDate()} - ${months[endLabel.getMonth()]} ${endLabel.getDate()}`;
     }
 
-    const key = `${start.getFullYear()}-${(start.getMonth() + 1).toString().padStart(2, "0")}`;
     return { start, end, label, key };
   };
 
   const bounds = getPeriodBounds();
 
   useEffect(() => {
-    // FIX: TÍNH TOÁN CHUẨN XÁC AUTO SUM TỪ LIMITS (TRỘN ALL + MONTHLY)
     const calcAutoBudgetFromLimits = () => {
       const gLimits = JSON.parse(
         localStorage.getItem("vys_category_limits") || "{}",
@@ -112,7 +113,6 @@ export default function Goals() {
       ]);
 
       allCategoryIds.forEach((catId) => {
-        // Ưu tiên lấy limit của tháng này, nếu không có mới lấy limit chung
         const activeVal =
           currentLocalLimits[catId] !== undefined
             ? currentLocalLimits[catId]
@@ -125,21 +125,20 @@ export default function Goals() {
     const mGoals = JSON.parse(
       localStorage.getItem("vys_monthly_goals") || "{}",
     );
+    const glob = JSON.parse(localStorage.getItem("vys_global_goals") || "{}");
 
-    // Nếu người dùng có set Budget riêng cho tháng này (Bằng bút chì) thì xài
+    let autoSum = calcAutoBudgetFromLimits();
+
     if (mGoals[bounds.key] && mGoals[bounds.key].budget !== undefined) {
-      setMonthlyBudget(mGoals[bounds.key].budget);
+      setMonthlyBudget(Number(mGoals[bounds.key].budget));
+    } else if (autoSum > 0) {
+      setMonthlyBudget(autoSum);
     } else {
-      // Nếu không, tự động tính tổng từ các Category Limits
-      setMonthlyBudget(calcAutoBudgetFromLimits());
+      setMonthlyBudget(Number(glob.expense || glob.budget || 0));
     }
 
-    if (mGoals[bounds.key]) {
-      setMonthlyIncome(
-        mGoals[bounds.key].income !== undefined
-          ? mGoals[bounds.key].income
-          : null,
-      );
+    if (mGoals[bounds.key] && mGoals[bounds.key].income !== undefined) {
+      setMonthlyIncome(Number(mGoals[bounds.key].income));
     } else {
       setMonthlyIncome(null);
     }
@@ -223,7 +222,7 @@ export default function Goals() {
 
   const activeBudget = monthlyBudget || 0;
   const activeIncome =
-    monthlyIncome !== null && monthlyIncome !== "" ? monthlyIncome : 10000000;
+    monthlyIncome !== null ? monthlyIncome : globalIncomeGoal;
 
   const spentPercent =
     activeBudget > 0 ? Math.round((spent / activeBudget) * 100) : 0;
@@ -261,7 +260,7 @@ export default function Goals() {
       type,
       title,
       value: currentVal ? currentVal.toLocaleString("vi-VN") : "",
-      scope: type === "m_budget" ? "month" : "all", // Mặc định m_budget là chỉ cho tháng này
+      scope: type === "m_budget" ? "month" : "all",
     });
   };
 
@@ -337,9 +336,20 @@ export default function Goals() {
         localStorage.getItem("vys_monthly_goals") || "{}",
       );
       if (numValue === 0) {
-        // Nhập 0 hoặc xóa trắng -> Xóa ghi đè, trả về xài chung Auto-sum
-        if (mGoals[bounds.key]) delete mGoals[bounds.key].budget;
+        // TÍNH NĂNG "HÚT BỤI": Xoá sạch mọi ghi đè Budget ở 120 tháng tương lai
+        Object.keys(mGoals).forEach((key) => {
+          delete mGoals[key].budget;
+          if (Object.keys(mGoals[key]).length === 0) delete mGoals[key];
+        });
+        // Dọn luôn global default cũ cho chắc ăn
+        const glob = JSON.parse(
+          localStorage.getItem("vys_global_goals") || "{}",
+        );
+        delete glob.budget;
+        delete glob.expense;
+        localStorage.setItem("vys_global_goals", JSON.stringify(glob));
       } else {
+        // Chỉ lưu ghi đè cho ĐÚNG tháng này
         if (!mGoals[bounds.key])
           mGoals[bounds.key] = { budget: null, income: null };
         mGoals[bounds.key].budget = numValue;
@@ -609,7 +619,6 @@ export default function Goals() {
               </button>
             </div>
 
-            {/* CHỈ ẨN CÁI THANH GẠT CHỌN THÁNG KHI LÀ INITIAL BALANCE HOẶC EXPENSE BUDGET */}
             {editState.type !== "g_initial" &&
               editState.type !== "m_budget" && (
                 <div

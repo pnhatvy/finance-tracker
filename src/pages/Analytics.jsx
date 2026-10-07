@@ -22,6 +22,9 @@ export default function Analytics() {
   const [limitScope, setLimitScope] = useState("all");
   const [limitForm, setLimitForm] = useState({ categoryId: null, amount: "0" });
 
+  // STATE MỚI ĐỂ HIỂN THỊ THÔNG BÁO LƯU THÀNH CÔNG
+  const [saveLimitSuccess, setSaveLimitSuccess] = useState(false);
+
   const [, setGoalsTrigger] = useState(0);
   const rawDataRef = useRef({ tx: "", goals: "", limits: "", mLimits: "" });
 
@@ -109,10 +112,7 @@ export default function Analytics() {
       start = new Date(currentStart);
       end = new Date(start);
       end.setMonth(end.getMonth() + 1);
-
-      // ĐÃ FIX: Chìa khóa đồng bộ hoàn hảo chuẩn YYYY-MM
       monthKey = `${start.getFullYear()}-${(start.getMonth() + 1).toString().padStart(2, "0")}`;
-
       if (cycleStartDay === 1) {
         label = `${months[start.getMonth()]} ${start.getFullYear()}`;
       } else {
@@ -131,7 +131,6 @@ export default function Analytics() {
 
   const bounds = getPeriodBounds();
 
-  // TÍNH TOÁN BUDGET TỰ ĐỘNG THÔNG MINH
   let currentBudget = 0;
   let currentIncomeGoal = 0;
 
@@ -141,7 +140,6 @@ export default function Analytics() {
       localStorage.getItem("vys_monthly_goals") || "{}",
     );
 
-    // Auto-sum Limits logic
     let autoSum = 0;
     if (timeFilter === "month" && bounds.monthKey) {
       const currentLocalLimits = monthlyCatLimits[bounds.monthKey] || {};
@@ -159,25 +157,19 @@ export default function Analytics() {
     }
 
     if (timeFilter === "month") {
-      // 1. Nếu có nhập tay đè thì xài nhập tay
       if (
         mGoals[bounds.monthKey] &&
         mGoals[bounds.monthKey].budget !== undefined
       ) {
         currentBudget = Number(mGoals[bounds.monthKey].budget);
-      }
-      // 2. Không nhập tay thì Auto-sum Limits
-      else if (autoSum > 0) {
+      } else if (autoSum > 0) {
         currentBudget = autoSum;
-      }
-      // 3. Fallback mốc dùng chung
-      else {
+      } else {
         currentBudget = Number(
           glob.expense || glob.budget || monthlyBudget || 0,
         );
       }
 
-      // Xử lý Income
       if (
         mGoals[bounds.monthKey] &&
         mGoals[bounds.monthKey].income !== undefined
@@ -374,6 +366,7 @@ export default function Analytics() {
   const currentViewMode = isLimitApplicable ? catViewMode : "percent";
 
   const loadFormForCat = (catId) => {
+    setSaveLimitSuccess(false); // Ẩn thông báo nếu đổi sang xem category khác
     const currentMonthKey = bounds.monthKey;
     const localLimit = monthlyCatLimits[currentMonthKey]?.[catId];
     const globalLimit = catLimits[catId];
@@ -397,9 +390,15 @@ export default function Analytics() {
   };
 
   const openLimitModal = () => {
+    setSaveLimitSuccess(false);
     const activeCats = categories.filter((c) => c.type === typeFilter);
     if (activeCats.length > 0) loadFormForCat(activeCats[0].id);
     setShowLimitModal(true);
+  };
+
+  const closeLimitModal = () => {
+    setShowLimitModal(false);
+    setSaveLimitSuccess(false);
   };
 
   const handleSaveLimit = () => {
@@ -463,7 +462,11 @@ export default function Analytics() {
       }
     }
 
-    setShowLimitModal(false);
+    // HIỂN THỊ THÔNG BÁO VÀ KHÔNG ĐÓNG MODAL
+    setSaveLimitSuccess(true);
+    setTimeout(() => {
+      setSaveLimitSuccess(false);
+    }, 2500);
   };
 
   const formatDisplayAmount = (val) => {
@@ -812,7 +815,7 @@ export default function Analytics() {
       {showLimitModal && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex flex-col justify-end animate-ios-fade"
-          onClick={() => setShowLimitModal(false)}
+          onClick={closeLimitModal}
         >
           <div
             className={`w-full max-w-md mx-auto rounded-t-3xl p-5 pb-10 shadow-2xl animate-ios-slide ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black"}`}
@@ -821,7 +824,7 @@ export default function Analytics() {
             <div className="flex justify-between items-center mb-4">
               <h2 className="font-bold text-lg">Category Limit</h2>
               <button
-                onClick={() => setShowLimitModal(false)}
+                onClick={closeLimitModal}
                 className={`p-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
               >
                 <X size={20} />
@@ -870,7 +873,7 @@ export default function Analytics() {
                 ))}
             </div>
 
-            <div className="relative w-full mb-6">
+            <div className="relative w-full mb-2">
               <input
                 type="text"
                 inputMode="decimal"
@@ -881,6 +884,7 @@ export default function Analytics() {
                     : formatDisplayAmount(limitForm.amount)
                 }
                 onChange={(e) => {
+                  setSaveLimitSuccess(false);
                   let val = e.target.value
                     .replace(/\./g, "")
                     .replace(/[^0-9,]/g, "");
@@ -892,11 +896,22 @@ export default function Analytics() {
               />
               {limitForm.amount !== "0" && (
                 <button
-                  onClick={() => setLimitForm({ ...limitForm, amount: "0" })}
+                  onClick={() => {
+                    setSaveLimitSuccess(false);
+                    setLimitForm({ ...limitForm, amount: "0" });
+                  }}
                   className={`absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-full active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#3a3a3c] text-[#8e8e93]" : "bg-gray-300 text-gray-600"}`}
                 >
                   <X size={16} />
                 </button>
+              )}
+            </div>
+
+            <div className="h-6 flex items-center justify-center mb-4">
+              {saveLimitSuccess && (
+                <span className="text-[13px] font-medium text-[#8e8e93] animate-ios-fade">
+                  Saved successfully
+                </span>
               )}
             </div>
 

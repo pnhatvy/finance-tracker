@@ -52,6 +52,8 @@ export default function Settings() {
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const data = docSnap.data();
+
+            // ĐỒNG BỘ MỌI DỮ LIỆU TỪ CLOUD VỀ MÁY
             if (data.transactions)
               localStorage.setItem(
                 "vys_transactions",
@@ -74,6 +76,19 @@ export default function Settings() {
                 "vys_monthly_goals",
                 JSON.stringify(data.monthlyGoals),
               );
+
+            // Kéo Limit về
+            if (data.categoryLimits)
+              localStorage.setItem(
+                "vys_category_limits",
+                JSON.stringify(data.categoryLimits),
+              );
+            if (data.monthlyCategoryLimits)
+              localStorage.setItem(
+                "vys_monthly_category_limits",
+                JSON.stringify(data.monthlyCategoryLimits),
+              );
+
             if (data.initialBalance)
               localStorage.setItem("vys_initial_balance", data.initialBalance);
             if (data.cycleStartDay) {
@@ -126,6 +141,7 @@ export default function Settings() {
     if (!user) return;
     setSyncState({ type: "sync", status: "loading" });
     try {
+      // ĐÓNG GÓI MỌI THỨ ĐỂ ĐẨY LÊN CLOUD
       const dataToBackup = {
         transactions: JSON.parse(
           localStorage.getItem("vys_transactions") || "[]",
@@ -137,6 +153,15 @@ export default function Settings() {
         monthlyGoals: JSON.parse(
           localStorage.getItem("vys_monthly_goals") || "{}",
         ),
+
+        // Push Limit lên
+        categoryLimits: JSON.parse(
+          localStorage.getItem("vys_category_limits") || "{}",
+        ),
+        monthlyCategoryLimits: JSON.parse(
+          localStorage.getItem("vys_monthly_category_limits") || "{}",
+        ),
+
         initialBalance: localStorage.getItem("vys_initial_balance") || "0",
         cycleStartDay: localStorage.getItem("vys_cycle_start_day") || "1",
         monthlyBudget: localStorage.getItem("vys_monthly_budget") || "0",
@@ -145,6 +170,7 @@ export default function Settings() {
         workHourlyRate: localStorage.getItem("vys_hourly_rate") || "0",
         updatedAt: new Date().toISOString(),
       };
+
       await setDoc(doc(db, "users", user.uid), dataToBackup);
       setSyncState({ type: "sync", status: "success" });
       setTimeout(() => setSyncState({ type: null, status: null }), 3000);
@@ -318,7 +344,11 @@ export default function Settings() {
   const handleResetData = () => {
     setIsResetting(true);
     try {
+      // Dọn dẹp luôn các state limit khi Erase All Data
       localStorage.removeItem("vys_transactions");
+      localStorage.removeItem("vys_category_limits");
+      localStorage.removeItem("vys_monthly_category_limits");
+
       closeModals();
       window.location.href = "/";
     } finally {
