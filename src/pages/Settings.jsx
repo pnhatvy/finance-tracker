@@ -41,7 +41,7 @@ export default function Settings() {
   const [user, setUser] = useState(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [syncState, setSyncState] = useState({ type: null, status: null });
-  const [hourlyInput, setHourlyInput] = useState(workHourlyRate.toString()); // Lưu input tạm
+  const [hourlyInput, setHourlyInput] = useState(workHourlyRate.toString());
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -289,7 +289,7 @@ export default function Settings() {
   const openHourlyModal = () => {
     setModalType("hourly");
     setIsModalOpen(true);
-  }; // Modal set lương giờ
+  };
   const openAddCategory = () => {
     setCatForm({ name: "", icon: "🍔", color: "#ff453a", type: "expense" });
     setModalType("category");
@@ -497,92 +497,7 @@ export default function Settings() {
           className="flex-1 overflow-y-auto px-4 pt-6 pb-32 space-y-6 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          {/* PREFERENCES */}
-          <div>
-            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
-              Preferences
-            </h3>
-            <div
-              className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
-            >
-              <div className="flex items-center justify-between p-4 border-b border-black/5 dark:border-white/5">
-                <div className="flex items-center gap-3">
-                  <Moon size={20} className="text-[#8e8e93]" />
-                  <span className="font-semibold text-[15px]">Dark Mode</span>
-                </div>
-                <button
-                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                  className={`w-12 h-7 rounded-full transition-colors relative ${theme === "dark" ? "bg-[#32d74b]" : "bg-gray-400"}`}
-                >
-                  <div
-                    className={`w-6 h-6 bg-white rounded-full absolute top-0.5 transition-transform ${theme === "dark" ? "translate-x-5" : "translate-x-0.5"}`}
-                  ></div>
-                </button>
-              </div>
-
-              {/* CÀI ĐẶT LƯƠNG GIỜ (WORK HOURS CONVERTER) */}
-              <button
-                onClick={openHourlyModal}
-                className="w-full flex justify-between items-center p-4 text-left active:opacity-70 transition-opacity"
-              >
-                <div className="flex items-center gap-3">
-                  <Clock size={20} className="text-[#8e8e93]" />
-                  <div>
-                    <p className="font-semibold text-[15px]">Hourly Rate</p>
-                    <p className="text-xs text-[#8e8e93] mt-0.5">
-                      Convert spending into work hours
-                    </p>
-                  </div>
-                </div>
-                <span className="text-[#8e8e93] text-sm">
-                  {workHourlyRate > 0
-                    ? `₫${workHourlyRate.toLocaleString("vi-VN")}/h`
-                    : "Off"}{" "}
-                  ›
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* BUDGET CYCLE */}
-          <div>
-            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
-              Budget Cycle
-            </h3>
-            <div
-              className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
-            >
-              <button
-                onClick={openCycleModal}
-                className="w-full flex justify-between items-center p-4 text-left active:opacity-70 transition-opacity"
-              >
-                <div>
-                  <p className="font-semibold text-[15px]">Cycle starts on</p>
-                  <p className="text-xs text-[#8e8e93] mt-0.5">
-                    Budget and monthly totals reset on this day
-                  </p>
-                </div>
-                <span className="text-[#8e8e93] text-sm">
-                  {cycleStartDay} ›
-                </span>
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
-              Expense Categories
-            </h3>
-            {renderCategoryList(expenseCategories, "expense")}
-          </div>
-          <div>
-            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
-              Income Categories
-            </h3>
-            {renderCategoryList(incomeCategories, "income")}
-          </div>
-
-          {/* ACCOUNT & SYNC */}
+          {/* ACCOUNT & SYNC (Moved to top) */}
           <div>
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
               Account & Sync
@@ -678,6 +593,90 @@ export default function Settings() {
             </div>
           </div>
 
+          {/* PREFERENCES */}
+          <div>
+            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
+              Preferences
+            </h3>
+            <div
+              className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-black/5 dark:border-white/5">
+                <div className="flex items-center gap-3">
+                  <Moon size={20} className="text-[#8e8e93]" />
+                  <span className="font-semibold text-[15px]">Dark Mode</span>
+                </div>
+                <button
+                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  className={`w-12 h-7 rounded-full transition-colors relative ${theme === "dark" ? "bg-[#32d74b]" : "bg-gray-400"}`}
+                >
+                  <div
+                    className={`w-6 h-6 bg-white rounded-full absolute top-0.5 transition-transform ${theme === "dark" ? "translate-x-5" : "translate-x-0.5"}`}
+                  ></div>
+                </button>
+              </div>
+
+              <button
+                onClick={openHourlyModal}
+                className="w-full flex justify-between items-center p-4 text-left active:opacity-70 transition-opacity"
+              >
+                <div className="flex items-center gap-3">
+                  <Clock size={20} className="text-[#8e8e93]" />
+                  <div>
+                    <p className="font-semibold text-[15px]">Hourly Rate</p>
+                    <p className="text-xs text-[#8e8e93] mt-0.5">
+                      Convert spending into work hours
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[#8e8e93] text-sm">
+                  {workHourlyRate > 0
+                    ? `₫${workHourlyRate.toLocaleString("vi-VN")}/h`
+                    : "Off"}{" "}
+                  ›
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* BUDGET CYCLE */}
+          <div>
+            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
+              Budget Cycle
+            </h3>
+            <div
+              className={`rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
+            >
+              <button
+                onClick={openCycleModal}
+                className="w-full flex justify-between items-center p-4 text-left active:opacity-70 transition-opacity"
+              >
+                <div>
+                  <p className="font-semibold text-[15px]">Cycle starts on</p>
+                  <p className="text-xs text-[#8e8e93] mt-0.5">
+                    Budget and monthly totals reset on this day
+                  </p>
+                </div>
+                <span className="text-[#8e8e93] text-sm">
+                  {cycleStartDay} ›
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
+              Expense Categories
+            </h3>
+            {renderCategoryList(expenseCategories, "expense")}
+          </div>
+          <div>
+            <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
+              Income Categories
+            </h3>
+            {renderCategoryList(incomeCategories, "income")}
+          </div>
+
           {/* DATA */}
           <div>
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
@@ -708,7 +707,6 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* MODAL NHẬP LƯƠNG THEO GIỜ MỚI */}
       {modalType === "hourly" && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
@@ -755,7 +753,6 @@ export default function Settings() {
                 className={`flex-1 bg-transparent py-3 outline-none font-bold text-xl w-full ${theme === "dark" ? "text-white" : "text-black"}`}
               />
             </div>
-
             <div className="flex gap-3">
               <button
                 onClick={closeModals}
@@ -777,7 +774,6 @@ export default function Settings() {
         </div>
       )}
 
-      {/* CÁC MODAL CŨ GIỮ NGUYÊN BÊN DƯỚI */}
       {modalType === "logout" && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"
@@ -890,7 +886,12 @@ export default function Settings() {
                 Cancel
               </button>
               <button
-                onClick={confirmDeleteCategory}
+                onClick={() => {
+                  setCategories(
+                    categories.filter((c) => c.id !== itemToDelete),
+                  );
+                  setItemToDelete(null);
+                }}
                 className="flex-1 bg-[#ff453a] text-white py-3.5 rounded-2xl font-bold"
               >
                 Delete

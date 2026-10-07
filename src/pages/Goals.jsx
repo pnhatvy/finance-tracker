@@ -38,6 +38,7 @@ export default function Goals() {
     type: "",
     title: "",
     value: "",
+    scope: "all", // Thêm scope cho thanh gạt: "all" hoặc "month"
   });
 
   const [isInputFocused, setIsInputFocused] = useState(false);
@@ -56,9 +57,8 @@ export default function Goals() {
       base.getMonth(),
       cycleStartDay,
     );
-    if (base.getDate() < cycleStartDay) {
+    if (base.getDate() < cycleStartDay)
       currentStart.setMonth(currentStart.getMonth() - 1);
-    }
     currentStart.setMonth(currentStart.getMonth() + offset);
 
     const start = new Date(currentStart);
@@ -80,9 +80,9 @@ export default function Goals() {
       "Dec",
     ];
     let label = "";
-    if (cycleStartDay === 1) {
+    if (cycleStartDay === 1)
       label = `${months[start.getMonth()]} ${start.getFullYear()}`;
-    } else {
+    else {
       let endLabel = new Date(end);
       endLabel.setDate(endLabel.getDate() - 1);
       label = `${months[start.getMonth()]} ${start.getDate()} - ${months[endLabel.getMonth()]} ${endLabel.getDate()}`;
@@ -95,22 +95,37 @@ export default function Goals() {
   const bounds = getPeriodBounds();
 
   useEffect(() => {
+    // Tự động tính Budget từ Limit thay vì đọc từ monthlyGoals
+    const calcAutoBudgetFromLimits = () => {
+      const gLimits = JSON.parse(
+        localStorage.getItem("vys_category_limits") || "{}",
+      );
+      const mLimitsData = JSON.parse(
+        localStorage.getItem("vys_monthly_category_limits") || "{}",
+      );
+      const currentLocalLimits = mLimitsData[bounds.key] || {};
+
+      let sum = 0;
+      // Trộn Limit cục bộ tháng này đè lên Limit chung
+      const mergedLimits = { ...gLimits, ...currentLocalLimits };
+      Object.values(mergedLimits).forEach((val) => {
+        sum += Number(val) || 0;
+      });
+      return sum;
+    };
+
+    setMonthlyBudget(calcAutoBudgetFromLimits());
+
     const mGoals = JSON.parse(
       localStorage.getItem("vys_monthly_goals") || "{}",
     );
     if (mGoals[bounds.key]) {
-      setMonthlyBudget(
-        mGoals[bounds.key].budget !== undefined
-          ? mGoals[bounds.key].budget
-          : null,
-      );
       setMonthlyIncome(
         mGoals[bounds.key].income !== undefined
           ? mGoals[bounds.key].income
           : null,
       );
     } else {
-      setMonthlyBudget(null);
       setMonthlyIncome(null);
     }
 
@@ -191,8 +206,8 @@ export default function Goals() {
     setAvgMonthlySpend(totalExpenseAllTime / monthsActive);
   }, [bounds.key, cycleStartDay, editState.isOpen]);
 
-  const activeBudget =
-    monthlyBudget !== null && monthlyBudget !== "" ? monthlyBudget : 9500000;
+  // Budget được lấy trực tiếp từ State (đã auto sum từ Limit), Income mới có Fallback
+  const activeBudget = monthlyBudget || 0;
   const activeIncome =
     monthlyIncome !== null && monthlyIncome !== "" ? monthlyIncome : 10000000;
 
@@ -209,7 +224,6 @@ export default function Goals() {
       ? (historicalNetWorth / avgMonthlySpend).toFixed(1)
       : 0;
 
-  // TÍNH TOÁN VỊ TRÍ THANH PACING (TIẾN ĐỘ THÁNG NÀY)
   const now = new Date();
   let expectedPacePercent = 0;
   let isCurrentCycle = false;
@@ -222,8 +236,10 @@ export default function Goals() {
   }
 
   const openEdit = (type, currentVal) => {
+    // Khóa luôn không cho sửa Budget thủ công nữa
+    if (type === "m_budget") return;
+
     let title = "";
-    if (type === "m_budget") title = "Edit Monthly Budget";
     if (type === "m_income") title = "Edit Monthly Income";
     if (type === "g_income") title = "Edit Wallets Goal";
     if (type === "g_initial") title = "Set Initial Balance";
@@ -233,6 +249,7 @@ export default function Goals() {
       type,
       title,
       value: currentVal ? currentVal.toLocaleString("vi-VN") : "",
+      scope: "all",
     });
   };
 
@@ -245,9 +262,10 @@ export default function Goals() {
     setEditState({ ...editState, value: Number(raw).toLocaleString("vi-VN") });
   };
 
-  const handleSave = (applyToFuture = false) => {
+  const handleSave = () => {
     const numValue =
       editState.value === "" ? 0 : Number(editState.value.replace(/\./g, ""));
+    const applyToFuture = editState.scope === "all";
 
     if (editState.type === "g_initial") {
       localStorage.setItem("vys_initial_balance", numValue);
@@ -268,19 +286,18 @@ export default function Goals() {
           if (!gGoals[key]) gGoals[key] = { income: null };
           gGoals[key].income = numValue;
         }
+        const oldGlob = JSON.parse(
+          localStorage.getItem("vys_global_goals") || "{}",
+        );
+        oldGlob.income = numValue;
+        localStorage.setItem("vys_global_goals", JSON.stringify(oldGlob));
       } else {
         if (!gGoals[bounds.key]) gGoals[bounds.key] = { income: null };
         gGoals[bounds.key].income = numValue;
       }
       localStorage.setItem("vys_global_goals_history", JSON.stringify(gGoals));
-
-      const oldGlob = JSON.parse(
-        localStorage.getItem("vys_global_goals") || "{}",
-      );
-      oldGlob.income = numValue;
-      localStorage.setItem("vys_global_goals", JSON.stringify(oldGlob));
       setGlobalIncomeGoal(numValue);
-    } else {
+    } else if (editState.type === "m_income") {
       const mGoals = JSON.parse(
         localStorage.getItem("vys_monthly_goals") || "{}",
       );
@@ -294,18 +311,15 @@ export default function Goals() {
           );
           const key = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}`;
           if (!mGoals[key]) mGoals[key] = { budget: null, income: null };
-          if (editState.type === "m_budget") mGoals[key].budget = numValue;
-          if (editState.type === "m_income") mGoals[key].income = numValue;
+          mGoals[key].income = numValue;
         }
       } else {
         if (!mGoals[bounds.key])
           mGoals[bounds.key] = { budget: null, income: null };
-        if (editState.type === "m_budget") mGoals[bounds.key].budget = numValue;
-        if (editState.type === "m_income") mGoals[bounds.key].income = numValue;
+        mGoals[bounds.key].income = numValue;
       }
       localStorage.setItem("vys_monthly_goals", JSON.stringify(mGoals));
-      if (editState.type === "m_budget") setMonthlyBudget(numValue);
-      if (editState.type === "m_income") setMonthlyIncome(numValue);
+      setMonthlyIncome(numValue);
     }
     setEditState({ ...editState, isOpen: false });
     setIsInputFocused(false);
@@ -341,7 +355,6 @@ export default function Goals() {
                 {showMonthly ? <Eye size={15} /> : <EyeOff size={15} />}
               </button>
             </div>
-
             <div
               className={`flex items-center rounded-full px-2 py-0.5 shadow-sm mr-1 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
             >
@@ -368,18 +381,16 @@ export default function Goals() {
               <span className="text-[13px] font-semibold text-[#8e8e93]">
                 Expense Budget
               </span>
-              <button
-                onClick={() => openEdit("m_budget", activeBudget)}
-                className="text-[#8e8e93] active:opacity-50 p-1"
-              >
-                <Pencil size={16} />
-              </button>
+              {/* Đã bỏ nút Pencil vì Budget auto sum từ Category Limits */}
             </div>
-            <div className="text-[28px] font-bold mb-1.5 tracking-tight">
+            <div className="text-[28px] font-bold mb-0.5 tracking-tight">
               {showMonthly
                 ? `₫${activeBudget.toLocaleString("vi-VN")}`
                 : "****"}
             </div>
+            <p className="text-[10px] text-[#8e8e93] font-medium mb-2 uppercase tracking-wide">
+              Auto-sum from Limits
+            </p>
             <div className="flex justify-between text-[12px] text-[#8e8e93] font-medium mb-2">
               <span>
                 Spent:{" "}
@@ -391,17 +402,13 @@ export default function Goals() {
                 {showMonthly ? `${spentPercent}%` : "**%"}
               </span>
             </div>
-
             <div
               className={`h-2 rounded-full relative ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
-              {/* THANH THỰC TẾ CHI TIÊU */}
               <div
                 className={`absolute top-0 left-0 h-full rounded-full transition-all duration-700 ease-out ${spentPercent >= 100 ? "bg-[#ff453a]" : "bg-gray-300"}`}
                 style={{ width: `${Math.min(spentPercent, 100)}%` }}
               ></div>
-
-              {/* THANH ĐỊNH VỊ (PACING MARKER) */}
               {isCurrentCycle && (
                 <div
                   className={`absolute top-[-3px] bottom-[-3px] w-[2px] rounded-full z-10 shadow-sm ${theme === "dark" ? "bg-white" : "bg-black"}`}
@@ -483,16 +490,14 @@ export default function Goals() {
                 <Pencil size={16} />
               </button>
             </div>
-
             <div className="text-[28px] font-bold mb-2 tracking-tight">
               {showOverall
                 ? `₫${globalIncomeGoal.toLocaleString("vi-VN")}`
                 : "****"}
             </div>
-
             <div className="flex justify-between items-center text-[12px] text-[#8e8e93] font-medium mb-2">
               <span className="flex items-center gap-1.5">
-                Net Worth:
+                Net Worth:{" "}
                 <strong
                   className={
                     historicalNetWorth >= 0
@@ -513,7 +518,6 @@ export default function Goals() {
                 {showOverall ? `${overallPercent}%` : "**%"}
               </span>
             </div>
-
             <div
               className={`h-2 rounded-full overflow-hidden ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
             >
@@ -522,7 +526,6 @@ export default function Goals() {
                 style={{ width: `${Math.min(overallPercent, 100)}%` }}
               ></div>
             </div>
-
             {historicalNetWorth > 0 && avgMonthlySpend > 0 && (
               <div className="flex justify-between items-center text-[12px] text-[#8e8e93] mt-3 font-medium">
                 <span>
@@ -536,7 +539,6 @@ export default function Goals() {
                 </span>
               </div>
             )}
-
             <button
               onClick={() => openEdit("g_initial", initialBalance)}
               className={`w-full flex justify-between items-center px-4 py-3 mt-4 rounded-xl cursor-pointer ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"} active:opacity-70 transition-opacity`}
@@ -550,6 +552,7 @@ export default function Goals() {
         </div>
       </div>
 
+      {/* MODAL CHỈNH SỬA (MỚI) */}
       {editState.isOpen && (
         <div
           className="fixed inset-0 bg-black/70 z-[70] flex items-center justify-center p-4 animate-ios-fade"
@@ -579,58 +582,59 @@ export default function Goals() {
               </button>
             </div>
 
-            <div
-              className={`flex items-center rounded-2xl px-4 py-2 mb-6 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
-            >
+            {/* THANH GẠT ĐIỀU KIỂN: All Months vs This Month (Khóa nếu Set Initial Balance) */}
+            {editState.type !== "g_initial" && (
+              <div
+                className={`flex rounded-xl p-1 mb-5 w-full ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-200"}`}
+              >
+                <button
+                  onClick={() => setEditState({ ...editState, scope: "all" })}
+                  className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-colors duration-200 ${editState.scope === "all" ? (theme === "dark" ? "bg-[#3a3a3c] text-white" : "bg-white text-black shadow-sm") : theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
+                >
+                  All Months
+                </button>
+                <button
+                  onClick={() => setEditState({ ...editState, scope: "month" })}
+                  className={`flex-1 py-1.5 text-[13px] font-bold rounded-lg transition-colors duration-200 ${editState.scope === "month" ? (theme === "dark" ? "bg-[#3a3a3c] text-white" : "bg-white text-black shadow-sm") : theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
+                >
+                  This Month Only
+                </button>
+              </div>
+            )}
+
+            {/* KHUNG NHẬP TIỀN AUTO XOÁ SỐ 0 NHƯ ANALYTICS */}
+            <div className="relative w-full mb-6">
               <span
-                className={`text-xl font-bold mr-2 ${theme === "dark" ? "text-white" : "text-black"}`}
+                className={`absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold ${theme === "dark" ? "text-white" : "text-black"}`}
               >
                 ₫
               </span>
               <input
                 type="text"
-                inputMode="numeric"
+                inputMode="decimal"
                 placeholder="0"
-                value={editState.value}
+                value={editState.value === "0" ? "" : editState.value}
                 onFocus={() => setIsInputFocused(true)}
                 onBlur={() => setIsInputFocused(false)}
                 onChange={(e) => handleInput(e.target.value)}
-                className={`flex-1 bg-transparent py-3 outline-none font-bold text-[22px] w-full ${theme === "dark" ? "text-white" : "text-black"}`}
+                className={`w-full rounded-2xl pl-10 pr-10 py-4 outline-none font-bold text-[24px] text-center ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
               />
-              {editState.value !== "" && (
+              {editState.value !== "" && editState.value !== "0" && (
                 <button
-                  onClick={() => setEditState({ ...editState, value: "" })}
-                  className={`p-1 ml-2 text-[#8e8e93] active:opacity-50 transition-opacity`}
-                  title="Clear"
+                  onClick={() => setEditState({ ...editState, value: "0" })}
+                  className={`absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-full active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#3a3a3c] text-[#8e8e93]" : "bg-gray-300 text-gray-600"}`}
                 >
-                  <XCircle size={18} />
+                  <X size={16} />
                 </button>
               )}
             </div>
 
-            {editState.type === "g_initial" ? (
-              <button
-                onClick={() => handleSave()}
-                className={`w-full py-3.5 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
-              >
-                Save Value
-              </button>
-            ) : (
-              <div className="flex flex-col gap-2.5">
-                <button
-                  onClick={() => handleSave(false)}
-                  className={`w-full py-3.5 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-200 text-black"}`}
-                >
-                  This Month Only
-                </button>
-                <button
-                  onClick={() => handleSave(true)}
-                  className={`w-full py-3.5 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
-                >
-                  This & Future Months
-                </button>
-              </div>
-            )}
+            <button
+              onClick={handleSave}
+              className={`w-full py-4 rounded-2xl font-bold text-[17px] active:scale-[0.98] transition-transform ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
+            >
+              {editState.type === "g_initial" ? "Save Value" : "Save Goal"}
+            </button>
           </div>
         </div>
       )}
