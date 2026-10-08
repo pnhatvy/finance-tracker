@@ -6,10 +6,13 @@ import {
   Menu,
   Trash2,
   UserCircle,
-  CloudLightning,
   LogOut,
   Download,
   Clock,
+  CloudUpload,
+  CloudDownload,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { auth, db } from "../firebase";
 import {
@@ -40,78 +43,93 @@ export default function Settings() {
   const [isResetting, setIsResetting] = useState(false);
   const [user, setUser] = useState(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // STATE MỚI CHO CLOUD SYNC
   const [syncState, setSyncState] = useState({ type: null, status: null });
+  const [lastBackupTime, setLastBackupTime] = useState(null);
   const [hourlyInput, setHourlyInput] = useState(workHourlyRate.toString());
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      if (currentUser && !localStorage.getItem("vys_has_auto_restored")) {
+      if (currentUser) {
         try {
           const docRef = doc(db, "users", currentUser.uid);
           const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-
-            // ĐỒNG BỘ MỌI DỮ LIỆU TỪ CLOUD VỀ MÁY
-            if (data.transactions)
-              localStorage.setItem(
-                "vys_transactions",
-                JSON.stringify(data.transactions),
-              );
-            if (data.categories) {
-              localStorage.setItem(
-                "vys_categories",
-                JSON.stringify(data.categories),
-              );
-              setCategories(data.categories);
-            }
-            if (data.globalGoals)
-              localStorage.setItem(
-                "vys_global_goals",
-                JSON.stringify(data.globalGoals),
-              );
-            if (data.monthlyGoals)
-              localStorage.setItem(
-                "vys_monthly_goals",
-                JSON.stringify(data.monthlyGoals),
-              );
-
-            // Kéo Limit về
-            if (data.categoryLimits)
-              localStorage.setItem(
-                "vys_category_limits",
-                JSON.stringify(data.categoryLimits),
-              );
-            if (data.monthlyCategoryLimits)
-              localStorage.setItem(
-                "vys_monthly_category_limits",
-                JSON.stringify(data.monthlyCategoryLimits),
-              );
-
-            if (data.initialBalance)
-              localStorage.setItem("vys_initial_balance", data.initialBalance);
-            if (data.cycleStartDay) {
-              localStorage.setItem("vys_cycle_start_day", data.cycleStartDay);
-              setCycleStartDay(Number(data.cycleStartDay));
-            }
-            if (data.monthlyBudget)
-              localStorage.setItem("vys_monthly_budget", data.monthlyBudget);
-            if (data.monthlyIncomeGoal)
-              localStorage.setItem(
-                "vys_monthly_income_goal",
-                data.monthlyIncomeGoal,
-              );
-            if (data.workHourlyRate) {
-              localStorage.setItem("vys_hourly_rate", data.workHourlyRate);
-              setWorkHourlyRate(Number(data.workHourlyRate));
-              setHourlyInput(data.workHourlyRate.toString());
-            }
+          if (docSnap.exists() && docSnap.data().updatedAt) {
+            setLastBackupTime(
+              new Date(docSnap.data().updatedAt).toLocaleString("vi-VN", {
+                hour: "2-digit",
+                minute: "2-digit",
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+              }),
+            );
           }
-          localStorage.setItem("vys_has_auto_restored", "true");
-          window.location.reload();
+
+          if (!localStorage.getItem("vys_has_auto_restored")) {
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              if (data.transactions)
+                localStorage.setItem(
+                  "vys_transactions",
+                  JSON.stringify(data.transactions),
+                );
+              if (data.categories) {
+                localStorage.setItem(
+                  "vys_categories",
+                  JSON.stringify(data.categories),
+                );
+                setCategories(data.categories);
+              }
+              if (data.globalGoals)
+                localStorage.setItem(
+                  "vys_global_goals",
+                  JSON.stringify(data.globalGoals),
+                );
+              if (data.monthlyGoals)
+                localStorage.setItem(
+                  "vys_monthly_goals",
+                  JSON.stringify(data.monthlyGoals),
+                );
+              if (data.categoryLimits)
+                localStorage.setItem(
+                  "vys_category_limits",
+                  JSON.stringify(data.categoryLimits),
+                );
+              if (data.monthlyCategoryLimits)
+                localStorage.setItem(
+                  "vys_monthly_category_limits",
+                  JSON.stringify(data.monthlyCategoryLimits),
+                );
+              if (data.initialBalance)
+                localStorage.setItem(
+                  "vys_initial_balance",
+                  data.initialBalance,
+                );
+              if (data.cycleStartDay) {
+                localStorage.setItem("vys_cycle_start_day", data.cycleStartDay);
+                setCycleStartDay(Number(data.cycleStartDay));
+              }
+              if (data.monthlyBudget)
+                localStorage.setItem("vys_monthly_budget", data.monthlyBudget);
+              if (data.monthlyIncomeGoal)
+                localStorage.setItem(
+                  "vys_monthly_income_goal",
+                  data.monthlyIncomeGoal,
+                );
+              if (data.workHourlyRate) {
+                localStorage.setItem("vys_hourly_rate", data.workHourlyRate);
+                setWorkHourlyRate(Number(data.workHourlyRate));
+                setHourlyInput(data.workHourlyRate.toString());
+              }
+            }
+            localStorage.setItem("vys_has_auto_restored", "true");
+            window.location.reload();
+          }
         } catch (e) {
-          console.error("Auto restore failed:", e);
+          console.error("Fetch backup info failed:", e);
         }
       }
     });
@@ -134,14 +152,15 @@ export default function Settings() {
   const confirmLogout = () => {
     signOut(auth);
     localStorage.removeItem("vys_has_auto_restored");
+    setLastBackupTime(null);
     closeModals();
   };
 
-  const handleSyncToCloud = async () => {
+  const handleBackup = async () => {
     if (!user) return;
-    setSyncState({ type: "sync", status: "loading" });
+    setSyncState({ type: "backup", status: "loading" });
     try {
-      // ĐÓNG GÓI MỌI THỨ ĐỂ ĐẨY LÊN CLOUD
+      const nowString = new Date().toISOString();
       const dataToBackup = {
         transactions: JSON.parse(
           localStorage.getItem("vys_transactions") || "[]",
@@ -153,29 +172,102 @@ export default function Settings() {
         monthlyGoals: JSON.parse(
           localStorage.getItem("vys_monthly_goals") || "{}",
         ),
-
-        // Push Limit lên
         categoryLimits: JSON.parse(
           localStorage.getItem("vys_category_limits") || "{}",
         ),
         monthlyCategoryLimits: JSON.parse(
           localStorage.getItem("vys_monthly_category_limits") || "{}",
         ),
-
         initialBalance: localStorage.getItem("vys_initial_balance") || "0",
         cycleStartDay: localStorage.getItem("vys_cycle_start_day") || "1",
         monthlyBudget: localStorage.getItem("vys_monthly_budget") || "0",
         monthlyIncomeGoal:
           localStorage.getItem("vys_monthly_income_goal") || "0",
         workHourlyRate: localStorage.getItem("vys_hourly_rate") || "0",
-        updatedAt: new Date().toISOString(),
+        updatedAt: nowString,
       };
 
       await setDoc(doc(db, "users", user.uid), dataToBackup);
-      setSyncState({ type: "sync", status: "success" });
+      setLastBackupTime(
+        new Date(nowString).toLocaleString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }),
+      );
+      setSyncState({ type: "backup", status: "success" });
       setTimeout(() => setSyncState({ type: null, status: null }), 3000);
     } catch (e) {
-      setSyncState({ type: "sync", status: "error" });
+      setSyncState({ type: "backup", status: "error" });
+      setTimeout(() => setSyncState({ type: null, status: null }), 3000);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!user) return;
+    setSyncState({ type: "restore", status: "loading" });
+    try {
+      const docRef = doc(db, "users", user.uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.transactions)
+          localStorage.setItem(
+            "vys_transactions",
+            JSON.stringify(data.transactions),
+          );
+        if (data.categories)
+          localStorage.setItem(
+            "vys_categories",
+            JSON.stringify(data.categories),
+          );
+        if (data.globalGoals)
+          localStorage.setItem(
+            "vys_global_goals",
+            JSON.stringify(data.globalGoals),
+          );
+        if (data.monthlyGoals)
+          localStorage.setItem(
+            "vys_monthly_goals",
+            JSON.stringify(data.monthlyGoals),
+          );
+        if (data.categoryLimits)
+          localStorage.setItem(
+            "vys_category_limits",
+            JSON.stringify(data.categoryLimits),
+          );
+        if (data.monthlyCategoryLimits)
+          localStorage.setItem(
+            "vys_monthly_category_limits",
+            JSON.stringify(data.monthlyCategoryLimits),
+          );
+        if (data.initialBalance)
+          localStorage.setItem("vys_initial_balance", data.initialBalance);
+        if (data.cycleStartDay)
+          localStorage.setItem("vys_cycle_start_day", data.cycleStartDay);
+        if (data.monthlyBudget)
+          localStorage.setItem("vys_monthly_budget", data.monthlyBudget);
+        if (data.monthlyIncomeGoal)
+          localStorage.setItem(
+            "vys_monthly_income_goal",
+            data.monthlyIncomeGoal,
+          );
+        if (data.workHourlyRate)
+          localStorage.setItem("vys_hourly_rate", data.workHourlyRate);
+
+        setSyncState({ type: "restore", status: "success" });
+        setTimeout(() => {
+          setSyncState({ type: null, status: null });
+          window.location.reload();
+        }, 1000);
+      } else {
+        setSyncState({ type: "restore", status: "error" });
+        setTimeout(() => setSyncState({ type: null, status: null }), 3000);
+      }
+    } catch (e) {
+      setSyncState({ type: "restore", status: "error" });
       setTimeout(() => setSyncState({ type: null, status: null }), 3000);
     }
   };
@@ -344,11 +436,9 @@ export default function Settings() {
   const handleResetData = () => {
     setIsResetting(true);
     try {
-      // Dọn dẹp luôn các state limit khi Erase All Data
       localStorage.removeItem("vys_transactions");
       localStorage.removeItem("vys_category_limits");
       localStorage.removeItem("vys_monthly_category_limits");
-
       closeModals();
       window.location.href = "/";
     } finally {
@@ -527,7 +617,7 @@ export default function Settings() {
           className="flex-1 overflow-y-auto px-4 pt-6 pb-32 space-y-6 overscroll-y-auto"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          {/* ACCOUNT & SYNC (Moved to top) */}
+          {/* ACCOUNT & SYNC MỚI */}
           <div>
             <h3 className="text-[#8e8e93] text-[11px] font-bold uppercase tracking-widest ml-4 mb-2">
               Account & Sync
@@ -547,7 +637,7 @@ export default function Settings() {
                       {isLoggingIn ? "Signing in..." : "Sign in with Google"}
                     </p>
                     <p className="text-xs text-[#8e8e93] mt-0.5">
-                      Auto-sync data to cloud
+                      Secure your data on the cloud
                     </p>
                   </div>
                 </button>
@@ -588,36 +678,77 @@ export default function Settings() {
                       <LogOut size={20} />
                     </button>
                   </div>
-                  <button
-                    onClick={handleSyncToCloud}
-                    disabled={syncState.status === "loading"}
-                    className="w-full flex justify-between items-center p-4 text-left active:bg-white/5 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <CloudLightning size={20} className="text-[#8e8e93]" />
-                      <span className="font-semibold text-[15px]">
-                        Sync to Cloud
-                      </span>
+
+                  {/* CỤM NÚT GẠT BACKUP / RESTORE */}
+                  <div className="p-4 flex flex-col gap-3">
+                    <div
+                      className={`flex rounded-xl p-1 w-full ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+                    >
+                      <button
+                        onClick={handleBackup}
+                        disabled={syncState.status === "loading"}
+                        className={`flex-1 flex justify-center items-center gap-2 py-2 text-[13px] font-bold rounded-lg transition-colors duration-200 active:opacity-70 disabled:opacity-50 ${theme === "dark" ? "bg-[#3a3a3c] text-white shadow-sm" : "bg-white text-black shadow-sm"}`}
+                      >
+                        {syncState.type === "backup" &&
+                        syncState.status === "loading" ? (
+                          <span className="animate-pulse flex items-center gap-2">
+                            <CloudUpload size={16} /> Backing up...
+                          </span>
+                        ) : syncState.type === "backup" &&
+                          syncState.status === "success" ? (
+                          <span className="text-[#32d74b] flex items-center gap-2">
+                            <CheckCircle2 size={16} /> Success
+                          </span>
+                        ) : syncState.type === "backup" &&
+                          syncState.status === "error" ? (
+                          <span className="text-[#ff453a] flex items-center gap-2">
+                            <AlertCircle size={16} /> Failed
+                          </span>
+                        ) : (
+                          <>
+                            <CloudUpload
+                              size={16}
+                              className={
+                                theme === "dark" ? "text-white" : "text-black"
+                              }
+                            />{" "}
+                            Backup
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={handleRestore}
+                        disabled={syncState.status === "loading"}
+                        className={`flex-1 flex justify-center items-center gap-2 py-2 text-[13px] font-bold rounded-lg transition-colors duration-200 active:opacity-70 disabled:opacity-50 ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
+                      >
+                        {syncState.type === "restore" &&
+                        syncState.status === "loading" ? (
+                          <span className="animate-pulse flex items-center gap-2">
+                            <CloudDownload size={16} /> Restoring...
+                          </span>
+                        ) : syncState.type === "restore" &&
+                          syncState.status === "success" ? (
+                          <span className="text-[#32d74b] flex items-center gap-2">
+                            <CheckCircle2 size={16} /> Success
+                          </span>
+                        ) : syncState.type === "restore" &&
+                          syncState.status === "error" ? (
+                          <span className="text-[#ff453a] flex items-center gap-2">
+                            <AlertCircle size={16} /> Failed
+                          </span>
+                        ) : (
+                          <>
+                            <CloudDownload size={16} /> Restore
+                          </>
+                        )}
+                      </button>
                     </div>
-                    {syncState.type === "sync" &&
-                      syncState.status === "loading" && (
-                        <span className="text-[13px] text-[#8e8e93] font-medium animate-pulse">
-                          Syncing...
-                        </span>
-                      )}
-                    {syncState.type === "sync" &&
-                      syncState.status === "success" && (
-                        <span className="text-[13px] text-[#32d74b] font-medium">
-                          Synced
-                        </span>
-                      )}
-                    {syncState.type === "sync" &&
-                      syncState.status === "error" && (
-                        <span className="text-[13px] text-[#ff453a] font-medium">
-                          Failed
-                        </span>
-                      )}
-                  </button>
+                    {lastBackupTime && (
+                      <p className="text-center text-[11px] text-[#8e8e93] font-medium">
+                        Last backup: {lastBackupTime}
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -737,6 +868,7 @@ export default function Settings() {
         </div>
       </div>
 
+      {/* CÁC MODAL BÊN DƯỚI GIỮ NGUYÊN KHÔNG ĐỔI */}
       {modalType === "hourly" && (
         <div
           className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 animate-ios-fade"

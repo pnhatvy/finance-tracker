@@ -22,7 +22,6 @@ export default function Analytics() {
   const [limitScope, setLimitScope] = useState("all");
   const [limitForm, setLimitForm] = useState({ categoryId: null, amount: "0" });
 
-  // STATE MỚI ĐỂ HIỂN THỊ THÔNG BÁO LƯU THÀNH CÔNG
   const [saveLimitSuccess, setSaveLimitSuccess] = useState(false);
 
   const [, setGoalsTrigger] = useState(0);
@@ -194,25 +193,35 @@ export default function Analytics() {
     return d >= bounds.start && d < bounds.end;
   });
 
-  const formatDetailDate = (dateString) => {
-    if (!dateString) return "";
-    const d = new Date(dateString);
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
+  // ĐÃ FIX: Hàm chuyển đổi header nhóm ngày giống History
+  const formatGroupHeader = (d) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (d.getTime() === today.getTime()) return "TODAY";
+    const days = [
+      "SUNDAY",
+      "MONDAY",
+      "TUESDAY",
+      "WEDNESDAY",
+      "THURSDAY",
+      "FRIDAY",
+      "SATURDAY",
     ];
-    return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()} • ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}`;
+    const months = [
+      "JAN",
+      "FEB",
+      "MAR",
+      "APR",
+      "MAY",
+      "JUN",
+      "JUL",
+      "AUG",
+      "SEP",
+      "OCT",
+      "NOV",
+      "DEC",
+    ];
+    return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`;
   };
 
   const openDetail = (cat) => {
@@ -357,16 +366,31 @@ export default function Analytics() {
     : totalAmount;
   const pacePercent = (daysPassed / daysInCycle) * 100;
 
+  // ĐÃ FIX: Gom nhóm giao dịch trong Detail y hệt History
   const catTransactions = selectedCategory
     ? filteredData.filter((t) => t.category?.id === selectedCategory.id)
     : [];
+  catTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
   const catTotal = catTransactions.reduce((sum, t) => sum + t.amount, 0);
+
+  const groupedDetailData = catTransactions.reduce((acc, tran) => {
+    const d = tran.date ? new Date(tran.date) : new Date();
+    d.setHours(0, 0, 0, 0);
+    const dateKey = d.toISOString();
+    if (!acc[dateKey]) acc[dateKey] = { date: d, items: [], totalDay: 0 };
+    acc[dateKey].items.push(tran);
+    acc[dateKey].totalDay += tran.amount;
+    return acc;
+  }, {});
+  const sortedDetailGroups = Object.values(groupedDetailData).sort(
+    (a, b) => b.date - a.date,
+  );
 
   const isLimitApplicable = typeFilter === "expense" && timeFilter === "month";
   const currentViewMode = isLimitApplicable ? catViewMode : "percent";
 
   const loadFormForCat = (catId) => {
-    setSaveLimitSuccess(false); // Ẩn thông báo nếu đổi sang xem category khác
+    setSaveLimitSuccess(false);
     const currentMonthKey = bounds.monthKey;
     const localLimit = monthlyCatLimits[currentMonthKey]?.[catId];
     const globalLimit = catLimits[catId];
@@ -462,7 +486,6 @@ export default function Analytics() {
       }
     }
 
-    // HIỂN THỊ THÔNG BÁO VÀ KHÔNG ĐÓNG MODAL
     setSaveLimitSuccess(true);
     setTimeout(() => {
       setSaveLimitSuccess(false);
@@ -953,8 +976,8 @@ export default function Analytics() {
             </h2>
             <div className="w-20"></div>
           </div>
-          <div className="flex-1 px-6 pt-6 pb-32">
-            <div className="flex items-center gap-5 mb-8">
+          <div className="flex-1 px-4 pt-6 pb-32">
+            <div className="flex items-center gap-5 mb-8 px-2">
               <div
                 className={`w-[72px] h-[72px] rounded-full flex items-center justify-center text-[36px] flex-shrink-0 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
               >
@@ -971,38 +994,57 @@ export default function Analytics() {
                 </div>
               </div>
             </div>
-            <div className="flex flex-col">
-              {catTransactions.map((t) => (
-                <div
-                  key={t.id}
-                  className={`flex justify-between items-center py-4 border-b ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                      style={{
-                        backgroundColor: selectedCategory.color || "#32ade6",
-                      }}
-                    ></div>
-                    <div className="flex flex-col">
-                      <p
-                        className={`font-bold text-[16px] leading-tight mb-1 ${theme === "dark" ? "text-white" : "text-black"}`}
-                      >
-                        {t.note || selectedCategory.name}
-                      </p>
-                      <p className="text-[13px] text-[#8e8e93] leading-tight font-medium">
-                        {formatDetailDate(t.date)}
-                      </p>
-                    </div>
+
+            {/* ĐÃ FIX: NHÓM GIAO DỊCH THEO NGÀY (GIỐNG HISTORY) */}
+            <div className="w-full">
+              {sortedDetailGroups.map((group) => (
+                <div key={group.date.toISOString()} className="mb-6 w-full">
+                  <div className="flex justify-between items-center mb-1 px-2">
+                    <span className="text-xs font-semibold text-[#8e8e93] uppercase tracking-wide">
+                      {formatGroupHeader(group.date)}
+                    </span>
+                    <span className="text-xs font-semibold text-[#8e8e93]">
+                      ₫{Math.abs(group.totalDay).toLocaleString("vi-VN")}
+                    </span>
                   </div>
                   <div
-                    className={`font-bold text-[16px] flex-shrink-0 ${theme === "dark" ? "text-white" : "text-black"}`}
+                    className={`w-full rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
                   >
-                    ₫{t.amount.toLocaleString("vi-VN")}
+                    {group.items.map((tItem, index) => (
+                      <div
+                        key={tItem.id}
+                        className={`relative w-full flex items-center py-3.5 px-4 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"} ${index !== group.items.length - 1 ? (theme === "dark" ? "border-b border-[#2c2c2e]" : "border-b border-gray-100") : ""}`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex flex-col">
+                            <p
+                              className={`font-bold text-[16px] leading-tight mb-0.5 ${theme === "dark" ? "text-white" : "text-black"}`}
+                            >
+                              {tItem.note || tItem.category?.name}
+                            </p>
+                            <p className="text-[12px] text-[#8e8e93] leading-tight font-medium">
+                              {new Date(tItem.date).toLocaleTimeString(
+                                "en-US",
+                                {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                  hour12: true,
+                                },
+                              )}
+                            </p>
+                          </div>
+                          <div
+                            className={`font-bold text-[16px] flex-shrink-0 ${theme === "dark" ? "text-white" : "text-black"}`}
+                          >
+                            ₫{tItem.amount.toLocaleString("vi-VN")}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
-              {catTransactions.length === 0 && (
+              {sortedDetailGroups.length === 0 && (
                 <p className="text-center text-[#8e8e93] mt-8 text-sm">
                   No transactions found.
                 </p>
