@@ -786,9 +786,7 @@ export default function Analytics() {
                                 className="h-full rounded-full transition-all duration-300"
                                 style={{
                                   width: `${Math.min(displayPercent || 0, 100)}%`,
-                                  backgroundColor: isOver
-                                    ? "#ff453a"
-                                    : cat.color || "#32ade6",
+                                  backgroundColor: cat.color || "#32ade6", // ĐÃ FIX: Giữ nguyên màu danh mục, không đổi sang đỏ
                                 }}
                               ></div>
                             )}
@@ -804,6 +802,7 @@ export default function Analytics() {
                               ></div>
                             )}
                         </div>
+                        {/* Chỉ có đoạn text phần trăm này là biến đỏ nếu over budget */}
                         <span
                           className={`text-[12px] font-bold min-w-[32px] text-right ${isOver ? "text-[#ff453a]" : "text-[#8e8e93]"}`}
                         >
@@ -974,8 +973,8 @@ export default function Analytics() {
             </h2>
             <div className="w-20"></div>
           </div>
-          <div className="flex-1 px-6 pt-6 pb-32">
-            <div className="flex items-center gap-5 mb-8">
+          <div className="flex-1 px-4 pt-6 pb-32">
+            <div className="flex items-center gap-5 mb-8 px-2">
               <div
                 className={`w-[72px] h-[72px] rounded-full flex items-center justify-center text-[36px] flex-shrink-0 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
               >
@@ -993,7 +992,6 @@ export default function Analytics() {
               </div>
             </div>
 
-            {/* ĐÃ KHÔI PHỤC: UI phẳng dấu chấm tròn kèm Header ngày tháng */}
             <div className="w-full">
               {sortedDetailGroups.map((group) => (
                 <div key={group.date.toISOString()} className="mb-4 w-full">
