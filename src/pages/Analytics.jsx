@@ -193,7 +193,6 @@ export default function Analytics() {
     return d >= bounds.start && d < bounds.end;
   });
 
-  // ĐÃ FIX: Hàm chuyển đổi header nhóm ngày giống History
   const formatGroupHeader = (d) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -366,7 +365,6 @@ export default function Analytics() {
     : totalAmount;
   const pacePercent = (daysPassed / daysInCycle) * 100;
 
-  // ĐÃ FIX: Gom nhóm giao dịch trong Detail y hệt History
   const catTransactions = selectedCategory
     ? filteredData.filter((t) => t.category?.id === selectedCategory.id)
     : [];
@@ -976,8 +974,8 @@ export default function Analytics() {
             </h2>
             <div className="w-20"></div>
           </div>
-          <div className="flex-1 px-4 pt-6 pb-32">
-            <div className="flex items-center gap-5 mb-8 px-2">
+          <div className="flex-1 px-6 pt-6 pb-32">
+            <div className="flex items-center gap-5 mb-8">
               <div
                 className={`w-[72px] h-[72px] rounded-full flex items-center justify-center text-[36px] flex-shrink-0 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white shadow-sm"}`}
               >
@@ -995,11 +993,11 @@ export default function Analytics() {
               </div>
             </div>
 
-            {/* ĐÃ FIX: NHÓM GIAO DỊCH THEO NGÀY (GIỐNG HISTORY) */}
+            {/* ĐÃ KHÔI PHỤC: UI phẳng dấu chấm tròn kèm Header ngày tháng */}
             <div className="w-full">
               {sortedDetailGroups.map((group) => (
-                <div key={group.date.toISOString()} className="mb-6 w-full">
-                  <div className="flex justify-between items-center mb-1 px-2">
+                <div key={group.date.toISOString()} className="mb-4 w-full">
+                  <div className="flex justify-between items-center mb-2 px-1">
                     <span className="text-xs font-semibold text-[#8e8e93] uppercase tracking-wide">
                       {formatGroupHeader(group.date)}
                     </span>
@@ -1007,37 +1005,39 @@ export default function Analytics() {
                       ₫{Math.abs(group.totalDay).toLocaleString("vi-VN")}
                     </span>
                   </div>
-                  <div
-                    className={`w-full rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
-                  >
-                    {group.items.map((tItem, index) => (
+                  <div className="flex flex-col">
+                    {group.items.map((t, index) => (
                       <div
-                        key={tItem.id}
-                        className={`relative w-full flex items-center py-3.5 px-4 ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"} ${index !== group.items.length - 1 ? (theme === "dark" ? "border-b border-[#2c2c2e]" : "border-b border-gray-100") : ""}`}
+                        key={t.id}
+                        className={`flex justify-between items-center py-4 border-b ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
                       >
-                        <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                            style={{
+                              backgroundColor:
+                                selectedCategory.color || "#32ade6",
+                            }}
+                          ></div>
                           <div className="flex flex-col">
                             <p
-                              className={`font-bold text-[16px] leading-tight mb-0.5 ${theme === "dark" ? "text-white" : "text-black"}`}
+                              className={`font-bold text-[16px] leading-tight mb-1 ${theme === "dark" ? "text-white" : "text-black"}`}
                             >
-                              {tItem.note || tItem.category?.name}
+                              {t.note || selectedCategory.name}
                             </p>
-                            <p className="text-[12px] text-[#8e8e93] leading-tight font-medium">
-                              {new Date(tItem.date).toLocaleTimeString(
-                                "en-US",
-                                {
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                  hour12: true,
-                                },
-                              )}
+                            <p className="text-[13px] text-[#8e8e93] leading-tight font-medium">
+                              {new Date(t.date).toLocaleTimeString("en-US", {
+                                hour: "numeric",
+                                minute: "2-digit",
+                                hour12: true,
+                              })}
                             </p>
                           </div>
-                          <div
-                            className={`font-bold text-[16px] flex-shrink-0 ${theme === "dark" ? "text-white" : "text-black"}`}
-                          >
-                            ₫{tItem.amount.toLocaleString("vi-VN")}
-                          </div>
+                        </div>
+                        <div
+                          className={`font-bold text-[16px] flex-shrink-0 ${theme === "dark" ? "text-white" : "text-black"}`}
+                        >
+                          ₫{t.amount.toLocaleString("vi-VN")}
                         </div>
                       </div>
                     ))}
