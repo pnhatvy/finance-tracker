@@ -137,7 +137,7 @@ export default function AddTransaction() {
     );
   }, []);
 
-  // SEARCH CHUẨN XÁC: Ép sát vị trí hiện tại và bám chặt Việt Nam, không bay đi xa
+  // SEARCH CHUẨN XÁC: Ép sát vị trí hiện tại và bám chặt Việt Nam
   useEffect(() => {
     if (!searchLocation.trim()) {
       setSearchResults([]);
@@ -151,7 +151,6 @@ export default function AddTransaction() {
 
     const delayDebounceFn = setTimeout(async () => {
       try {
-        // Truyền tọa độ hiện tại (lat/lon) để Photon ưu tiên kết quả bán kính gần nhất
         const latLonQuery = coords
           ? `&lat=${coords.lat}&lon=${coords.lon}`
           : "";
@@ -186,7 +185,7 @@ export default function AddTransaction() {
     return () => clearTimeout(delayDebounceFn);
   }, [searchLocation, coords]);
 
-  // HIỆU ỨNG VUỐT ĐÓNG MƯỢT MÀ CHUẨN iOS (SPRING PHYSICS)
+  // HIỆU ỨNG VUỐT ĐÓNG MƯỢT MÀ VÀ NHẠY HƠN (NGƯỠNG 70PX)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -196,7 +195,7 @@ export default function AddTransaction() {
     let isDragging = false;
 
     const handleTouchStart = (e) => {
-      if (container.scrollTop > 0) return; // Chỉ cho phép vuốt khi đang ở đỉnh màn hình
+      if (container.scrollTop > 0) return;
       startY = e.touches[0].clientY;
       isDragging = true;
       container.style.transition = "none";
@@ -206,8 +205,7 @@ export default function AddTransaction() {
       if (!isDragging) return;
       currentY = e.touches[0].clientY - startY;
       if (currentY > 0) {
-        // Áp dụng tỷ lệ cản lực (resistance) để tạo cảm giác nặng tay mượt mà như iOS
-        const dampenedY = currentY * 0.65;
+        const dampenedY = currentY * 0.75;
         container.style.transform = `translate3d(0, ${dampenedY}px, 0)`;
       }
     };
@@ -216,9 +214,10 @@ export default function AddTransaction() {
       if (!isDragging) return;
       isDragging = false;
       container.style.transition =
-        "transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)"; // Hiệu ứng lò xo iOS cực mượt
+        "transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)";
 
-      if (currentY > 110) {
+      // Giảm ngưỡng xuống 70px để lỡ tay vuốt nhẹ là đóng luôn
+      if (currentY > 70) {
         container.style.transform = `translate3d(0, 100dvh, 0)`;
         setTimeout(() => navigate("/"), 300);
       } else {
@@ -353,9 +352,10 @@ export default function AddTransaction() {
 
   return (
     <>
+      {/* Khôi phục đầy đủ class animate-ios-slide để trang trượt lên mượt mà khi mở */}
       <div
         ref={containerRef}
-        className={`flex flex-col h-[100dvh] p-5 overflow-y-auto scrollbar-hide will-change-transform ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
+        className={`flex flex-col h-[100dvh] p-5 overflow-y-auto scrollbar-hide animate-ios-slide will-change-transform ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
         style={{
           paddingTop: "max(env(safe-area-inset-top), 20px)",
           paddingBottom: "max(env(safe-area-inset-bottom), 20px)",
