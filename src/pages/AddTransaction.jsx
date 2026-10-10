@@ -25,7 +25,7 @@ export default function AddTransaction() {
   const [suggestions, setSuggestions] = useState([]);
 
   const [location, setLocation] = useState(null);
-  const [coords, setCoords] = useState(null); // Lưu tọa độ để search gần đó
+  const [coords, setCoords] = useState(null);
   const [isLocating, setIsLocating] = useState(true);
   const [showLocationModal, setShowLocationModal] = useState(false);
 
@@ -36,6 +36,7 @@ export default function AddTransaction() {
   const [searchError, setSearchError] = useState("");
 
   const containerRef = useRef(null);
+  const headerBarRef = useRef(null);
 
   const getCurrentDate = () => {
     const now = new Date();
@@ -69,16 +70,16 @@ export default function AddTransaction() {
     setPastNotes(uniqueNotes);
   }, []);
 
-  // LẤY VỊ TRÍ & DANH SÁCH QUÁN VỚI MÁY CHỦ DỰ PHÒNG
+  // LẤY VỊ TRÍ GPS VÀ ĐỊA CHỈ
   useEffect(() => {
     if (!navigator.geolocation) {
       setIsLocating(false);
       return;
     }
 
-    const CACHE_KEY_LOC = "vys_loc_v6";
-    const CACHE_KEY_PLACES = "vys_places_v6";
-    const CACHE_KEY_TIME = "vys_time_v6";
+    const CACHE_KEY_LOC = "vys_loc_v8";
+    const CACHE_KEY_PLACES = "vys_places_v8";
+    const CACHE_KEY_TIME = "vys_time_v8";
 
     const cachedTime = sessionStorage.getItem(CACHE_KEY_TIME);
     if (cachedTime && Date.now() - Number(cachedTime) < 5 * 60 * 1000) {
@@ -98,41 +99,33 @@ export default function AddTransaction() {
       async (position) => {
         const { latitude: lat, longitude: lon } = position.coords;
         setCoords({ lat, lon });
-        let finalPlaceName = "Đang xác định...";
+        let finalPlaceName = "Vị trí hiện tại";
 
-        // 1. Dùng BigDataCloud lấy Phường/Quận
         try {
           const addrRes = await fetch(
             `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=vi`,
           );
           if (addrRes.ok) {
             const addrData = await addrRes.json();
-            const locality = addrData.locality || "";
-            const city = addrData.city || addrData.principalSubdivision || "";
+            const locality = addrData.locality || addrData.city || "";
+            const principal = addrData.principalSubdivision || "";
             finalPlaceName = locality
-              ? `${locality}${city && locality !== city ? `, ${city}` : ""}`
-              : city || "Khu vực của bạn";
+              ? `${locality}, ${principal}`
+              : principal || "Khu vực của bạn";
           }
         } catch (e) {
-          console.error("Lỗi API lấy tên đường:", e);
-          finalPlaceName = "Không thể lấy vị trí";
+          console.error("Lỗi lấy vị trí:", e);
         }
 
         setLocation(finalPlaceName);
         sessionStorage.setItem(CACHE_KEY_LOC, finalPlaceName);
 
-        // 2. Lấy danh sách quán với hệ thống Backup Server
         try {
           const query = `[out:json][timeout:5];node(around:500,${lat},${lon})["name"];out 15;`;
-
-          // Thử server 1
           let overpassRes = await fetch(
             `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
           );
-
-          // Nếu server 1 sập, đá sang server 2
           if (!overpassRes.ok) {
-            console.log("Đổi sang Backup Server cho danh sách quán...");
             overpassRes = await fetch(
               `https://lz4.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
             );
@@ -155,12 +148,9 @@ export default function AddTransaction() {
               CACHE_KEY_PLACES,
               JSON.stringify(uniquePlaces),
             );
-          } else {
-            setNearbyPlaces([]);
           }
         } catch (e) {
-          console.error("Lỗi API lấy danh sách quán:", e);
-          setNearbyPlaces([]);
+          console.error("Lỗi lấy quán xung quanh:", e);
         } finally {
           setIsLocating(false);
           sessionStorage.setItem(CACHE_KEY_TIME, Date.now().toString());
@@ -170,11 +160,11 @@ export default function AddTransaction() {
         setIsLocating(false);
         setLocation(null);
       },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
     );
   }, []);
 
-  // SEARCH MỚI BẰNG API CỦA PHOTON (SIÊU NHANH & KHÔNG BỊ CHẶN)
+  // TÌM KIẾM ĐỊA ĐIỂM
   useEffect(() => {
     if (!searchLocation.trim()) {
       setSearchResults([]);
@@ -188,18 +178,15 @@ export default function AddTransaction() {
 
     const delayDebounceFn = setTimeout(async () => {
       try {
-        // Ưu tiên tìm gần tọa độ hiện tại nếu có
         const locationQuery = coords
           ? `&lat=${coords.lat}&lon=${coords.lon}`
           : "";
         const res = await fetch(
           `https://photon.komoot.io/api/?q=${encodeURIComponent(searchLocation)}${locationQuery}&limit=6`,
         );
-
-        if (!res.ok) throw new Error("Mạng lỗi");
+        if (!res.ok) throw new Error("Lỗi kết nối");
 
         const data = await res.json();
-
         const results = data.features
           .map((f) => {
             const p = f.properties;
@@ -208,7 +195,7 @@ export default function AddTransaction() {
               .join(", ");
             return {
               name: p.name || p.street || "Địa điểm",
-              address: addressParts || p.state || "Không có địa chỉ chi tiết",
+              address: addressParts || p.state || "Việt Nam",
             };
           })
           .filter((item) => item.name);
@@ -216,7 +203,7 @@ export default function AddTransaction() {
         setSearchResults(results);
       } catch (error) {
         console.error("Lỗi tìm kiếm:", error);
-        setSearchError("Lỗi kết nối. Vui lòng kiểm tra mạng.");
+        setSearchError("Không thể kết nối tìm kiếm.");
       } finally {
         setIsSearching(false);
       }
@@ -225,10 +212,83 @@ export default function AddTransaction() {
     return () => clearTimeout(delayDebounceFn);
   }, [searchLocation, coords]);
 
+  // VUỐT ĐÓNG TỪ THANH NGANG PHÍA TRÊN
+  useEffect(() => {
+    const container = containerRef.current;
+    const headerBar = headerBarRef.current;
+    if (!container || !headerBar) return;
+
+    let startY = 0,
+      currentY = 0;
+    let isDragging = false,
+      isClosing = false;
+    let rafId = null;
+
+    const handleTouchStart = (e) => {
+      startY = e.touches[0].clientY;
+      isDragging = true;
+      isClosing = false;
+      container.style.transition = "none";
+    };
+
+    const handleTouchMove = (e) => {
+      if (!isDragging || isClosing) return;
+      const diffY = e.touches[0].clientY - startY;
+
+      if (diffY > 0) {
+        e.preventDefault();
+        currentY = diffY;
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          container.style.transform = `translate3d(0, ${currentY}px, 0)`;
+        });
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (!isDragging || isClosing) return;
+      isDragging = false;
+      if (rafId) cancelAnimationFrame(rafId);
+      container.style.transition =
+        "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
+      if (currentY > 120) {
+        isClosing = true;
+        container.style.transform = `translate3d(0, 100dvh, 0)`;
+        setTimeout(() => navigate("/"), 300);
+      } else {
+        currentY = 0;
+        container.style.transform = `translate3d(0, 0px, 0)`;
+      }
+    };
+
+    headerBar.addEventListener("touchstart", handleTouchStart, {
+      passive: false,
+    });
+    headerBar.addEventListener("touchmove", handleTouchMove, {
+      passive: false,
+    });
+    headerBar.addEventListener("touchend", handleTouchEnd);
+
+    return () => {
+      headerBar.removeEventListener("touchstart", handleTouchStart);
+      headerBar.removeEventListener("touchmove", handleTouchMove);
+      headerBar.removeEventListener("touchend", handleTouchEnd);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [navigate]);
+
+  const handleCloseButton = () => {
+    if (containerRef.current) {
+      containerRef.current.style.transition =
+        "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
+      containerRef.current.style.transform = `translate3d(0, 100dvh, 0)`;
+    }
+    setTimeout(() => navigate("/"), 300);
+  };
+
   const handleNoteChange = (e) => {
     const val = e.target.value;
     setNote(val);
-
     if (val.trim()) {
       const matches = pastNotes.filter(
         (n) =>
@@ -244,96 +304,6 @@ export default function AddTransaction() {
   const acceptSuggestion = (s) => {
     setNote(s);
     setSuggestions([]);
-  };
-
-  // ĐÃ FIX VUỐT TRƯỢT: Tăng độ nhạy scrollTop lên 10px để không bị trượt mất event
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    let startY = 0,
-      startX = 0,
-      currentY = 0;
-    let isDragging = false,
-      isClosing = false,
-      dragDirection = null;
-    let rafId = null;
-
-    const handleTouchStart = (e) => {
-      // Tăng dung sai lên 10px để hệ thống nhận diện vuốt tốt hơn
-      if (container.scrollTop > 10 || isClosing) return;
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      isDragging = true;
-      dragDirection = null;
-      container.style.transition = "none";
-    };
-
-    const handleTouchMove = (e) => {
-      if (!isDragging || isClosing) return;
-      const diffX = e.touches[0].clientX - startX;
-      const diffY = e.touches[0].clientY - startY;
-
-      if (!dragDirection) {
-        if (Math.abs(diffX) > Math.abs(diffY)) dragDirection = "horizontal";
-        else dragDirection = "vertical";
-      }
-      if (dragDirection === "horizontal") return;
-
-      // Vuốt xuống (diffY > 0) và thanh cuộn đang ở gần sát đỉnh
-      if (
-        dragDirection === "vertical" &&
-        diffY > 0 &&
-        container.scrollTop <= 10
-      ) {
-        e.preventDefault(); // Chặn hành vi cuộn mặc định của trình duyệt
-        currentY = diffY;
-        if (rafId) cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(() => {
-          container.style.transform = `translate3d(0, ${currentY}px, 0)`;
-        });
-      }
-    };
-
-    const handleTouchEnd = () => {
-      if (!isDragging || isClosing) return;
-      isDragging = false;
-      if (rafId) cancelAnimationFrame(rafId);
-      container.style.transition =
-        "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
-      if (currentY > 150) {
-        isClosing = true;
-        container.style.transform = `translate3d(0, 100dvh, 0)`;
-        setTimeout(() => navigate("/"), 300);
-      } else {
-        currentY = 0;
-        container.style.transform = `translate3d(0, 0px, 0)`;
-      }
-    };
-
-    container.addEventListener("touchstart", handleTouchStart, {
-      passive: false,
-    });
-    container.addEventListener("touchmove", handleTouchMove, {
-      passive: false,
-    });
-    container.addEventListener("touchend", handleTouchEnd);
-
-    return () => {
-      container.removeEventListener("touchstart", handleTouchStart);
-      container.removeEventListener("touchmove", handleTouchMove);
-      container.removeEventListener("touchend", handleTouchEnd);
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [navigate]);
-
-  const handleCloseButton = () => {
-    if (containerRef.current) {
-      containerRef.current.style.transition =
-        "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
-      containerRef.current.style.transform = `translate3d(0, 100dvh, 0)`;
-    }
-    setTimeout(() => navigate("/"), 300);
   };
 
   useEffect(() => {
@@ -389,11 +359,7 @@ export default function AddTransaction() {
             (type === "expense" ? "Expense" : "Income"),
           category: category,
           location:
-            location &&
-            !location.includes("Đang xác định") &&
-            !location.includes("Không thể lấy")
-              ? location
-              : null,
+            location && !location.includes("Đang xác định") ? location : null,
           date: d.toISOString(),
           recurringId: repeat !== "none" ? groupId : null,
         });
@@ -432,13 +398,16 @@ export default function AddTransaction() {
           paddingBottom: "max(env(safe-area-inset-bottom), 20px)",
         }}
       >
-        <div className="w-full flex justify-center py-2 mb-2 pointer-events-none flex-shrink-0">
+        <div
+          ref={headerBarRef}
+          className="w-full flex justify-center py-3 mb-1 cursor-grab flex-shrink-0"
+        >
           <div
             className={`w-14 h-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-300"}`}
           ></div>
         </div>
 
-        <div className="flex justify-between items-center mb-5 flex-shrink-0">
+        <div className="flex justify-between items-center mb-4 flex-shrink-0">
           <button
             onClick={handleCloseButton}
             className={`p-1 active:opacity-50 flex-shrink-0 w-[42px] ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
