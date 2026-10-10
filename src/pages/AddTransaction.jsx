@@ -1,6 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Delete, Calendar, Repeat, Clock, Timer } from "lucide-react";
+import {
+  X,
+  Delete,
+  Calendar,
+  Repeat,
+  Clock,
+  Timer,
+  MapPin,
+} from "lucide-react";
 import { useAppContext } from "../AppContext";
 
 export default function AddTransaction() {
@@ -12,9 +20,13 @@ export default function AddTransaction() {
   const [note, setNote] = useState("");
   const [repeat, setRepeat] = useState("none");
 
-  // STATE MỚI CHO TÍNH NĂNG GỢI Ý
+  // STATE GỢI Ý NOTE
   const [pastNotes, setPastNotes] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
+
+  // STATE VỊ TRÍ
+  const [location, setLocation] = useState("Đang tìm vị trí...");
+  const [isLocating, setIsLocating] = useState(true);
 
   const containerRef = useRef(null);
 
@@ -40,44 +52,60 @@ export default function AddTransaction() {
   const currentCategories = safeCategories.filter((c) => c.type === type);
   const [category, setCategory] = useState(currentCategories[0] || {});
 
-  // 1. Quét lịch sử giao dịch để tạo "Từ điển" gợi ý
+  // Quét lịch sử tạo gợi ý Note
   useEffect(() => {
     const txs = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
     const allNotes = txs
       .map((t) => t.note)
       .filter((n) => n && n.trim() !== "" && n !== "Expense" && n !== "Income");
 
-    // Lọc trùng lặp để mảng gợi ý luôn sạch sẽ
     const uniqueNotes = [...new Set(allNotes)];
     setPastNotes(uniqueNotes);
   }, []);
 
-  // 2. Logic xử lý khi ông gõ chữ vào ô Note
+  // Giả lập hiệu ứng tìm vị trí khi mới mở form
+  useEffect(() => {
+    setIsLocating(true);
+    const timer = setTimeout(() => {
+      // Sau này ông móc API Google Maps / GPS vào đây để ra tọa độ thật
+      setLocation("TP. Hồ Chí Minh");
+      setIsLocating(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleManualLocation = () => {
+    const loc = window.prompt(
+      "Nhập địa điểm (bỏ trống để xóa):",
+      location || "",
+    );
+    if (loc !== null) {
+      if (loc.trim() === "") setLocation(null);
+      else setLocation(loc.trim());
+    }
+  };
+
   const handleNoteChange = (e) => {
     const val = e.target.value;
     setNote(val);
 
     if (val.trim()) {
-      // Tìm các note cũ có chứa từ đang gõ (không phân biệt hoa thường)
       const matches = pastNotes.filter(
         (n) =>
           n.toLowerCase().includes(val.toLowerCase()) &&
           n.toLowerCase() !== val.toLowerCase(),
       );
-      // Chỉ hiện tối đa 3 gợi ý gần nhất cho gọn màn hình
       setSuggestions(matches.slice(0, 3));
     } else {
       setSuggestions([]);
     }
   };
 
-  // 3. Logic chọn gợi ý
   const acceptSuggestion = (s) => {
     setNote(s);
     setSuggestions([]);
   };
 
-  // Khôi phục hiệu ứng trượt vuốt đóng trang
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -226,6 +254,8 @@ export default function AddTransaction() {
             category.name ||
             (type === "expense" ? "Expense" : "Income"),
           category: category,
+          location:
+            location && location !== "Đang tìm vị trí..." ? location : null,
           date: d.toISOString(),
           recurringId: repeat !== "none" ? groupId : null,
         });
@@ -325,6 +355,53 @@ export default function AddTransaction() {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center min-h-[160px] relative flex-shrink-0">
+        {/* --- KHU VỰC VỊ TRÍ --- */}
+        <div className="flex justify-center mb-4">
+          {isLocating ? (
+            <div
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium animate-pulse ${theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-gray-100 text-gray-500"}`}
+            >
+              <MapPin size={14} />
+              <span>Đang tìm vị trí...</span>
+            </div>
+          ) : location ? (
+            <div
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium shadow-sm transition-all cursor-pointer ${theme === "dark" ? "bg-[#2c2c2e] text-[#32ade6]" : "bg-[#e5f5fd] text-[#007aff]"}`}
+            >
+              <MapPin size={14} className="flex-shrink-0" />
+              <span
+                className="truncate max-w-[180px]"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleManualLocation();
+                }}
+              >
+                {location}
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLocation(null);
+                }}
+                className={`p-0.5 rounded-full ml-1 active:opacity-50 ${theme === "dark" ? "bg-[#3a3a3c] text-[#8e8e93]" : "bg-[#ccebfb] text-[#007aff]"}`}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleManualLocation();
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium border border-dashed transition-all active:opacity-50 ${theme === "dark" ? "border-white/20 text-[#8e8e93] hover:bg-white/5" : "border-black/20 text-gray-400 hover:bg-black/5"}`}
+            >
+              <MapPin size={14} />
+              <span>Thêm vị trí</span>
+            </button>
+          )}
+        </div>
+
         <span
           className={`text-xs uppercase tracking-wider mb-1 font-medium ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
         >
@@ -352,23 +429,22 @@ export default function AddTransaction() {
         </div>
 
         {/* CONTAINER CỦA Ô NHẬP VÀ DANH SÁCH GỢI Ý */}
-        <div className="relative w-full flex flex-col items-center">
+        <div className="relative w-full flex flex-col items-center mt-2">
           <input
             type="text"
             placeholder="+ Add note..."
             value={note}
             onChange={handleNoteChange}
             onTouchStart={(e) => e.stopPropagation()}
-            className={`mt-2 bg-transparent text-center focus:outline-none w-3/4 py-1.5 ${theme === "dark" ? "text-[#8e8e93] placeholder:text-[#8e8e93]/50" : "text-gray-600 placeholder:text-gray-400"}`}
+            className={`bg-transparent text-center focus:outline-none w-3/4 py-1.5 ${theme === "dark" ? "text-[#8e8e93] placeholder:text-[#8e8e93]/50" : "text-gray-600 placeholder:text-gray-400"}`}
           />
 
-          {/* HIỂN THỊ GỢI Ý (AUTOCOMPLETE PILLS) */}
+          {/* HIỂN THỊ GỢI Ý */}
           {suggestions.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-2 flex justify-center flex-wrap gap-2 px-2 z-50">
               {suggestions.map((s, idx) => (
                 <button
                   key={idx}
-                  // Dùng onTouchStart kết hợp preventDefault để ấn vào gợi ý mà không bị mất focus bàn phím
                   onTouchStart={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
