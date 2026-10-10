@@ -8,6 +8,7 @@ import {
   Clock,
   Timer,
   MapPin,
+  Search,
 } from "lucide-react";
 import { useAppContext } from "../AppContext";
 
@@ -24,9 +25,11 @@ export default function AddTransaction() {
   const [pastNotes, setPastNotes] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
 
-  // STATE VỊ TRÍ
-  const [location, setLocation] = useState("Đang tìm vị trí...");
+  // STATE VỊ TRÍ & MODAL ĐỊA ĐIỂM
+  const [location, setLocation] = useState(null);
   const [isLocating, setIsLocating] = useState(true);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [searchLocation, setSearchLocation] = useState("");
 
   const containerRef = useRef(null);
 
@@ -52,7 +55,16 @@ export default function AddTransaction() {
   const currentCategories = safeCategories.filter((c) => c.type === type);
   const [category, setCategory] = useState(currentCategories[0] || {});
 
-  // Quét lịch sử tạo gợi ý Note
+  // Dữ liệu mô phỏng (Mock Data) các địa điểm xung quanh.
+  // GHI CHÚ: Để lấy tên quán thực tế theo GPS, ông sẽ cần tích hợp Google Maps Places API vào mảng này sau.
+  const nearbyPlaces = [
+    { name: "Quán Bún Bò Huế Chú Há", distance: "Cách 10m" },
+    { name: "Highlands Coffee", distance: "Cách 50m" },
+    { name: "Cửa hàng tiện lợi Circle K", distance: "Cách 120m" },
+    { name: "Nhà sách Nguyễn Văn Cừ", distance: "Cách 300m" },
+    { name: "Siêu thị Co.opmart", distance: "Cách 500m" },
+  ];
+
   useEffect(() => {
     const txs = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
     const allNotes = txs
@@ -67,23 +79,12 @@ export default function AddTransaction() {
   useEffect(() => {
     setIsLocating(true);
     const timer = setTimeout(() => {
-      // Sau này ông móc API Google Maps / GPS vào đây để ra tọa độ thật
-      setLocation("TP. Hồ Chí Minh");
+      // Giả lập hệ thống nhận diện được ông đang ở quán Bún Bò
+      setLocation(nearbyPlaces[0].name);
       setIsLocating(false);
     }, 1500);
     return () => clearTimeout(timer);
   }, []);
-
-  const handleManualLocation = () => {
-    const loc = window.prompt(
-      "Nhập địa điểm (bỏ trống để xóa):",
-      location || "",
-    );
-    if (loc !== null) {
-      if (loc.trim() === "") setLocation(null);
-      else setLocation(loc.trim());
-    }
-  };
 
   const handleNoteChange = (e) => {
     const val = e.target.value;
@@ -285,299 +286,400 @@ export default function AddTransaction() {
   };
 
   return (
-    <div
-      ref={containerRef}
-      className={`flex flex-col h-[100dvh] p-5 overflow-y-auto scrollbar-hide animate-ios-slide will-change-transform ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
-      style={{
-        paddingTop: "max(env(safe-area-inset-top), 20px)",
-        paddingBottom: "max(env(safe-area-inset-bottom), 20px)",
-      }}
-    >
-      <div className="w-full flex justify-center py-2 mb-2 pointer-events-none flex-shrink-0">
-        <div
-          className={`w-14 h-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-300"}`}
-        ></div>
-      </div>
-
-      <div className="flex justify-between items-center mb-5 flex-shrink-0">
-        <button
-          onClick={handleCloseButton}
-          className={`p-1 active:opacity-50 flex-shrink-0 w-[42px] ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
-        >
-          <X size={26} />
-        </button>
-        <div
-          className={`relative flex rounded-full p-1 w-[200px] ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-200"}`}
-        >
+    <>
+      <div
+        ref={containerRef}
+        className={`flex flex-col h-[100dvh] p-5 overflow-y-auto scrollbar-hide animate-ios-slide will-change-transform ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
+        style={{
+          paddingTop: "max(env(safe-area-inset-top), 20px)",
+          paddingBottom: "max(env(safe-area-inset-bottom), 20px)",
+        }}
+      >
+        <div className="w-full flex justify-center py-2 mb-2 pointer-events-none flex-shrink-0">
           <div
-            className={`absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-full transition-all duration-300 ease-out ${type === "expense" ? "translate-x-0 bg-[#ff453a]" : "translate-x-[100%] bg-[#32d74b]"}`}
+            className={`w-14 h-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-300"}`}
           ></div>
-          <button
-            onClick={() => setType("expense")}
-            className={`relative z-10 flex-1 py-1.5 text-sm font-semibold transition-colors duration-300 ${type === "expense" ? "text-white" : "text-[#8e8e93]"}`}
-          >
-            Expense
-          </button>
-          <button
-            onClick={() => setType("income")}
-            className={`relative z-10 flex-1 py-1.5 text-sm font-semibold transition-colors duration-300 ${type === "income" ? "text-white" : "text-[#8e8e93]"}`}
-          >
-            Income
-          </button>
         </div>
-        <div className="w-[42px] flex-shrink-0"></div>
-      </div>
 
-      <div className="flex overflow-x-auto flex-nowrap gap-2.5 py-1 mb-3 scrollbar-hide items-center min-h-[50px] flex-shrink-0">
-        {currentCategories.map((cat) => (
+        <div className="flex justify-between items-center mb-5 flex-shrink-0">
           <button
-            key={cat.id}
-            onClick={(e) => {
-              e.stopPropagation();
-              setCategory(cat);
-            }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap transition-all flex-shrink-0 ${category.id === cat.id ? (theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-200") : theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500"}`}
-            style={{
-              border:
-                category.id === cat.id
-                  ? `1.5px solid ${cat.color}`
-                  : "1.5px solid transparent",
-            }}
+            onClick={handleCloseButton}
+            className={`p-1 active:opacity-50 flex-shrink-0 w-[42px] ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
           >
-            <span className="text-base pointer-events-none">{cat.icon}</span>
-            <span
-              className={`text-sm font-semibold pointer-events-none ${category.id === cat.id ? (theme === "dark" ? "text-white" : "text-black") : theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
-            >
-              {cat.name}
-            </span>
+            <X size={26} />
           </button>
-        ))}
-      </div>
+          <div
+            className={`relative flex rounded-full p-1 w-[200px] ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-gray-200"}`}
+          >
+            <div
+              className={`absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-full transition-all duration-300 ease-out ${type === "expense" ? "translate-x-0 bg-[#ff453a]" : "translate-x-[100%] bg-[#32d74b]"}`}
+            ></div>
+            <button
+              onClick={() => setType("expense")}
+              className={`relative z-10 flex-1 py-1.5 text-sm font-semibold transition-colors duration-300 ${type === "expense" ? "text-white" : "text-[#8e8e93]"}`}
+            >
+              Expense
+            </button>
+            <button
+              onClick={() => setType("income")}
+              className={`relative z-10 flex-1 py-1.5 text-sm font-semibold transition-colors duration-300 ${type === "income" ? "text-white" : "text-[#8e8e93]"}`}
+            >
+              Income
+            </button>
+          </div>
+          <div className="w-[42px] flex-shrink-0"></div>
+        </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center min-h-[160px] relative flex-shrink-0">
-        {/* --- KHU VỰC VỊ TRÍ --- */}
-        <div className="flex justify-center mb-4">
-          {isLocating ? (
-            <div
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium animate-pulse ${theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-gray-100 text-gray-500"}`}
+        <div className="flex overflow-x-auto flex-nowrap gap-2.5 py-1 mb-3 scrollbar-hide items-center min-h-[50px] flex-shrink-0">
+          {currentCategories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                setCategory(cat);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap transition-all flex-shrink-0 ${category.id === cat.id ? (theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-200") : theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500"}`}
+              style={{
+                border:
+                  category.id === cat.id
+                    ? `1.5px solid ${cat.color}`
+                    : "1.5px solid transparent",
+              }}
             >
-              <MapPin size={14} />
-              <span>Đang tìm vị trí...</span>
-            </div>
-          ) : location ? (
-            <div
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium shadow-sm transition-all cursor-pointer ${theme === "dark" ? "bg-[#2c2c2e] text-[#32ade6]" : "bg-[#e5f5fd] text-[#007aff]"}`}
-            >
-              <MapPin size={14} className="flex-shrink-0" />
+              <span className="text-base pointer-events-none">{cat.icon}</span>
               <span
-                className="truncate max-w-[180px]"
+                className={`text-sm font-semibold pointer-events-none ${category.id === cat.id ? (theme === "dark" ? "text-white" : "text-black") : theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
+              >
+                {cat.name}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center min-h-[160px] relative flex-shrink-0">
+          {/* --- KHU VỰC VỊ TRÍ ĐÃ LÀM LẠI MÀU SẮC TỐI GIẢN --- */}
+          <div className="flex justify-center mb-4">
+            {isLocating ? (
+              <div
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium animate-pulse ${theme === "dark" ? "bg-[#2c2c2e] text-[#8e8e93]" : "bg-gray-200 text-gray-500"}`}
+              >
+                <MapPin size={14} />
+                <span>Đang tìm vị trí...</span>
+              </div>
+            ) : location ? (
+              <div
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleManualLocation();
+                  setShowLocationModal(true);
                 }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium transition-all cursor-pointer ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
               >
-                {location}
-              </span>
+                <MapPin size={14} className="flex-shrink-0" />
+                <span className="truncate max-w-[180px]">{location}</span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLocation(null);
+                  }}
+                  className={`p-0.5 rounded-full ml-1 active:opacity-50 ${theme === "dark" ? "bg-[#3a3a3c] text-[#8e8e93]" : "bg-gray-300 text-gray-500"}`}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ) : (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setLocation(null);
+                  setShowLocationModal(true);
                 }}
-                className={`p-0.5 rounded-full ml-1 active:opacity-50 ${theme === "dark" ? "bg-[#3a3a3c] text-[#8e8e93]" : "bg-[#ccebfb] text-[#007aff]"}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium border border-dashed transition-all active:opacity-50 ${theme === "dark" ? "border-white/20 text-[#8e8e93] hover:bg-white/5" : "border-black/20 text-gray-400 hover:bg-black/5"}`}
               >
-                <X size={12} />
+                <MapPin size={14} />
+                <span>Thêm vị trí</span>
               </button>
-            </div>
-          ) : (
+            )}
+          </div>
+
+          <span
+            className={`text-xs uppercase tracking-wider mb-1 font-medium ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
+          >
+            Amount
+          </span>
+          <div className="text-[56px] font-bold tracking-tight flex items-baseline">
+            <span
+              className={`text-4xl mr-1 underline underline-offset-8 ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
+            >
+              ₫
+            </span>
+            <span>{displayAmount()}</span>
+          </div>
+
+          <div className="h-6 mt-1 flex items-center justify-center">
+            {calculatedHours() && (
+              <span
+                className={`text-[13px] font-medium flex items-center gap-1.5 animate-ios-fade ${type === "expense" ? "text-[#ff453a]/80" : "text-[#32d74b]/80"}`}
+              >
+                <Timer size={14} />
+                {type === "expense"
+                  ? "Costs"
+                  : "Equals"} {calculatedHours()}{" "}
+                {calculatedHours() === "1.0" ? "hour" : "hours"} of work
+              </span>
+            )}
+          </div>
+
+          <div className="relative w-full flex flex-col items-center mt-2">
+            <input
+              type="text"
+              placeholder="+ Add note..."
+              value={note}
+              onChange={handleNoteChange}
+              onTouchStart={(e) => e.stopPropagation()}
+              className={`bg-transparent text-center focus:outline-none w-3/4 py-1.5 ${theme === "dark" ? "text-[#8e8e93] placeholder:text-[#8e8e93]/50" : "text-gray-600 placeholder:text-gray-400"}`}
+            />
+            {suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 flex justify-center flex-wrap gap-2 px-2 z-50">
+                {suggestions.map((s, idx) => (
+                  <button
+                    key={idx}
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      acceptSuggestion(s);
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      acceptSuggestion(s);
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-[13px] font-medium truncate max-w-[150px] shadow-sm active:scale-95 transition-transform ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-white text-black border border-gray-200"}`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-2 mb-4 mt-auto flex-shrink-0 pt-4">
+          <div
+            className={`flex-[1.2] relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+          >
+            <span
+              className={`font-semibold text-[12px] flex items-center gap-1.5 pointer-events-none ${theme === "dark" ? "text-white" : "text-black"}`}
+            >
+              <Calendar size={14} className="text-[#32ade6]" />
+              {new Date(datePart).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })}
+            </span>
+            <input
+              type="date"
+              value={datePart}
+              onChange={(e) => setDatePart(e.target.value)}
+              onTouchStart={(e) => e.stopPropagation()}
+              className="absolute inset-0 opacity-0 z-20 w-full h-full"
+            />
+          </div>
+          <div
+            className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+          >
+            <span
+              className={`font-semibold text-[12px] flex items-center gap-1.5 pointer-events-none ${theme === "dark" ? "text-white" : "text-black"}`}
+            >
+              <Clock size={14} className="text-[#32ade6]" />
+              {timePart}
+            </span>
+            <input
+              type="time"
+              value={timePart}
+              onChange={(e) => setTimePart(e.target.value)}
+              onTouchStart={(e) => e.stopPropagation()}
+              className="absolute inset-0 opacity-0 z-20 w-full h-full"
+            />
+          </div>
+          <div
+            className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
+          >
+            <span
+              className={`font-semibold text-[12px] flex items-center gap-1.5 pointer-events-none capitalize ${theme === "dark" ? "text-white" : "text-black"}`}
+            >
+              <Repeat size={14} className="text-[#32ade6]" />
+              {repeat === "none" ? "None" : repeat}
+            </span>
+            <select
+              value={repeat}
+              onChange={(e) => setRepeat(e.target.value)}
+              onTouchStart={(e) => e.stopPropagation()}
+              className="absolute inset-0 opacity-0 z-20 w-full h-full"
+            >
+              <option value="none">None</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 mb-4 flex-shrink-0">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
             <button
+              key={num}
               onClick={(e) => {
                 e.stopPropagation();
-                handleManualLocation();
+                handleKeyPress(num.toString());
               }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium border border-dashed transition-all active:opacity-50 ${theme === "dark" ? "border-white/20 text-[#8e8e93] hover:bg-white/5" : "border-black/20 text-gray-400 hover:bg-black/5"}`}
+              className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
             >
-              <MapPin size={14} />
-              <span>Thêm vị trí</span>
+              {num}
             </button>
-          )}
-        </div>
-
-        <span
-          className={`text-xs uppercase tracking-wider mb-1 font-medium ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
-        >
-          Amount
-        </span>
-        <div className="text-[56px] font-bold tracking-tight flex items-baseline">
-          <span
-            className={`text-4xl mr-1 underline underline-offset-8 ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
-          >
-            ₫
-          </span>
-          <span>{displayAmount()}</span>
-        </div>
-
-        <div className="h-6 mt-1 flex items-center justify-center">
-          {calculatedHours() && (
-            <span
-              className={`text-[13px] font-medium flex items-center gap-1.5 animate-ios-fade ${type === "expense" ? "text-[#ff453a]/80" : "text-[#32d74b]/80"}`}
-            >
-              <Timer size={14} />
-              {type === "expense" ? "Costs" : "Equals"} {calculatedHours()}{" "}
-              {calculatedHours() === "1.0" ? "hour" : "hours"} of work
-            </span>
-          )}
-        </div>
-
-        {/* CONTAINER CỦA Ô NHẬP VÀ DANH SÁCH GỢI Ý */}
-        <div className="relative w-full flex flex-col items-center mt-2">
-          <input
-            type="text"
-            placeholder="+ Add note..."
-            value={note}
-            onChange={handleNoteChange}
-            onTouchStart={(e) => e.stopPropagation()}
-            className={`bg-transparent text-center focus:outline-none w-3/4 py-1.5 ${theme === "dark" ? "text-[#8e8e93] placeholder:text-[#8e8e93]/50" : "text-gray-600 placeholder:text-gray-400"}`}
-          />
-
-          {/* HIỂN THỊ GỢI Ý */}
-          {suggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-2 flex justify-center flex-wrap gap-2 px-2 z-50">
-              {suggestions.map((s, idx) => (
-                <button
-                  key={idx}
-                  onTouchStart={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    acceptSuggestion(s);
-                  }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    acceptSuggestion(s);
-                  }}
-                  className={`px-3 py-1.5 rounded-full text-[13px] font-medium truncate max-w-[150px] shadow-sm active:scale-95 transition-transform ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-white text-black border border-gray-200"}`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="flex gap-2 mb-4 mt-auto flex-shrink-0 pt-4">
-        <div
-          className={`flex-[1.2] relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
-        >
-          <span
-            className={`font-semibold text-[12px] flex items-center gap-1.5 pointer-events-none ${theme === "dark" ? "text-white" : "text-black"}`}
-          >
-            <Calendar size={14} className="text-[#32ade6]" />
-            {new Date(datePart).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })}
-          </span>
-          <input
-            type="date"
-            value={datePart}
-            onChange={(e) => setDatePart(e.target.value)}
-            onTouchStart={(e) => e.stopPropagation()}
-            className="absolute inset-0 opacity-0 z-20 w-full h-full"
-          />
-        </div>
-        <div
-          className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
-        >
-          <span
-            className={`font-semibold text-[12px] flex items-center gap-1.5 pointer-events-none ${theme === "dark" ? "text-white" : "text-black"}`}
-          >
-            <Clock size={14} className="text-[#32ade6]" />
-            {timePart}
-          </span>
-          <input
-            type="time"
-            value={timePart}
-            onChange={(e) => setTimePart(e.target.value)}
-            onTouchStart={(e) => e.stopPropagation()}
-            className="absolute inset-0 opacity-0 z-20 w-full h-full"
-          />
-        </div>
-        <div
-          className={`flex-1 relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
-        >
-          <span
-            className={`font-semibold text-[12px] flex items-center gap-1.5 pointer-events-none capitalize ${theme === "dark" ? "text-white" : "text-black"}`}
-          >
-            <Repeat size={14} className="text-[#32ade6]" />
-            {repeat === "none" ? "None" : repeat}
-          </span>
-          <select
-            value={repeat}
-            onChange={(e) => setRepeat(e.target.value)}
-            onTouchStart={(e) => e.stopPropagation()}
-            className="absolute inset-0 opacity-0 z-20 w-full h-full"
-          >
-            <option value="none">None</option>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-            <option value="yearly">Yearly</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2 mb-4 flex-shrink-0">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+          ))}
           <button
-            key={num}
             onClick={(e) => {
               e.stopPropagation();
-              handleKeyPress(num.toString());
+              handleKeyPress(",");
             }}
             className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
           >
-            {num}
+            ,
           </button>
-        ))}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleKeyPress("0");
+            }}
+            className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
+          >
+            0
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete();
+            }}
+            className={`py-3 rounded-2xl flex items-center justify-center active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500 shadow-sm"}`}
+          >
+            <Delete size={26} />
+          </button>
+        </div>
+
         <button
           onClick={(e) => {
             e.stopPropagation();
-            handleKeyPress(",");
+            handleSave();
           }}
-          className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
+          className={`w-full py-3.5 rounded-full font-bold text-[17px] active:scale-[0.98] transition-transform flex-shrink-0 ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
         >
-          ,
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleKeyPress("0");
-          }}
-          className={`py-3 rounded-2xl text-2xl font-semibold active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black shadow-sm"}`}
-        >
-          0
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDelete();
-          }}
-          className={`py-3 rounded-2xl flex items-center justify-center active:opacity-60 ${theme === "dark" ? "bg-[#1c1c1e] text-[#8e8e93]" : "bg-white text-gray-500 shadow-sm"}`}
-        >
-          <Delete size={26} />
+          Save
         </button>
       </div>
 
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          handleSave();
-        }}
-        className={`w-full py-3.5 rounded-full font-bold text-[17px] active:scale-[0.98] transition-transform flex-shrink-0 ${theme === "dark" ? "bg-white text-black" : "bg-black text-white"}`}
-      >
-        Save
-      </button>
-    </div>
+      {/* --- MODAL CHỌN/TÌM KIẾM ĐỊA ĐIỂM (BOTTOM SHEET XỊN XÒ) --- */}
+      {showLocationModal && (
+        <div
+          className="fixed inset-0 bg-black/70 z-[70] flex flex-col justify-end animate-ios-fade"
+          onClick={() => setShowLocationModal(false)}
+        >
+          <div
+            className={`w-full h-[65vh] max-w-md mx-auto rounded-t-3xl flex flex-col shadow-2xl animate-ios-slide ${theme === "dark" ? "bg-[#1c1c1e] text-white" : "bg-white text-black"}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center p-5 pb-3 flex-shrink-0">
+              <h2 className="font-bold text-lg">Select Location</h2>
+              <button
+                onClick={() => setShowLocationModal(false)}
+                className={`p-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="px-5 mb-2 flex-shrink-0">
+              <div
+                className={`flex items-center gap-2 px-4 py-3 rounded-xl ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+              >
+                <Search size={18} className="text-[#8e8e93]" />
+                <input
+                  type="text"
+                  placeholder="Search or enter custom place..."
+                  value={searchLocation}
+                  onChange={(e) => setSearchLocation(e.target.value)}
+                  className={`bg-transparent outline-none flex-1 font-medium ${theme === "dark" ? "text-white" : "text-black"}`}
+                />
+                {searchLocation && (
+                  <button
+                    onClick={() => setSearchLocation("")}
+                    className="text-[#8e8e93] active:opacity-50"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 pb-8">
+              {searchLocation.trim() !== "" && (
+                <button
+                  onClick={() => {
+                    setLocation(searchLocation.trim());
+                    setShowLocationModal(false);
+                  }}
+                  className={`w-full flex items-center gap-3 p-4 border-b text-left active:opacity-60 transition-opacity ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
+                >
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${theme === "dark" ? "bg-[#2c2c2e] text-[#32ade6]" : "bg-[#e5f5fd] text-[#007aff]"}`}
+                  >
+                    <MapPin size={18} />
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <p className="font-semibold text-[15px] truncate text-[#32ade6]">
+                      Use "{searchLocation}"
+                    </p>
+                    <p className="text-xs text-[#8e8e93] mt-0.5">
+                      Custom location
+                    </p>
+                  </div>
+                </button>
+              )}
+
+              <p className="text-xs font-bold text-[#8e8e93] uppercase tracking-wider mt-5 mb-2 ml-1">
+                Nearby Places
+              </p>
+
+              {nearbyPlaces.map((place, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    setLocation(place.name);
+                    setShowLocationModal(false);
+                  }}
+                  className={`w-full flex items-center gap-3 p-4 border-b text-left active:opacity-60 transition-opacity ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
+                >
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+                  >
+                    <MapPin
+                      size={18}
+                      className={theme === "dark" ? "text-white" : "text-black"}
+                    />
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <p className="font-semibold text-[15px] truncate">
+                      {place.name}
+                    </p>
+                    <p className="text-xs text-[#8e8e93] mt-0.5">
+                      {place.distance}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
