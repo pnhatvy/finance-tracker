@@ -30,6 +30,7 @@ export default function AddTransaction() {
   const [isLocating, setIsLocating] = useState(true);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [searchLocation, setSearchLocation] = useState("");
+  const [nearbyPlaces, setNearbyPlaces] = useState([]); // Chứa data thật từ GPS
 
   const containerRef = useRef(null);
 
@@ -55,16 +56,7 @@ export default function AddTransaction() {
   const currentCategories = safeCategories.filter((c) => c.type === type);
   const [category, setCategory] = useState(currentCategories[0] || {});
 
-  // Dữ liệu mô phỏng (Mock Data) các địa điểm xung quanh.
-  // GHI CHÚ: Để lấy tên quán thực tế theo GPS, ông sẽ cần tích hợp Google Maps Places API vào mảng này sau.
-  const nearbyPlaces = [
-    { name: "Quán Bún Bò Huế Chú Há", distance: "Cách 10m" },
-    { name: "Highlands Coffee", distance: "Cách 50m" },
-    { name: "Cửa hàng tiện lợi Circle K", distance: "Cách 120m" },
-    { name: "Nhà sách Nguyễn Văn Cừ", distance: "Cách 300m" },
-    { name: "Siêu thị Co.opmart", distance: "Cách 500m" },
-  ];
-
+  // Quét lịch sử tạo gợi ý Note
   useEffect(() => {
     const txs = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
     const allNotes = txs
@@ -75,15 +67,75 @@ export default function AddTransaction() {
     setPastNotes(uniqueNotes);
   }, []);
 
-  // Giả lập hiệu ứng tìm vị trí khi mới mở form
+  // LẤY VỊ TRÍ THẬT TỪ GPS VÀ OPENSTREETMAP
   useEffect(() => {
-    setIsLocating(true);
-    const timer = setTimeout(() => {
-      // Giả lập hệ thống nhận diện được ông đang ở quán Bún Bò
-      setLocation(nearbyPlaces[0].name);
+    if (!navigator.geolocation) {
       setIsLocating(false);
-    }, 1500);
-    return () => clearTimeout(timer);
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude: lat, longitude: lon } = position.coords;
+
+        try {
+          // 1. Dịch tọa độ thành địa chỉ hiện tại (Nominatim API)
+          const addrRes = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
+          );
+          const addrData = await addrRes.json();
+          // Ưu tiên lấy tên quán/tòa nhà, nếu không có thì lấy tên đường
+          const currentPlace =
+            addrData.name ||
+            addrData.address?.road ||
+            addrData.address?.suburb ||
+            "Vị trí hiện tại";
+          setLocation(currentPlace);
+
+          // 2. Tìm các địa điểm xung quanh bán kính 200m (Overpass API)
+          const query = `[out:json];node(around:200,${lat},${lon})["name"];out 15;`;
+          const overpassRes = await fetch(
+            `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
+          );
+          const overpassData = await overpassRes.json();
+
+          const places = overpassData.elements
+            .filter((el) => el.tags && el.tags.name)
+            .map((el) => {
+              const type = el.tags.amenity || el.tags.shop || "Địa điểm";
+              const typeMap = {
+                cafe: "Quán Cafe",
+                restaurant: "Nhà hàng",
+                fast_food: "Thức ăn nhanh",
+                convenience: "Cửa hàng tiện lợi",
+                marketplace: "Chợ/Siêu thị",
+              };
+              return {
+                name: el.tags.name,
+                distance: typeMap[type] || "Khu vực lân cận",
+              };
+            });
+
+          // Lọc trùng lặp tên quán
+          const uniquePlaces = Array.from(
+            new Map(places.map((item) => [item.name, item])).values(),
+          );
+          setNearbyPlaces(uniquePlaces.slice(0, 10)); // Lấy 10 quán gần nhất
+        } catch (e) {
+          console.error("Lỗi lấy dữ liệu bản đồ:", e);
+          setLocation("Không thể tải vị trí");
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      (error) => {
+        console.error("Lỗi GPS:", error);
+        setIsLocating(false);
+        setLocation(null); // Người dùng từ chối cấp quyền GPS
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
   }, []);
 
   const handleNoteChange = (e) => {
@@ -96,7 +148,7 @@ export default function AddTransaction() {
           n.toLowerCase().includes(val.toLowerCase()) &&
           n.toLowerCase() !== val.toLowerCase(),
       );
-      setSuggestions(matches.slice(0, 3));
+      setSuggestions(matches.slice(0, 5)); // Lấy max 5 gợi ý để cuộn ngang
     } else {
       setSuggestions([]);
     }
@@ -107,6 +159,7 @@ export default function AddTransaction() {
     setSuggestions([]);
   };
 
+  // Logic vuốt trượt đóng trang
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -120,21 +173,16 @@ export default function AddTransaction() {
     let rafId = null;
 
     const handleTouchStart = (e) => {
-      if (container.scrollTop > 0) return;
-      if (isClosing) return;
-
+      if (container.scrollTop > 0 || isClosing) return;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       isDragging = true;
       dragDirection = null;
-
       container.style.transition = "none";
-      container.style.animation = "none";
     };
 
     const handleTouchMove = (e) => {
       if (!isDragging || isClosing) return;
-
       const diffX = e.touches[0].clientX - startX;
       const diffY = e.touches[0].clientY - startY;
 
@@ -142,7 +190,6 @@ export default function AddTransaction() {
         if (Math.abs(diffX) > Math.abs(diffY)) dragDirection = "horizontal";
         else dragDirection = "vertical";
       }
-
       if (dragDirection === "horizontal") return;
 
       if (
@@ -152,7 +199,6 @@ export default function AddTransaction() {
       ) {
         e.preventDefault();
         currentY = diffY;
-
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
           container.style.transform = `translate3d(0, ${currentY}px, 0)`;
@@ -164,10 +210,8 @@ export default function AddTransaction() {
       if (!isDragging || isClosing) return;
       isDragging = false;
       if (rafId) cancelAnimationFrame(rafId);
-
       container.style.transition =
         "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
-
       if (currentY > 150) {
         isClosing = true;
         container.style.transform = `translate3d(0, 100dvh, 0)`;
@@ -357,8 +401,7 @@ export default function AddTransaction() {
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center min-h-[160px] relative flex-shrink-0">
-          {/* --- KHU VỰC VỊ TRÍ ĐÃ LÀM LẠI MÀU SẮC TỐI GIẢN --- */}
-          <div className="flex justify-center mb-4">
+          <div className="flex justify-center mb-4 min-h-[28px]">
             {isLocating ? (
               <div
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium animate-pulse ${theme === "dark" ? "bg-[#2c2c2e] text-[#8e8e93]" : "bg-gray-200 text-gray-500"}`}
@@ -374,7 +417,7 @@ export default function AddTransaction() {
                 }}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-medium transition-all cursor-pointer ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-gray-100 text-black"}`}
               >
-                <MapPin size={14} className="flex-shrink-0" />
+                <MapPin size={14} className="flex-shrink-0 text-[#32ade6]" />
                 <span className="truncate max-w-[180px]">{location}</span>
                 <button
                   onClick={(e) => {
@@ -405,7 +448,7 @@ export default function AddTransaction() {
           >
             Amount
           </span>
-          <div className="text-[56px] font-bold tracking-tight flex items-baseline">
+          <div className="text-[56px] font-bold tracking-tight flex items-baseline h-[64px]">
             <span
               className={`text-4xl mr-1 underline underline-offset-8 ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
             >
@@ -428,7 +471,8 @@ export default function AddTransaction() {
             )}
           </div>
 
-          <div className="relative w-full flex flex-col items-center mt-2">
+          {/* SỬA LỖI UI GỢI Ý BỊ ĐẨY BÀN PHÍM */}
+          <div className="w-full flex flex-col items-center mt-2">
             <input
               type="text"
               placeholder="+ Add note..."
@@ -437,32 +481,35 @@ export default function AddTransaction() {
               onTouchStart={(e) => e.stopPropagation()}
               className={`bg-transparent text-center focus:outline-none w-3/4 py-1.5 ${theme === "dark" ? "text-[#8e8e93] placeholder:text-[#8e8e93]/50" : "text-gray-600 placeholder:text-gray-400"}`}
             />
-            {suggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 flex justify-center flex-wrap gap-2 px-2 z-50">
-                {suggestions.map((s, idx) => (
-                  <button
-                    key={idx}
-                    onTouchStart={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      acceptSuggestion(s);
-                    }}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      acceptSuggestion(s);
-                    }}
-                    className={`px-3 py-1.5 rounded-full text-[13px] font-medium truncate max-w-[150px] shadow-sm active:scale-95 transition-transform ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-white text-black border border-gray-200"}`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Cố định chiều cao và dùng cuộn ngang để giữ nguyên form */}
+            <div className="h-[36px] w-full mt-2 flex items-center justify-center overflow-hidden">
+              {suggestions.length > 0 && (
+                <div className="flex overflow-x-auto gap-2 px-4 scrollbar-hide max-w-full pb-1">
+                  {suggestions.map((s, idx) => (
+                    <button
+                      key={idx}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        acceptSuggestion(s);
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        acceptSuggestion(s);
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-[13px] font-medium whitespace-nowrap shadow-sm active:scale-95 transition-transform flex-shrink-0 ${theme === "dark" ? "bg-[#2c2c2e] text-white" : "bg-white text-black border border-gray-200"}`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="flex gap-2 mb-4 mt-auto flex-shrink-0 pt-4">
+        <div className="flex gap-2 mb-4 mt-auto flex-shrink-0 pt-2">
           <div
             className={`flex-[1.2] relative rounded-xl flex items-center justify-center py-2.5 overflow-hidden active:opacity-60 transition-opacity ${theme === "dark" ? "bg-[#1c1c1e]" : "bg-white"}`}
           >
@@ -577,7 +624,7 @@ export default function AddTransaction() {
         </button>
       </div>
 
-      {/* --- MODAL CHỌN/TÌM KIẾM ĐỊA ĐIỂM (BOTTOM SHEET XỊN XÒ) --- */}
+      {/* --- MODAL CHỌN ĐỊA ĐIỂM SỬ DỤNG DỮ LIỆU THẬT --- */}
       {showLocationModal && (
         <div
           className="fixed inset-0 bg-black/70 z-[70] flex flex-col justify-end animate-ios-fade"
@@ -649,33 +696,41 @@ export default function AddTransaction() {
                 Nearby Places
               </p>
 
-              {nearbyPlaces.map((place, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    setLocation(place.name);
-                    setShowLocationModal(false);
-                  }}
-                  className={`w-full flex items-center gap-3 p-4 border-b text-left active:opacity-60 transition-opacity ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
-                >
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+              {nearbyPlaces.length > 0 ? (
+                nearbyPlaces.map((place, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      setLocation(place.name);
+                      setShowLocationModal(false);
+                    }}
+                    className={`w-full flex items-center gap-3 p-4 border-b text-left active:opacity-60 transition-opacity ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
                   >
-                    <MapPin
-                      size={18}
-                      className={theme === "dark" ? "text-white" : "text-black"}
-                    />
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    <p className="font-semibold text-[15px] truncate">
-                      {place.name}
-                    </p>
-                    <p className="text-xs text-[#8e8e93] mt-0.5">
-                      {place.distance}
-                    </p>
-                  </div>
-                </button>
-              ))}
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+                    >
+                      <MapPin
+                        size={18}
+                        className={
+                          theme === "dark" ? "text-white" : "text-black"
+                        }
+                      />
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <p className="font-semibold text-[15px] truncate">
+                        {place.name}
+                      </p>
+                      <p className="text-xs text-[#8e8e93] mt-0.5">
+                        {place.distance}
+                      </p>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <p className="text-[#8e8e93] text-sm mt-4 ml-1 text-center py-4">
+                  Đang quét hoặc không tìm thấy địa điểm gần đây.
+                </p>
+              )}
             </div>
           </div>
         </div>
