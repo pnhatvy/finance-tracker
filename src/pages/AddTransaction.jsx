@@ -68,17 +68,16 @@ export default function AddTransaction() {
     setPastNotes(uniqueNotes);
   }, []);
 
-  // LẤY VỊ TRÍ (ĐÃ MỞ RỘNG BÁN KÍNH VÀ CẢI THIỆN ĐỌC ĐỊA CHỈ)
+  // THAY THẾ BẰNG BIGDATACLOUD API ĐỂ ĐỊNH VỊ CHÍNH XÁC HƠN
   useEffect(() => {
     if (!navigator.geolocation) {
       setIsLocating(false);
       return;
     }
 
-    // Đổi Cache Key sang v4 để reset data cũ bị lỗi
-    const CACHE_KEY_LOC = "vys_loc_v4";
-    const CACHE_KEY_PLACES = "vys_places_v4";
-    const CACHE_KEY_TIME = "vys_time_v4";
+    const CACHE_KEY_LOC = "vys_loc_v5";
+    const CACHE_KEY_PLACES = "vys_places_v5";
+    const CACHE_KEY_TIME = "vys_time_v5";
 
     const cachedTime = sessionStorage.getItem(CACHE_KEY_TIME);
     if (cachedTime && Date.now() - Number(cachedTime) < 5 * 60 * 1000) {
@@ -99,35 +98,29 @@ export default function AddTransaction() {
         const { latitude: lat, longitude: lon } = position.coords;
         let finalPlaceName = "Đang xác định...";
 
+        // Dùng BigDataCloud: Trả về chính xác Phường/Quận/Thành phố
         try {
           const addrRes = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&email=vys.app.dev@gmail.com`,
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=vi`,
           );
           if (addrRes.ok) {
             const addrData = await addrRes.json();
-            const addr = addrData.address || {};
-            // Quét sâu vào các cấp bậc hành chính nếu thiếu tên đường
-            finalPlaceName =
-              addrData.name ||
-              addr.road ||
-              addr.quarter ||
-              addr.neighbourhood ||
-              addr.suburb ||
-              addr.city_district ||
-              addr.city ||
-              "Vị trí của bạn";
+            const locality = addrData.locality || "";
+            const city = addrData.city || addrData.principalSubdivision || "";
+            finalPlaceName = locality
+              ? `${locality}${city && locality !== city ? `, ${city}` : ""}`
+              : city || "Khu vực của bạn";
           }
         } catch (e) {
-          console.error("Lỗi API lấy tên đường:", e);
-          finalPlaceName = "Vị trí của bạn";
+          console.error("Lỗi API lấy tên đường BigDataCloud:", e);
+          finalPlaceName = "Không thể lấy vị trí";
         }
 
         setLocation(finalPlaceName);
         sessionStorage.setItem(CACHE_KEY_LOC, finalPlaceName);
 
         try {
-          // Mở rộng bán kính lên 400m, lấy 15 kết quả
-          const query = `[out:json][timeout:5];node(around:400,${lat},${lon})["name"];out 15;`;
+          const query = `[out:json][timeout:5];node(around:500,${lat},${lon})["name"];out 15;`;
           const overpassRes = await fetch(
             `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
           );
@@ -168,7 +161,6 @@ export default function AddTransaction() {
     );
   }, []);
 
-  // TÌM KIẾM ONLINE
   useEffect(() => {
     if (!searchLocation.trim()) {
       setSearchResults([]);
@@ -367,8 +359,8 @@ export default function AddTransaction() {
           category: category,
           location:
             location &&
-            location !== "Đang tìm vị trí..." &&
-            location !== "Vị trí của bạn"
+            !location.includes("Đang xác định") &&
+            !location.includes("Không thể lấy")
               ? location
               : null,
           date: d.toISOString(),
@@ -518,7 +510,9 @@ export default function AddTransaction() {
           >
             Amount
           </span>
-          <div className="text-[56px] font-bold tracking-tight flex items-baseline h-[64px]">
+
+          {/* ĐÃ FIX UI: Bỏ fixed height, thêm padding-bottom để không bị lấn */}
+          <div className="text-[56px] font-bold tracking-tight flex items-baseline justify-center pb-2">
             <span
               className={`text-4xl mr-1 underline underline-offset-8 ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
             >
@@ -527,7 +521,8 @@ export default function AddTransaction() {
             <span>{displayAmount()}</span>
           </div>
 
-          <div className="h-6 mt-1 flex items-center justify-center">
+          {/* ĐÃ FIX UI: Đảm bảo có khoảng cách an toàn với phần số tiền phía trên */}
+          <div className="min-h-[24px] flex items-center justify-center mb-2">
             {calculatedHours() && (
               <span
                 className={`text-[13px] font-medium flex items-center gap-1.5 animate-ios-fade ${type === "expense" ? "text-[#ff453a]/80" : "text-[#32d74b]/80"}`}
@@ -692,7 +687,6 @@ export default function AddTransaction() {
         </button>
       </div>
 
-      {/* MODAL LOCATION */}
       {showLocationModal && (
         <div
           className="fixed inset-0 bg-black/70 z-[70] flex flex-col justify-end animate-ios-fade"
