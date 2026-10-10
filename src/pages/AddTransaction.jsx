@@ -68,16 +68,17 @@ export default function AddTransaction() {
     setPastNotes(uniqueNotes);
   }, []);
 
-  // ĐÃ ĐỔI TÊN CACHE ĐỂ RESET LẠI TỪ ĐẦU
+  // LẤY VỊ TRÍ (ĐÃ MỞ RỘNG BÁN KÍNH VÀ CẢI THIỆN ĐỌC ĐỊA CHỈ)
   useEffect(() => {
     if (!navigator.geolocation) {
       setIsLocating(false);
       return;
     }
 
-    const CACHE_KEY_LOC = "vys_loc_v2";
-    const CACHE_KEY_PLACES = "vys_places_v2";
-    const CACHE_KEY_TIME = "vys_time_v2";
+    // Đổi Cache Key sang v4 để reset data cũ bị lỗi
+    const CACHE_KEY_LOC = "vys_loc_v4";
+    const CACHE_KEY_PLACES = "vys_places_v4";
+    const CACHE_KEY_TIME = "vys_time_v4";
 
     const cachedTime = sessionStorage.getItem(CACHE_KEY_TIME);
     if (cachedTime && Date.now() - Number(cachedTime) < 5 * 60 * 1000) {
@@ -96,61 +97,78 @@ export default function AddTransaction() {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude: lat, longitude: lon } = position.coords;
+        let finalPlaceName = "Đang xác định...";
+
         try {
-          // Khai báo email để không bị API chặn
           const addrRes = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&email=vys.app.dev@gmail.com`,
           );
-          const addrData = await addrRes.json();
-          const currentPlace =
-            addrData.name ||
-            addrData.address?.road ||
-            addrData.address?.suburb ||
-            "Vị trí hiện tại";
+          if (addrRes.ok) {
+            const addrData = await addrRes.json();
+            const addr = addrData.address || {};
+            // Quét sâu vào các cấp bậc hành chính nếu thiếu tên đường
+            finalPlaceName =
+              addrData.name ||
+              addr.road ||
+              addr.quarter ||
+              addr.neighbourhood ||
+              addr.suburb ||
+              addr.city_district ||
+              addr.city ||
+              "Vị trí của bạn";
+          }
+        } catch (e) {
+          console.error("Lỗi API lấy tên đường:", e);
+          finalPlaceName = "Vị trí của bạn";
+        }
 
-          setLocation(currentPlace);
-          sessionStorage.setItem(CACHE_KEY_LOC, currentPlace);
+        setLocation(finalPlaceName);
+        sessionStorage.setItem(CACHE_KEY_LOC, finalPlaceName);
 
-          const query = `[out:json][timeout:5];node(around:150,${lat},${lon})["name"];out 10;`;
+        try {
+          // Mở rộng bán kính lên 400m, lấy 15 kết quả
+          const query = `[out:json][timeout:5];node(around:400,${lat},${lon})["name"];out 15;`;
           const overpassRes = await fetch(
             `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
           );
-          const overpassData = await overpassRes.json();
+          if (overpassRes.ok) {
+            const overpassData = await overpassRes.json();
+            const places = overpassData.elements
+              .filter((el) => el.tags && el.tags.name)
+              .map((el) => ({
+                name: el.tags.name,
+                distance: "Gần bạn",
+              }));
 
-          const places = overpassData.elements
-            .filter((el) => el.tags && el.tags.name)
-            .map((el) => ({
-              name: el.tags.name,
-              distance: "Gần bạn",
-            }));
-
-          const uniquePlaces = Array.from(
-            new Map(places.map((item) => [item.name, item])).values(),
-          ).slice(0, 8);
-
-          setNearbyPlaces(uniquePlaces);
-          sessionStorage.setItem(
-            CACHE_KEY_PLACES,
-            JSON.stringify(uniquePlaces),
-          );
-          sessionStorage.setItem(CACHE_KEY_TIME, Date.now().toString());
+            const uniquePlaces = Array.from(
+              new Map(places.map((item) => [item.name, item])).values(),
+            ).slice(0, 10);
+            setNearbyPlaces(uniquePlaces);
+            sessionStorage.setItem(
+              CACHE_KEY_PLACES,
+              JSON.stringify(uniquePlaces),
+            );
+          } else {
+            setNearbyPlaces([]);
+          }
         } catch (e) {
-          console.error("Lỗi lấy dữ liệu bản đồ:", e);
-          setLocation("Vị trí hiện tại");
+          console.error("Lỗi API lấy danh sách quán:", e);
+          setNearbyPlaces([]);
         } finally {
           setIsLocating(false);
+          sessionStorage.setItem(CACHE_KEY_TIME, Date.now().toString());
         }
       },
       (error) => {
-        console.warn("Lỗi GPS:", error.message);
+        console.warn("Lỗi GPS thiết bị:", error.message);
         setIsLocating(false);
-        setLocation(null); // Để null để user biết mà tự bấm "Thêm vị trí"
+        setLocation(null);
       },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
     );
   }, []);
 
-  // TÌM KIẾM CÓ FIX LỖI 403 BỊ CHẶN BỞI API
+  // TÌM KIẾM ONLINE
   useEffect(() => {
     if (!searchLocation.trim()) {
       setSearchResults([]);
@@ -164,11 +182,9 @@ export default function AddTransaction() {
 
     const delayDebounceFn = setTimeout(async () => {
       try {
-        // Khai báo email và dùng jsonv2 để request mượt hơn
         const res = await fetch(
           `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(searchLocation)}&countrycodes=vn&limit=5&addressdetails=1&email=vys.app.dev@gmail.com`,
         );
-
         if (!res.ok) throw new Error("Mạng lỗi hoặc bị API chặn");
 
         const data = await res.json();
@@ -350,7 +366,11 @@ export default function AddTransaction() {
             (type === "expense" ? "Expense" : "Income"),
           category: category,
           location:
-            location && location !== "Đang tìm vị trí..." ? location : null,
+            location &&
+            location !== "Đang tìm vị trí..." &&
+            location !== "Vị trí của bạn"
+              ? location
+              : null,
           date: d.toISOString(),
           recurringId: repeat !== "none" ? groupId : null,
         });
