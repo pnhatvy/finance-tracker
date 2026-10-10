@@ -25,13 +25,13 @@ export default function AddTransaction() {
   const [suggestions, setSuggestions] = useState([]);
 
   const [location, setLocation] = useState(null);
-  const [coords, setCoords] = useState(null); // Lưu tọa độ thật
+  const [coords, setCoords] = useState(null);
   const [isLocating, setIsLocating] = useState(true);
   const [showLocationModal, setShowLocationModal] = useState(false);
 
   const [searchLocation, setSearchLocation] = useState("");
-  const [nearbyPlaces, setNearbyPlaces] = useState([]); // Dữ liệu thật xung quanh
-  const [searchResults, setSearchResults] = useState([]); // Kết quả tìm kiếm thật
+  const [nearbyPlaces, setNearbyPlaces] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
 
@@ -69,7 +69,7 @@ export default function AddTransaction() {
     setPastNotes(uniqueNotes);
   }, []);
 
-  // LẤY TỌA ĐỘ VÀ ĐỊA CHỈ THẬT KHI MỞ APP
+  // LẤY VỊ TRÍ GPS VÀ QUÉT QUÁN XÁ XUNG QUANH THẬT 100%
   useEffect(() => {
     if (!navigator.geolocation) {
       setIsLocating(false);
@@ -84,7 +84,6 @@ export default function AddTransaction() {
 
         let placeName = "Vị trí hiện tại";
         try {
-          // Lấy tên khu vực thật qua BigDataCloud
           const res = await fetch(
             `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=vi`,
           );
@@ -101,9 +100,8 @@ export default function AddTransaction() {
         }
         setLocation(placeName);
 
-        // Quét các địa điểm thực tế xung quanh bằng Overpass API (bán kính 500m)
         try {
-          const query = `[out:json][timeout:5];node(around:500,${lat},${lon})["name"];out 15;`;
+          const query = `[out:json][timeout:5];node(around:400,${lat},${lon})["name"];out 15;`;
           const overpassRes = await fetch(
             `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
           );
@@ -126,7 +124,7 @@ export default function AddTransaction() {
             setNearbyPlaces(uniquePlaces);
           }
         } catch (e) {
-          console.error("Lỗi lấy danh sách quán thực tế:", e);
+          console.error("Lỗi lấy quán:", e);
         } finally {
           setIsLocating(false);
         }
@@ -139,7 +137,7 @@ export default function AddTransaction() {
     );
   }, []);
 
-  // TÌM KIẾM ĐỊA ĐIỂM THẬT TRỰC TUYẾN
+  // SEARCH CHUẨN XÁC: Ép sát vị trí hiện tại và bám chặt Việt Nam, không bay đi xa
   useEffect(() => {
     if (!searchLocation.trim()) {
       setSearchResults([]);
@@ -153,11 +151,12 @@ export default function AddTransaction() {
 
     const delayDebounceFn = setTimeout(async () => {
       try {
-        const locationQuery = coords
+        // Truyền tọa độ hiện tại (lat/lon) để Photon ưu tiên kết quả bán kính gần nhất
+        const latLonQuery = coords
           ? `&lat=${coords.lat}&lon=${coords.lon}`
           : "";
         const res = await fetch(
-          `https://photon.komoot.io/api/?q=${encodeURIComponent(searchLocation)}${locationQuery}&limit=6`,
+          `https://photon.komoot.io/api/?q=${encodeURIComponent(searchLocation)}${latLonQuery}&limit=6`,
         );
         if (!res.ok) throw new Error("Lỗi kết nối");
 
@@ -182,12 +181,12 @@ export default function AddTransaction() {
       } finally {
         setIsSearching(false);
       }
-    }, 500);
+    }, 400);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchLocation, coords]);
 
-  // VUỐT ĐÓNG MƯỢT MÀ
+  // HIỆU ỨNG VUỐT ĐÓNG MƯỢT MÀ CHUẨN iOS (SPRING PHYSICS)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -197,7 +196,7 @@ export default function AddTransaction() {
     let isDragging = false;
 
     const handleTouchStart = (e) => {
-      if (container.scrollTop > 5) return;
+      if (container.scrollTop > 0) return; // Chỉ cho phép vuốt khi đang ở đỉnh màn hình
       startY = e.touches[0].clientY;
       isDragging = true;
       container.style.transition = "none";
@@ -205,10 +204,11 @@ export default function AddTransaction() {
 
     const handleTouchMove = (e) => {
       if (!isDragging) return;
-      const diffY = e.touches[0].clientY - startY;
-      if (diffY > 0 && container.scrollTop <= 5) {
-        currentY = diffY;
-        container.style.transform = `translate3d(0, ${currentY}px, 0)`;
+      currentY = e.touches[0].clientY - startY;
+      if (currentY > 0) {
+        // Áp dụng tỷ lệ cản lực (resistance) để tạo cảm giác nặng tay mượt mà như iOS
+        const dampenedY = currentY * 0.65;
+        container.style.transform = `translate3d(0, ${dampenedY}px, 0)`;
       }
     };
 
@@ -216,8 +216,9 @@ export default function AddTransaction() {
       if (!isDragging) return;
       isDragging = false;
       container.style.transition =
-        "transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)";
-      if (currentY > 100) {
+        "transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)"; // Hiệu ứng lò xo iOS cực mượt
+
+      if (currentY > 110) {
         container.style.transform = `translate3d(0, 100dvh, 0)`;
         setTimeout(() => navigate("/"), 300);
       } else {
@@ -242,7 +243,7 @@ export default function AddTransaction() {
   const handleCloseButton = () => {
     if (containerRef.current) {
       containerRef.current.style.transition =
-        "transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)";
+        "transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)";
       containerRef.current.style.transform = `translate3d(0, 100dvh, 0)`;
     }
     setTimeout(() => navigate("/"), 300);
@@ -354,7 +355,7 @@ export default function AddTransaction() {
     <>
       <div
         ref={containerRef}
-        className={`flex flex-col h-[100dvh] p-5 overflow-y-auto scrollbar-hide animate-ios-slide will-change-transform ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
+        className={`flex flex-col h-[100dvh] p-5 overflow-y-auto scrollbar-hide will-change-transform ${theme === "dark" ? "bg-black text-white" : "bg-[#f2f2f7] text-black"}`}
         style={{
           paddingTop: "max(env(safe-area-inset-top), 20px)",
           paddingBottom: "max(env(safe-area-inset-bottom), 20px)",
@@ -670,7 +671,7 @@ export default function AddTransaction() {
                 <Search size={18} className="text-[#8e8e93]" />
                 <input
                   type="text"
-                  placeholder="Search real places (e.g. Bách Hóa Xanh, Cafe...)"
+                  placeholder="Tìm đường, quán cafe, cửa hàng..."
                   value={searchLocation}
                   onChange={(e) => setSearchLocation(e.target.value)}
                   className={`bg-transparent outline-none flex-1 font-medium ${theme === "dark" ? "text-white" : "text-black"}`}
@@ -687,7 +688,6 @@ export default function AddTransaction() {
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 pb-8">
-              {/* PHẦN KẾT QUẢ TÌM KIẾM THẬT */}
               {searchLocation.trim() !== "" && (
                 <>
                   <button
@@ -754,7 +754,6 @@ export default function AddTransaction() {
                 </>
               )}
 
-              {/* PHẦN ĐỊA ĐIỂM THẬT XUNG QUANH (NEARBY PLACES) */}
               {searchLocation.trim() === "" && (
                 <>
                   <p className="text-xs font-bold text-[#8e8e93] uppercase tracking-wider mt-5 mb-2 ml-1">
