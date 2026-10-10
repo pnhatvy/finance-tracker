@@ -25,18 +25,17 @@ export default function AddTransaction() {
   const [suggestions, setSuggestions] = useState([]);
 
   const [location, setLocation] = useState(null);
-  const [coords, setCoords] = useState(null);
+  const [coords, setCoords] = useState(null); // Lưu tọa độ thật
   const [isLocating, setIsLocating] = useState(true);
   const [showLocationModal, setShowLocationModal] = useState(false);
 
   const [searchLocation, setSearchLocation] = useState("");
-  const [nearbyPlaces, setNearbyPlaces] = useState([]);
-  const [searchResults, setSearchResults] = useState([]);
+  const [nearbyPlaces, setNearbyPlaces] = useState([]); // Dữ liệu thật xung quanh
+  const [searchResults, setSearchResults] = useState([]); // Kết quả tìm kiếm thật
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
 
   const containerRef = useRef(null);
-  const headerBarRef = useRef(null);
 
   const getCurrentDate = () => {
     const now = new Date();
@@ -70,101 +69,77 @@ export default function AddTransaction() {
     setPastNotes(uniqueNotes);
   }, []);
 
-  // LẤY VỊ TRÍ GPS VÀ ĐỊA CHỈ
+  // LẤY TỌA ĐỘ VÀ ĐỊA CHỈ THẬT KHI MỞ APP
   useEffect(() => {
     if (!navigator.geolocation) {
       setIsLocating(false);
       return;
     }
 
-    const CACHE_KEY_LOC = "vys_loc_v8";
-    const CACHE_KEY_PLACES = "vys_places_v8";
-    const CACHE_KEY_TIME = "vys_time_v8";
-
-    const cachedTime = sessionStorage.getItem(CACHE_KEY_TIME);
-    if (cachedTime && Date.now() - Number(cachedTime) < 5 * 60 * 1000) {
-      setLocation(sessionStorage.getItem(CACHE_KEY_LOC));
-      try {
-        setNearbyPlaces(
-          JSON.parse(sessionStorage.getItem(CACHE_KEY_PLACES) || "[]"),
-        );
-      } catch (e) {}
-      setIsLocating(false);
-      return;
-    }
-
     setIsLocating(true);
-
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude: lat, longitude: lon } = position.coords;
         setCoords({ lat, lon });
-        let finalPlaceName = "Vị trí hiện tại";
 
+        let placeName = "Vị trí hiện tại";
         try {
-          const addrRes = await fetch(
+          // Lấy tên khu vực thật qua BigDataCloud
+          const res = await fetch(
             `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=vi`,
           );
-          if (addrRes.ok) {
-            const addrData = await addrRes.json();
-            const locality = addrData.locality || addrData.city || "";
-            const principal = addrData.principalSubdivision || "";
-            finalPlaceName = locality
+          if (res.ok) {
+            const data = await res.json();
+            const locality = data.locality || data.city || "";
+            const principal = data.principalSubdivision || "";
+            placeName = locality
               ? `${locality}, ${principal}`
-              : principal || "Khu vực của bạn";
+              : principal || "Vị trí hiện tại";
           }
         } catch (e) {
-          console.error("Lỗi lấy vị trí:", e);
+          console.error(e);
         }
+        setLocation(placeName);
 
-        setLocation(finalPlaceName);
-        sessionStorage.setItem(CACHE_KEY_LOC, finalPlaceName);
-
+        // Quét các địa điểm thực tế xung quanh bằng Overpass API (bán kính 500m)
         try {
           const query = `[out:json][timeout:5];node(around:500,${lat},${lon})["name"];out 15;`;
-          let overpassRes = await fetch(
+          const overpassRes = await fetch(
             `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
           );
-          if (!overpassRes.ok) {
-            overpassRes = await fetch(
-              `https://lz4.overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
-            );
-          }
-
           if (overpassRes.ok) {
             const overpassData = await overpassRes.json();
             const places = overpassData.elements
               .filter((el) => el.tags && el.tags.name)
               .map((el) => ({
                 name: el.tags.name,
-                distance: "Gần bạn",
+                address:
+                  el.tags.amenity ||
+                  el.tags.shop ||
+                  el.tags.tourism ||
+                  "Khu vực lân cận",
               }));
 
             const uniquePlaces = Array.from(
               new Map(places.map((item) => [item.name, item])).values(),
             ).slice(0, 10);
             setNearbyPlaces(uniquePlaces);
-            sessionStorage.setItem(
-              CACHE_KEY_PLACES,
-              JSON.stringify(uniquePlaces),
-            );
           }
         } catch (e) {
-          console.error("Lỗi lấy quán xung quanh:", e);
+          console.error("Lỗi lấy danh sách quán thực tế:", e);
         } finally {
           setIsLocating(false);
-          sessionStorage.setItem(CACHE_KEY_TIME, Date.now().toString());
         }
       },
-      (error) => {
+      () => {
         setIsLocating(false);
         setLocation(null);
       },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
+      { timeout: 8000, enableHighAccuracy: true },
     );
   }, []);
 
-  // TÌM KIẾM ĐỊA ĐIỂM
+  // TÌM KIẾM ĐỊA ĐIỂM THẬT TRỰC TUYẾN
   useEffect(() => {
     if (!searchLocation.trim()) {
       setSearchResults([]);
@@ -203,7 +178,7 @@ export default function AddTransaction() {
         setSearchResults(results);
       } catch (error) {
         console.error("Lỗi tìm kiếm:", error);
-        setSearchError("Không thể kết nối tìm kiếm.");
+        setSearchError("Không thể tìm kiếm lúc này.");
       } finally {
         setIsSearching(false);
       }
@@ -212,47 +187,37 @@ export default function AddTransaction() {
     return () => clearTimeout(delayDebounceFn);
   }, [searchLocation, coords]);
 
-  // VUỐT ĐÓNG TỪ THANH NGANG PHÍA TRÊN
+  // VUỐT ĐÓNG MƯỢT MÀ
   useEffect(() => {
     const container = containerRef.current;
-    const headerBar = headerBarRef.current;
-    if (!container || !headerBar) return;
+    if (!container) return;
 
     let startY = 0,
       currentY = 0;
-    let isDragging = false,
-      isClosing = false;
-    let rafId = null;
+    let isDragging = false;
 
     const handleTouchStart = (e) => {
+      if (container.scrollTop > 5) return;
       startY = e.touches[0].clientY;
       isDragging = true;
-      isClosing = false;
       container.style.transition = "none";
     };
 
     const handleTouchMove = (e) => {
-      if (!isDragging || isClosing) return;
+      if (!isDragging) return;
       const diffY = e.touches[0].clientY - startY;
-
-      if (diffY > 0) {
-        e.preventDefault();
+      if (diffY > 0 && container.scrollTop <= 5) {
         currentY = diffY;
-        if (rafId) cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(() => {
-          container.style.transform = `translate3d(0, ${currentY}px, 0)`;
-        });
+        container.style.transform = `translate3d(0, ${currentY}px, 0)`;
       }
     };
 
     const handleTouchEnd = () => {
-      if (!isDragging || isClosing) return;
+      if (!isDragging) return;
       isDragging = false;
-      if (rafId) cancelAnimationFrame(rafId);
       container.style.transition =
-        "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
-      if (currentY > 120) {
-        isClosing = true;
+        "transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)";
+      if (currentY > 100) {
         container.style.transform = `translate3d(0, 100dvh, 0)`;
         setTimeout(() => navigate("/"), 300);
       } else {
@@ -261,26 +226,23 @@ export default function AddTransaction() {
       }
     };
 
-    headerBar.addEventListener("touchstart", handleTouchStart, {
-      passive: false,
+    container.addEventListener("touchstart", handleTouchStart, {
+      passive: true,
     });
-    headerBar.addEventListener("touchmove", handleTouchMove, {
-      passive: false,
-    });
-    headerBar.addEventListener("touchend", handleTouchEnd);
+    container.addEventListener("touchmove", handleTouchMove, { passive: true });
+    container.addEventListener("touchend", handleTouchEnd);
 
     return () => {
-      headerBar.removeEventListener("touchstart", handleTouchStart);
-      headerBar.removeEventListener("touchmove", handleTouchMove);
-      headerBar.removeEventListener("touchend", handleTouchEnd);
-      if (rafId) cancelAnimationFrame(rafId);
+      container.removeEventListener("touchstart", handleTouchStart);
+      container.removeEventListener("touchmove", handleTouchMove);
+      container.removeEventListener("touchend", handleTouchEnd);
     };
   }, [navigate]);
 
   const handleCloseButton = () => {
     if (containerRef.current) {
       containerRef.current.style.transition =
-        "transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)";
+        "transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)";
       containerRef.current.style.transform = `translate3d(0, 100dvh, 0)`;
     }
     setTimeout(() => navigate("/"), 300);
@@ -359,7 +321,7 @@ export default function AddTransaction() {
             (type === "expense" ? "Expense" : "Income"),
           category: category,
           location:
-            location && !location.includes("Đang xác định") ? location : null,
+            location && !location.includes("Đang tìm") ? location : null,
           date: d.toISOString(),
           recurringId: repeat !== "none" ? groupId : null,
         });
@@ -398,16 +360,13 @@ export default function AddTransaction() {
           paddingBottom: "max(env(safe-area-inset-bottom), 20px)",
         }}
       >
-        <div
-          ref={headerBarRef}
-          className="w-full flex justify-center py-3 mb-1 cursor-grab flex-shrink-0"
-        >
+        <div className="w-full flex justify-center py-2 mb-2 flex-shrink-0 cursor-grab">
           <div
             className={`w-14 h-1.5 rounded-full ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-300"}`}
           ></div>
         </div>
 
-        <div className="flex justify-between items-center mb-4 flex-shrink-0">
+        <div className="flex justify-between items-center mb-5 flex-shrink-0">
           <button
             onClick={handleCloseButton}
             className={`p-1 active:opacity-50 flex-shrink-0 w-[42px] ${theme === "dark" ? "text-[#8e8e93]" : "text-gray-500"}`}
@@ -469,7 +428,7 @@ export default function AddTransaction() {
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium animate-pulse ${theme === "dark" ? "bg-[#2c2c2e] text-[#8e8e93]" : "bg-gray-200 text-gray-500"}`}
               >
                 <MapPin size={14} />
-                <span>Đang tìm vị trí...</span>
+                <span>Đang tìm vị trí thực tế...</span>
               </div>
             ) : location ? (
               <div
@@ -711,7 +670,7 @@ export default function AddTransaction() {
                 <Search size={18} className="text-[#8e8e93]" />
                 <input
                   type="text"
-                  placeholder="Search or enter custom place..."
+                  placeholder="Search real places (e.g. Bách Hóa Xanh, Cafe...)"
                   value={searchLocation}
                   onChange={(e) => setSearchLocation(e.target.value)}
                   className={`bg-transparent outline-none flex-1 font-medium ${theme === "dark" ? "text-white" : "text-black"}`}
@@ -728,6 +687,7 @@ export default function AddTransaction() {
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 pb-8">
+              {/* PHẦN KẾT QUẢ TÌM KIẾM THẬT */}
               {searchLocation.trim() !== "" && (
                 <>
                   <button
@@ -744,10 +704,10 @@ export default function AddTransaction() {
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <p className="font-semibold text-[15px] truncate text-[#32ade6]">
-                        Use "{searchLocation}"
+                        Dùng "{searchLocation}"
                       </p>
                       <p className="text-xs text-[#8e8e93] mt-0.5">
-                        Custom location
+                        Địa điểm tùy chỉnh
                       </p>
                     </div>
                   </button>
@@ -794,10 +754,11 @@ export default function AddTransaction() {
                 </>
               )}
 
+              {/* PHẦN ĐỊA ĐIỂM THẬT XUNG QUANH (NEARBY PLACES) */}
               {searchLocation.trim() === "" && (
                 <>
                   <p className="text-xs font-bold text-[#8e8e93] uppercase tracking-wider mt-5 mb-2 ml-1">
-                    Nearby Places
+                    Địa điểm thực tế xung quanh
                   </p>
                   {nearbyPlaces.length > 0 ? (
                     nearbyPlaces.map((place, idx) => (
@@ -823,15 +784,15 @@ export default function AddTransaction() {
                           <p className="font-semibold text-[15px] truncate">
                             {place.name}
                           </p>
-                          <p className="text-xs text-[#8e8e93] mt-0.5">
-                            {place.distance}
+                          <p className="text-xs text-[#8e8e93] mt-0.5 capitalize">
+                            {place.address}
                           </p>
                         </div>
                       </button>
                     ))
                   ) : (
                     <p className="text-[#8e8e93] text-sm mt-4 ml-1 text-center py-4">
-                      Chưa tìm thấy địa điểm gần đây.
+                      Đang quét vị trí thực tế hoặc không có POI gần đây...
                     </p>
                   )}
                 </>
