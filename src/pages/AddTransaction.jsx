@@ -30,8 +30,9 @@ export default function AddTransaction() {
 
   const [searchLocation, setSearchLocation] = useState("");
   const [nearbyPlaces, setNearbyPlaces] = useState([]);
-  const [searchResults, setSearchResults] = useState([]); // Chứa kết quả tìm kiếm online
+  const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
 
   const containerRef = useRef(null);
 
@@ -67,16 +68,16 @@ export default function AddTransaction() {
     setPastNotes(uniqueNotes);
   }, []);
 
-  // LẤY VỊ TRÍ HIỆN TẠI KHI MỞ FORM
+  // ĐÃ ĐỔI TÊN CACHE ĐỂ RESET LẠI TỪ ĐẦU
   useEffect(() => {
     if (!navigator.geolocation) {
       setIsLocating(false);
       return;
     }
 
-    const CACHE_KEY_LOC = "vys_cached_location";
-    const CACHE_KEY_PLACES = "vys_cached_places";
-    const CACHE_KEY_TIME = "vys_cached_time";
+    const CACHE_KEY_LOC = "vys_loc_v2";
+    const CACHE_KEY_PLACES = "vys_places_v2";
+    const CACHE_KEY_TIME = "vys_time_v2";
 
     const cachedTime = sessionStorage.getItem(CACHE_KEY_TIME);
     if (cachedTime && Date.now() - Number(cachedTime) < 5 * 60 * 1000) {
@@ -96,15 +97,11 @@ export default function AddTransaction() {
       async (position) => {
         const { latitude: lat, longitude: lon } = position.coords;
         try {
-          // Lấy địa chỉ
+          // Khai báo email để không bị API chặn
           const addrRes = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18`,
-            {
-              headers: { "Accept-Language": "vi" },
-            },
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&email=vys.app.dev@gmail.com`,
           );
           const addrData = await addrRes.json();
-          // Nếu không ra tên, xài mặc định "Vị trí hiện tại" thay vì báo lỗi
           const currentPlace =
             addrData.name ||
             addrData.address?.road ||
@@ -114,7 +111,6 @@ export default function AddTransaction() {
           setLocation(currentPlace);
           sessionStorage.setItem(CACHE_KEY_LOC, currentPlace);
 
-          // Lấy quán xung quanh
           const query = `[out:json][timeout:5];node(around:150,${lat},${lon})["name"];out 10;`;
           const overpassRes = await fetch(
             `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
@@ -140,46 +136,51 @@ export default function AddTransaction() {
           sessionStorage.setItem(CACHE_KEY_TIME, Date.now().toString());
         } catch (e) {
           console.error("Lỗi lấy dữ liệu bản đồ:", e);
-          setLocation("Vị trí hiện tại"); // Fallback mượt mà hơn
+          setLocation("Vị trí hiện tại");
         } finally {
           setIsLocating(false);
         }
       },
       (error) => {
+        console.warn("Lỗi GPS:", error.message);
         setIsLocating(false);
-        setLocation(null);
+        setLocation(null); // Để null để user biết mà tự bấm "Thêm vị trí"
       },
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
     );
   }, []);
 
-  // TÍCH HỢP TÌM KIẾM ĐỊA ĐIỂM TRỰC TUYẾN
+  // TÌM KIẾM CÓ FIX LỖI 403 BỊ CHẶN BỞI API
   useEffect(() => {
     if (!searchLocation.trim()) {
       setSearchResults([]);
       setIsSearching(false);
+      setSearchError("");
       return;
     }
 
     setIsSearching(true);
-    // Dùng kỹ thuật Debounce: Chờ ông gõ xong 0.5s mới gọi API cho đỡ bị chặn
+    setSearchError("");
+
     const delayDebounceFn = setTimeout(async () => {
       try {
+        // Khai báo email và dùng jsonv2 để request mượt hơn
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchLocation)}&countrycodes=vn&limit=5`,
-          {
-            headers: { "Accept-Language": "vi" },
-          },
+          `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(searchLocation)}&countrycodes=vn&limit=5&addressdetails=1&email=vys.app.dev@gmail.com`,
         );
-        const data = await res.json();
 
+        if (!res.ok) throw new Error("Mạng lỗi hoặc bị API chặn");
+
+        const data = await res.json();
         const results = data.map((item) => ({
           name: item.name || item.display_name.split(",")[0],
           address: item.display_name,
         }));
+
         setSearchResults(results);
       } catch (error) {
         console.error("Lỗi tìm kiếm:", error);
+        setSearchError("Lỗi kết nối. Vui lòng thử lại sau.");
       } finally {
         setIsSearching(false);
       }
@@ -715,7 +716,6 @@ export default function AddTransaction() {
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 pb-8">
-              {/* PHẦN KẾT QUẢ TÌM KIẾM ONLINE */}
               {searchLocation.trim() !== "" && (
                 <>
                   <button
@@ -743,6 +743,10 @@ export default function AddTransaction() {
                   {isSearching ? (
                     <p className="text-[#8e8e93] text-sm mt-4 ml-1 text-center py-4 animate-pulse">
                       Đang tìm kiếm...
+                    </p>
+                  ) : searchError ? (
+                    <p className="text-[#ff453a] text-sm mt-4 ml-1 text-center py-4">
+                      {searchError}
                     </p>
                   ) : searchResults.length > 0 ? (
                     searchResults.map((place, idx) => (
@@ -778,7 +782,6 @@ export default function AddTransaction() {
                 </>
               )}
 
-              {/* PHẦN ĐỊA ĐIỂM GẦN ĐÂY */}
               {searchLocation.trim() === "" && (
                 <>
                   <p className="text-xs font-bold text-[#8e8e93] uppercase tracking-wider mt-5 mb-2 ml-1">
@@ -816,7 +819,7 @@ export default function AddTransaction() {
                     ))
                   ) : (
                     <p className="text-[#8e8e93] text-sm mt-4 ml-1 text-center py-4">
-                      Không tìm thấy địa điểm gần đây.
+                      Chưa tìm thấy địa điểm gần đây.
                     </p>
                   )}
                 </>
