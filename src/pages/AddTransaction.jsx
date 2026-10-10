@@ -27,8 +27,11 @@ export default function AddTransaction() {
   const [location, setLocation] = useState(null);
   const [isLocating, setIsLocating] = useState(true);
   const [showLocationModal, setShowLocationModal] = useState(false);
+
   const [searchLocation, setSearchLocation] = useState("");
   const [nearbyPlaces, setNearbyPlaces] = useState([]);
+  const [searchResults, setSearchResults] = useState([]); // Chứa kết quả tìm kiếm online
+  const [isSearching, setIsSearching] = useState(false);
 
   const containerRef = useRef(null);
 
@@ -64,7 +67,7 @@ export default function AddTransaction() {
     setPastNotes(uniqueNotes);
   }, []);
 
-  // TỐI ƯU VỊ TRÍ: Dùng Cache 5 phút & Tắt HighAccuracy để tăng tốc
+  // LẤY VỊ TRÍ HIỆN TẠI KHI MỞ FORM
   useEffect(() => {
     if (!navigator.geolocation) {
       setIsLocating(false);
@@ -76,7 +79,6 @@ export default function AddTransaction() {
     const CACHE_KEY_TIME = "vys_cached_time";
 
     const cachedTime = sessionStorage.getItem(CACHE_KEY_TIME);
-    // Nếu đã quét trong vòng 5 phút trước đó -> Lấy ra xài luôn, khỏi hỏi GPS lại
     if (cachedTime && Date.now() - Number(cachedTime) < 5 * 60 * 1000) {
       setLocation(sessionStorage.getItem(CACHE_KEY_LOC));
       try {
@@ -90,13 +92,11 @@ export default function AddTransaction() {
 
     setIsLocating(true);
 
-    // Đã tắt enableHighAccuracy để lấy vị trí ngay lập tức dựa trên Wi-Fi/4G
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude: lat, longitude: lon } = position.coords;
-
         try {
-          // Lấy tên đường/tòa nhà hiện tại
+          // Lấy địa chỉ
           const addrRes = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18`,
             {
@@ -104,6 +104,7 @@ export default function AddTransaction() {
             },
           );
           const addrData = await addrRes.json();
+          // Nếu không ra tên, xài mặc định "Vị trí hiện tại" thay vì báo lỗi
           const currentPlace =
             addrData.name ||
             addrData.address?.road ||
@@ -113,8 +114,8 @@ export default function AddTransaction() {
           setLocation(currentPlace);
           sessionStorage.setItem(CACHE_KEY_LOC, currentPlace);
 
-          // Lấy danh sách xung quanh (rút gọn bán kính 100m và giới hạn timeout 5s để tránh lag)
-          const query = `[out:json][timeout:5];node(around:100,${lat},${lon})["name"];out 10;`;
+          // Lấy quán xung quanh
+          const query = `[out:json][timeout:5];node(around:150,${lat},${lon})["name"];out 10;`;
           const overpassRes = await fetch(
             `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
           );
@@ -122,44 +123,70 @@ export default function AddTransaction() {
 
           const places = overpassData.elements
             .filter((el) => el.tags && el.tags.name)
-            .map((el) => {
-              const type = el.tags.amenity || el.tags.shop || "Địa điểm";
-              const typeMap = {
-                cafe: "Quán Cafe",
-                restaurant: "Nhà hàng",
-                fast_food: "Thức ăn nhanh",
-                convenience: "Cửa hàng",
-                marketplace: "Chợ/Siêu thị",
-              };
-              return {
-                name: el.tags.name,
-                distance: typeMap[type] || "Khu vực lân cận",
-              };
-            });
+            .map((el) => ({
+              name: el.tags.name,
+              distance: "Gần bạn",
+            }));
 
           const uniquePlaces = Array.from(
             new Map(places.map((item) => [item.name, item])).values(),
-          );
-          const finalPlaces = uniquePlaces.slice(0, 8);
+          ).slice(0, 8);
 
-          setNearbyPlaces(finalPlaces);
-          sessionStorage.setItem(CACHE_KEY_PLACES, JSON.stringify(finalPlaces));
+          setNearbyPlaces(uniquePlaces);
+          sessionStorage.setItem(
+            CACHE_KEY_PLACES,
+            JSON.stringify(uniquePlaces),
+          );
           sessionStorage.setItem(CACHE_KEY_TIME, Date.now().toString());
         } catch (e) {
           console.error("Lỗi lấy dữ liệu bản đồ:", e);
-          setLocation("Không tải được tên đường");
+          setLocation("Vị trí hiện tại"); // Fallback mượt mà hơn
         } finally {
           setIsLocating(false);
         }
       },
       (error) => {
-        console.error("Lỗi GPS:", error);
         setIsLocating(false);
         setLocation(null);
       },
       { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 },
     );
   }, []);
+
+  // TÍCH HỢP TÌM KIẾM ĐỊA ĐIỂM TRỰC TUYẾN
+  useEffect(() => {
+    if (!searchLocation.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    // Dùng kỹ thuật Debounce: Chờ ông gõ xong 0.5s mới gọi API cho đỡ bị chặn
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchLocation)}&countrycodes=vn&limit=5`,
+          {
+            headers: { "Accept-Language": "vi" },
+          },
+        );
+        const data = await res.json();
+
+        const results = data.map((item) => ({
+          name: item.name || item.display_name.split(",")[0],
+          address: item.display_name,
+        }));
+        setSearchResults(results);
+      } catch (error) {
+        console.error("Lỗi tìm kiếm:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchLocation]);
 
   const handleNoteChange = (e) => {
     const val = e.target.value;
@@ -644,6 +671,7 @@ export default function AddTransaction() {
         </button>
       </div>
 
+      {/* MODAL LOCATION */}
       {showLocationModal && (
         <div
           className="fixed inset-0 bg-black/70 z-[70] flex flex-col justify-end animate-ios-fade"
@@ -687,68 +715,111 @@ export default function AddTransaction() {
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 pb-8">
+              {/* PHẦN KẾT QUẢ TÌM KIẾM ONLINE */}
               {searchLocation.trim() !== "" && (
-                <button
-                  onClick={() => {
-                    setLocation(searchLocation.trim());
-                    setShowLocationModal(false);
-                  }}
-                  className={`w-full flex items-center gap-3 p-4 border-b text-left active:opacity-60 transition-opacity ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
-                >
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${theme === "dark" ? "bg-[#2c2c2e] text-[#32ade6]" : "bg-[#e5f5fd] text-[#007aff]"}`}
-                  >
-                    <MapPin size={18} />
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    <p className="font-semibold text-[15px] truncate text-[#32ade6]">
-                      Use "{searchLocation}"
-                    </p>
-                    <p className="text-xs text-[#8e8e93] mt-0.5">
-                      Custom location
-                    </p>
-                  </div>
-                </button>
-              )}
-
-              <p className="text-xs font-bold text-[#8e8e93] uppercase tracking-wider mt-5 mb-2 ml-1">
-                Nearby Places
-              </p>
-
-              {nearbyPlaces.length > 0 ? (
-                nearbyPlaces.map((place, idx) => (
+                <>
                   <button
-                    key={idx}
                     onClick={() => {
-                      setLocation(place.name);
+                      setLocation(searchLocation.trim());
                       setShowLocationModal(false);
                     }}
                     className={`w-full flex items-center gap-3 p-4 border-b text-left active:opacity-60 transition-opacity ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
                   >
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${theme === "dark" ? "bg-[#2c2c2e] text-[#32ade6]" : "bg-[#e5f5fd] text-[#007aff]"}`}
                     >
-                      <MapPin
-                        size={18}
-                        className={
-                          theme === "dark" ? "text-white" : "text-black"
-                        }
-                      />
+                      <MapPin size={18} />
                     </div>
                     <div className="flex-1 overflow-hidden">
-                      <p className="font-semibold text-[15px] truncate">
-                        {place.name}
+                      <p className="font-semibold text-[15px] truncate text-[#32ade6]">
+                        Use "{searchLocation}"
                       </p>
                       <p className="text-xs text-[#8e8e93] mt-0.5">
-                        {place.distance}
+                        Custom location
                       </p>
                     </div>
                   </button>
-                ))
-              ) : (
-                <p className="text-[#8e8e93] text-sm mt-4 ml-1 text-center py-4">
-                  Không tìm thấy địa điểm gần đây.
-                </p>
+
+                  {isSearching ? (
+                    <p className="text-[#8e8e93] text-sm mt-4 ml-1 text-center py-4 animate-pulse">
+                      Đang tìm kiếm...
+                    </p>
+                  ) : searchResults.length > 0 ? (
+                    searchResults.map((place, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setLocation(place.name);
+                          setShowLocationModal(false);
+                        }}
+                        className={`w-full flex items-center gap-3 p-4 border-b text-left active:opacity-60 transition-opacity ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
+                      >
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+                        >
+                          <MapPin
+                            size={18}
+                            className={
+                              theme === "dark" ? "text-white" : "text-black"
+                            }
+                          />
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                          <p className="font-semibold text-[15px] truncate">
+                            {place.name}
+                          </p>
+                          <p className="text-xs text-[#8e8e93] mt-0.5 truncate">
+                            {place.address}
+                          </p>
+                        </div>
+                      </button>
+                    ))
+                  ) : null}
+                </>
+              )}
+
+              {/* PHẦN ĐỊA ĐIỂM GẦN ĐÂY */}
+              {searchLocation.trim() === "" && (
+                <>
+                  <p className="text-xs font-bold text-[#8e8e93] uppercase tracking-wider mt-5 mb-2 ml-1">
+                    Nearby Places
+                  </p>
+                  {nearbyPlaces.length > 0 ? (
+                    nearbyPlaces.map((place, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setLocation(place.name);
+                          setShowLocationModal(false);
+                        }}
+                        className={`w-full flex items-center gap-3 p-4 border-b text-left active:opacity-60 transition-opacity ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
+                      >
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${theme === "dark" ? "bg-[#2c2c2e]" : "bg-gray-100"}`}
+                        >
+                          <MapPin
+                            size={18}
+                            className={
+                              theme === "dark" ? "text-white" : "text-black"
+                            }
+                          />
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                          <p className="font-semibold text-[15px] truncate">
+                            {place.name}
+                          </p>
+                          <p className="text-xs text-[#8e8e93] mt-0.5">
+                            {place.distance}
+                          </p>
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="text-[#8e8e93] text-sm mt-4 ml-1 text-center py-4">
+                      Không tìm thấy địa điểm gần đây.
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </div>
