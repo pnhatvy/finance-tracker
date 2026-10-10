@@ -21,16 +21,14 @@ export default function AddTransaction() {
   const [note, setNote] = useState("");
   const [repeat, setRepeat] = useState("none");
 
-  // STATE GỢI Ý NOTE
   const [pastNotes, setPastNotes] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
 
-  // STATE VỊ TRÍ & MODAL ĐỊA ĐIỂM
   const [location, setLocation] = useState(null);
   const [isLocating, setIsLocating] = useState(true);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [searchLocation, setSearchLocation] = useState("");
-  const [nearbyPlaces, setNearbyPlaces] = useState([]); // Chứa data thật từ GPS
+  const [nearbyPlaces, setNearbyPlaces] = useState([]);
 
   const containerRef = useRef(null);
 
@@ -56,7 +54,6 @@ export default function AddTransaction() {
   const currentCategories = safeCategories.filter((c) => c.type === type);
   const [category, setCategory] = useState(currentCategories[0] || {});
 
-  // Quét lịch sử tạo gợi ý Note
   useEffect(() => {
     const txs = JSON.parse(localStorage.getItem("vys_transactions") || "[]");
     const allNotes = txs
@@ -67,34 +64,57 @@ export default function AddTransaction() {
     setPastNotes(uniqueNotes);
   }, []);
 
-  // LẤY VỊ TRÍ THẬT TỪ GPS VÀ OPENSTREETMAP
+  // TỐI ƯU VỊ TRÍ: Dùng Cache 5 phút & Tắt HighAccuracy để tăng tốc
   useEffect(() => {
     if (!navigator.geolocation) {
       setIsLocating(false);
       return;
     }
 
+    const CACHE_KEY_LOC = "vys_cached_location";
+    const CACHE_KEY_PLACES = "vys_cached_places";
+    const CACHE_KEY_TIME = "vys_cached_time";
+
+    const cachedTime = sessionStorage.getItem(CACHE_KEY_TIME);
+    // Nếu đã quét trong vòng 5 phút trước đó -> Lấy ra xài luôn, khỏi hỏi GPS lại
+    if (cachedTime && Date.now() - Number(cachedTime) < 5 * 60 * 1000) {
+      setLocation(sessionStorage.getItem(CACHE_KEY_LOC));
+      try {
+        setNearbyPlaces(
+          JSON.parse(sessionStorage.getItem(CACHE_KEY_PLACES) || "[]"),
+        );
+      } catch (e) {}
+      setIsLocating(false);
+      return;
+    }
+
     setIsLocating(true);
+
+    // Đã tắt enableHighAccuracy để lấy vị trí ngay lập tức dựa trên Wi-Fi/4G
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude: lat, longitude: lon } = position.coords;
 
         try {
-          // 1. Dịch tọa độ thành địa chỉ hiện tại (Nominatim API)
+          // Lấy tên đường/tòa nhà hiện tại
           const addrRes = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18`,
+            {
+              headers: { "Accept-Language": "vi" },
+            },
           );
           const addrData = await addrRes.json();
-          // Ưu tiên lấy tên quán/tòa nhà, nếu không có thì lấy tên đường
           const currentPlace =
             addrData.name ||
             addrData.address?.road ||
             addrData.address?.suburb ||
             "Vị trí hiện tại";
-          setLocation(currentPlace);
 
-          // 2. Tìm các địa điểm xung quanh bán kính 200m (Overpass API)
-          const query = `[out:json];node(around:200,${lat},${lon})["name"];out 15;`;
+          setLocation(currentPlace);
+          sessionStorage.setItem(CACHE_KEY_LOC, currentPlace);
+
+          // Lấy danh sách xung quanh (rút gọn bán kính 100m và giới hạn timeout 5s để tránh lag)
+          const query = `[out:json][timeout:5];node(around:100,${lat},${lon})["name"];out 10;`;
           const overpassRes = await fetch(
             `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
           );
@@ -108,7 +128,7 @@ export default function AddTransaction() {
                 cafe: "Quán Cafe",
                 restaurant: "Nhà hàng",
                 fast_food: "Thức ăn nhanh",
-                convenience: "Cửa hàng tiện lợi",
+                convenience: "Cửa hàng",
                 marketplace: "Chợ/Siêu thị",
               };
               return {
@@ -117,14 +137,17 @@ export default function AddTransaction() {
               };
             });
 
-          // Lọc trùng lặp tên quán
           const uniquePlaces = Array.from(
             new Map(places.map((item) => [item.name, item])).values(),
           );
-          setNearbyPlaces(uniquePlaces.slice(0, 10)); // Lấy 10 quán gần nhất
+          const finalPlaces = uniquePlaces.slice(0, 8);
+
+          setNearbyPlaces(finalPlaces);
+          sessionStorage.setItem(CACHE_KEY_PLACES, JSON.stringify(finalPlaces));
+          sessionStorage.setItem(CACHE_KEY_TIME, Date.now().toString());
         } catch (e) {
           console.error("Lỗi lấy dữ liệu bản đồ:", e);
-          setLocation("Không thể tải vị trí");
+          setLocation("Không tải được tên đường");
         } finally {
           setIsLocating(false);
         }
@@ -132,9 +155,9 @@ export default function AddTransaction() {
       (error) => {
         console.error("Lỗi GPS:", error);
         setIsLocating(false);
-        setLocation(null); // Người dùng từ chối cấp quyền GPS
+        setLocation(null);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 },
     );
   }, []);
 
@@ -148,7 +171,7 @@ export default function AddTransaction() {
           n.toLowerCase().includes(val.toLowerCase()) &&
           n.toLowerCase() !== val.toLowerCase(),
       );
-      setSuggestions(matches.slice(0, 5)); // Lấy max 5 gợi ý để cuộn ngang
+      setSuggestions(matches.slice(0, 5));
     } else {
       setSuggestions([]);
     }
@@ -159,7 +182,6 @@ export default function AddTransaction() {
     setSuggestions([]);
   };
 
-  // Logic vuốt trượt đóng trang
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -471,7 +493,6 @@ export default function AddTransaction() {
             )}
           </div>
 
-          {/* SỬA LỖI UI GỢI Ý BỊ ĐẨY BÀN PHÍM */}
           <div className="w-full flex flex-col items-center mt-2">
             <input
               type="text"
@@ -481,7 +502,6 @@ export default function AddTransaction() {
               onTouchStart={(e) => e.stopPropagation()}
               className={`bg-transparent text-center focus:outline-none w-3/4 py-1.5 ${theme === "dark" ? "text-[#8e8e93] placeholder:text-[#8e8e93]/50" : "text-gray-600 placeholder:text-gray-400"}`}
             />
-            {/* Cố định chiều cao và dùng cuộn ngang để giữ nguyên form */}
             <div className="h-[36px] w-full mt-2 flex items-center justify-center overflow-hidden">
               {suggestions.length > 0 && (
                 <div className="flex overflow-x-auto gap-2 px-4 scrollbar-hide max-w-full pb-1">
@@ -624,7 +644,6 @@ export default function AddTransaction() {
         </button>
       </div>
 
-      {/* --- MODAL CHỌN ĐỊA ĐIỂM SỬ DỤNG DỮ LIỆU THẬT --- */}
       {showLocationModal && (
         <div
           className="fixed inset-0 bg-black/70 z-[70] flex flex-col justify-end animate-ios-fade"
@@ -728,7 +747,7 @@ export default function AddTransaction() {
                 ))
               ) : (
                 <p className="text-[#8e8e93] text-sm mt-4 ml-1 text-center py-4">
-                  Đang quét hoặc không tìm thấy địa điểm gần đây.
+                  Không tìm thấy địa điểm gần đây.
                 </p>
               )}
             </div>
